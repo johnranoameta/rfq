@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+:root {
+  /* Automotive light theme palette */
+  --background: #f6f8ff;
+  --foreground: #0b1224;
+
+  /* Fonts (loaded in layout.tsx via <link>) */
+  --font-automotive-sans: "Oxanium", ui-sans-serif, system-ui;
+  --font-automotive-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --card: #ffffff;
+  --card-foreground: #0b1224;
+
+  --popover: #ffffff;
+  --popover-foreground: #0b1224;
+
+  /* shadcn tokens */
+  --primary: #00d4ff; /* electric cyan */
+  --primary-foreground: #031019;
+
+  --secondary: #e7f2ff; /* light bay */
+  --secondary-foreground: #071426;
+
+  --muted: #6b7a9a;
+  --muted-foreground: #516082;
+
+  --accent: #ff6a00; /* safety orange */
+  --accent-foreground: #1b0c04;
+
+  --destructive: #e11d48;
+  --destructive-foreground: #fff1f5;
+
+  --border: #d7e2ff;
+  --input: #d7e2ff;
+  --ring: #ff6a00;
+}
+
+.dark {
+  /* Automotive dark theme palette */
+  --background: #070a14;
+  --foreground: #eaf2ff;
+
+  --card: #0b1224;
+  --card-foreground: #eaf2ff;
+
+  --popover: #0b1224;
+  --popover-foreground: #eaf2ff;
+
+  --secondary: #0f1f3c; /* deep bay */
+  --secondary-foreground: #d5e3f6;
+
+  --muted: #7b86a6;
+  --muted-foreground: #aeb8d3;
+
+  --destructive: #ff3b5c;
+  --destructive-foreground: #2a050b;
+
+  --border: #1b2a45;
+  --input: #1b2a45;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-automotive-sans);
+  --font-mono: var(--font-automotive-mono);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--background);
+  background-image: radial-gradient(900px circle at 10% 0%, rgba(0, 212, 255, 0.16), transparent 55%),
+    radial-gradient(700px circle at 90% 15%, rgba(255, 106, 0, 0.12), transparent 50%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.03), transparent 220px);
+  color: var(--foreground);
+  font-family: var(--font-automotive-sans), ui-sans-serif, system-ui, -apple-system,
+    Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Ensure Extracted Risk Notes title offset doesn't get overridden. */
+.rfq-risk-notes-title-offset {
+  margin-right: -50px !important;
+  padding-right: 0px !important;
+  border-right-width: 0px !important;
+  border-left-width: 0px !important;
+}
+
+/* Ensure the sidebar header aligns with the top tab bar. */
+.rfq-sidebar-header-fixed {
+  width: 100% !important;
+  height: 45px !important;
+}
+
+@media (max-width: 1024px) {
+  .rfq-sidebar-header-fixed {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .rfq-sidebar-header-fixed {
+    width: 100% !important;
+  }
+}
