@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -42,8 +43,19 @@ function resolveTheme(mode: ThemeMode): ResolvedTheme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>(() => getInitialMode());
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(getInitialMode()));
+  // Match SSR + first client render; sync from localStorage in useLayoutEffect (avoids hydration mismatch).
+  const [mode, setModeState] = useState<ThemeMode>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
+
+  useLayoutEffect(() => {
+    const initial = getInitialMode();
+    const resolved = resolveTheme(initial);
+    document.documentElement.classList.toggle("dark", resolved === "dark");
+    queueMicrotask(() => {
+      setModeState(initial);
+      setResolvedTheme(resolved);
+    });
+  }, []);
 
   useEffect(() => {
     const apply = () => {

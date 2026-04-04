@@ -1,0 +1,50 @@
+{
+  "rfq_case": "A",
+  "document_completeness": "complete",
+  "customer": "NorthBridge Automotive",
+  "program": "NB-EV Crossover",
+  "part_name": "Front Seat Reinforcement Bracket",
+  "part_number": "NB-SS-2147",
+  "process_family": [
+    "stamping",
+    "forming"
+  ],
+  "material_grade": "SPCC",
+  "thickness_mm": 1.2,
+  "annual_volume": 180000,
+  "sop_date": "2027-03-01",
+  "general_tolerance_mm": 0.1,
+  "critical_tolerance_mm": 0.05,
+  "surface_requirements": [
+    "oil-free",
+    "burr height < 0.05 mm",
+    "no red rust at receipt"
+  ],
+  "ppap_level": 3,
+  "cpk_target": "1.67",
+  "incoterm": "FOB Shanghai",
+  "payment_terms": "Net 60",
+  "annual_reduction_pct": 2.0,
+  "required_attachments": [
+    {
+      "file_name": "Cost_Template.xlsx",
+      "type": "cost_template",
+      "included": true
+    },
+    {
+      "file_name": "Part_Drawing.pdf",
+      "type": "drawing",
+      "included": true
+    },
+    {
+      "file_name": "Packaging_Spec.pdf",
+      "type": "packaging_spec",
+      "included": true
+    },
+    {
+      "file_name": "Supplier_Questionnaire.xlsx",
+      "type": "supplier_questionnaire",
+      "included": true
+    }
+  ]
+}

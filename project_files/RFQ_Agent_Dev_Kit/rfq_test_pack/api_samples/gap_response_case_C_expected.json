@@ -1,0 +1,45 @@
+{
+  "case_id": "case_C",
+  "risk_score": 89,
+  "completeness_status": "pass",
+  "triggered_rules": [
+    "RULE_003",
+    "RULE_004",
+    "RULE_005",
+    "RULE_007",
+    "RULE_008",
+    "RULE_009",
+    "RULE_010",
+    "RULE_011",
+    "RULE_012",
+    "RULE_013",
+    "RULE_015",
+    "RULE_016",
+    "RULE_017",
+    "RULE_018"
+  ],
+  "summary": "High-risk RFQ relative to historical seat-side reinforcement family. Quality level, tolerance, inspection scope, freight terms, payment terms, and annual price-down are all above family norm.",
+  "benchmark_context": {
+    "matched_historical_projects": [
+      "H015",
+      "H016",
+      "H017"
+    ],
+    "historical_piece_price_band_usd": [
+      6.08,
+      6.22
+    ],
+    "historical_tooling_band_usd": [
+      69000,
+      70500
+    ],
+    "historical_ppap_level": 3,
+    "historical_payment_terms": "Net 90"
+  },
+  "recommended_actions": [
+    "Add explicit PPAP Level 5, run-at-rate, and annual revalidation cost lines.",
+    "Escalate DDP Monterrey freight and Net 120 payment terms for management approval.",
+    "Separate gauge investment from base tooling and validate capability on +/-0.03 mm hole pitch.",
+    "Do not submit without packaging rack cycle-cost assumption."
+  ]
+}

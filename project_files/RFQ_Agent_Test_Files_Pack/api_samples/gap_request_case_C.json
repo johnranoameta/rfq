@@ -1,0 +1,57 @@
+{
+  "current_rfq": {
+    "rfq_case": "C",
+    "document_completeness": "complete",
+    "customer": "NorthBridge Automotive",
+    "program": "NB-EV Premium",
+    "part_name": "Seat Side Impact Reinforcement",
+    "part_number": "NB-SI-3411",
+    "process_family": [
+      "stamping",
+      "forming",
+      "camera inspection"
+    ],
+    "material_grade": "SPFC980Y",
+    "thickness_mm": 1.8,
+    "annual_volume": 150000,
+    "sop_date": "2027-02-01",
+    "general_tolerance_mm": 0.03,
+    "critical_tolerance_mm": 0.03,
+    "flatness_mm_max": 0.15,
+    "surface_requirements": [
+      "100 percent appearance inspection",
+      "burr height < 0.03 mm",
+      "no edge crack"
+    ],
+    "ppap_level": 5,
+    "cpk_target": "1.67 at SOP, 1.33 ongoing",
+    "incoterm": "DDP Monterrey",
+    "payment_terms": "Net 120",
+    "annual_reduction_pct": 4.0,
+    "supplier_funded_gauges": true,
+    "required_attachments": [
+      {
+        "file_name": "Cost_Template.xlsx",
+        "type": "cost_template",
+        "included": true
+      },
+      {
+        "file_name": "Part_Drawing.pdf",
+        "type": "drawing",
+        "included": true
+      },
+      {
+        "file_name": "Packaging_Spec.pdf",
+        "type": "packaging_spec",
+        "included": true
+      },
+      {
+        "file_name": "Supplier_Questionnaire.xlsx",
+        "type": "supplier_questionnaire",
+        "included": true
+      }
+    ]
+  },
+  "historical_dataset": "./historical_data/Parsed_Historical_RFQs.jsonl",
+  "enabled_rules": "all"
+}

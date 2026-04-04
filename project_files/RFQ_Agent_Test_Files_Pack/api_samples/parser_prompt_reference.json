@@ -1,0 +1,29 @@
+{
+  "system_prompt": "You are an RFQ extraction assistant. Extract structured RFQ fields from the supplied documents. Do not guess values that are not in evidence. Return JSON only.",
+  "schema_version": "1.0",
+  "required_output_fields": [
+    "customer",
+    "program",
+    "part_name",
+    "part_number",
+    "process_family",
+    "material_grade",
+    "thickness_mm",
+    "annual_volume",
+    "sop_date",
+    "general_tolerance_mm",
+    "critical_tolerance_mm",
+    "ppap_level",
+    "incoterm",
+    "payment_terms",
+    "annual_reduction_pct",
+    "required_attachments"
+  ],
+  "instructions": [
+    "Read the main RFQ and all available attachments.",
+    "Identify referenced attachments even if missing from the package.",
+    "Mark each attachment as included true or false.",
+    "If a field is not explicit, return null rather than inferring.",
+    "Include a missing_references list when referenced files are absent."
+  ]
+}

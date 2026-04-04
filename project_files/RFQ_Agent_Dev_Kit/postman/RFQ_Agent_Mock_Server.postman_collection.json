@@ -1,0 +1,270 @@
+{
+  "info": {
+    "_postman_id": "3c15f363-8de8-4c45-95fb-1dff157dc500",
+    "name": "RFQ Agent Mock Server",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", function(){ pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.expect(json.status).to.eql(\"ok\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List Cases",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/cases",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "cases"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", function(){ pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.expect(json.cases).to.include(\"case_A\");",
+              "pm.expect(json.cases).to.include(\"case_B\");",
+              "pm.expect(json.cases).to.include(\"case_C\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Parse Case A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"case_id\": \"case_A\",\n  \"rfq_package_path\": \"./current_rfq_case_A_nominal\",\n  \"historical_dataset\": \"./historical_data/Historical_RFQ_Submissions.xlsx\",\n  \"mode\": \"parse_only\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/parse",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "parse"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", function(){ pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.expect(json.rfq_case).to.eql(\"A\");",
+              "pm.expect(json.document_completeness).to.eql(\"complete\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Parse Case B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"case_id\": \"case_B\",\n  \"rfq_package_path\": \"./current_rfq_case_B_missing_files\",\n  \"historical_dataset\": \"./historical_data/Historical_RFQ_Submissions.xlsx\",\n  \"mode\": \"parse_and_gap_review\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/parse",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "parse"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", function(){ pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.expect(json.rfq_case).to.eql(\"B\");",
+              "pm.expect(json.missing_references).to.include(\"Packaging_Spec.pdf\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Parse Case C",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"case_id\": \"case_C\",\n  \"rfq_package_path\": \"./current_rfq_case_C_high_risk\",\n  \"historical_dataset\": \"./historical_data/Historical_RFQ_Submissions.xlsx\",\n  \"mode\": \"parse_and_gap_review\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/parse",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "parse"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", function(){ pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.expect(json.rfq_case).to.eql(\"C\");",
+              "pm.expect(json.ppap_level).to.eql(5);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gap Review Case B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"current_rfq\": {\n    \"rfq_case\": \"B\",\n    \"document_completeness\": \"incomplete\",\n    \"customer\": \"NorthBridge Automotive\",\n    \"program\": \"NB-EV Crossover\",\n    \"part_name\": \"Rear Floor Mounting Bracket\",\n    \"part_number\": \"NB-RF-2388\",\n    \"process_family\": [\n      \"stamping\",\n      \"restrike\",\n      \"deburr\"\n    ],\n    \"material_grade\": \"SPHC\",\n    \"thickness_mm\": 1.6,\n    \"annual_volume\": 220000,\n    \"sop_date\": \"2027-05-15\",\n    \"general_tolerance_mm\": 0.1,\n    \"ppap_level\": 3,\n    \"incoterm\": \"FOB Shanghai\",\n    \"payment_terms\": \"Net 75\",\n    \"annual_reduction_pct\": 2.0,\n    \"required_attachments\": [\n      {\n        \"file_name\": \"Cost_Template.xlsx\",\n        \"type\": \"cost_template\",\n        \"included\": true\n      },\n      {\n        \"file_name\": \"Part_Drawing.pdf\",\n        \"type\": \"drawing\",\n        \"included\": true\n      },\n      {\n        \"file_name\": \"Packaging_Spec.pdf\",\n        \"type\": \"packaging_spec\",\n        \"included\": false\n      },\n      {\n        \"file_name\": \"DV_PV_Test_Standard.pdf\",\n        \"type\": \"test_standard\",\n        \"included\": false\n      }\n    ],\n    \"missing_references\": [\n      \"Packaging_Spec.pdf\",\n      \"DV_PV_Test_Standard.pdf\"\n    ]\n  },\n  \"historical_dataset\": \"./historical_data/Parsed_Historical_RFQs.jsonl\",\n  \"enabled_rules\": \"all\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/gap-review",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "gap-review"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", function(){ pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.expect(json.case_id).to.eql(\"case_B\");",
+              "pm.expect(json.triggered_rules).to.include(\"RULE_001\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gap Review Case C",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"current_rfq\": {\n    \"rfq_case\": \"C\",\n    \"document_completeness\": \"complete\",\n    \"customer\": \"NorthBridge Automotive\",\n    \"program\": \"NB-EV Premium\",\n    \"part_name\": \"Seat Side Impact Reinforcement\",\n    \"part_number\": \"NB-SI-3411\",\n    \"process_family\": [\n      \"stamping\",\n      \"forming\",\n      \"camera inspection\"\n    ],\n    \"material_grade\": \"SPFC980Y\",\n    \"thickness_mm\": 1.8,\n    \"annual_volume\": 150000,\n    \"sop_date\": \"2027-02-01\",\n    \"general_tolerance_mm\": 0.03,\n    \"critical_tolerance_mm\": 0.03,\n    \"flatness_mm_max\": 0.15,\n    \"surface_requirements\": [\n      \"100 percent appearance inspection\",\n      \"burr height < 0.03 mm\",\n      \"no edge crack\"\n    ],\n    \"ppap_level\": 5,\n    \"cpk_target\": \"1.67 at SOP, 1.33 ongoing\",\n    \"incoterm\": \"DDP Monterrey\",\n    \"payment_terms\": \"Net 120\",\n    \"annual_reduction_pct\": 4.0,\n    \"supplier_funded_gauges\": true,\n    \"required_attachments\": [\n      {\n        \"file_name\": \"Cost_Template.xlsx\",\n        \"type\": \"cost_template\",\n        \"included\": true\n      },\n      {\n        \"file_name\": \"Part_Drawing.pdf\",\n        \"type\": \"drawing\",\n        \"included\": true\n      },\n      {\n        \"file_name\": \"Packaging_Spec.pdf\",\n        \"type\": \"packaging_spec\",\n        \"included\": true\n      },\n      {\n        \"file_name\": \"Supplier_Questionnaire.xlsx\",\n        \"type\": \"supplier_questionnaire\",\n        \"included\": true\n      }\n    ]\n  },\n  \"historical_dataset\": \"./historical_data/Parsed_Historical_RFQs.jsonl\",\n  \"enabled_rules\": \"all\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/gap-review",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "gap-review"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", function(){ pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.expect(json.case_id).to.eql(\"case_C\");",
+              "pm.expect(json.risk_score).to.eql(89);"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+MIDWEST MOTORS COMPONENTS — REQUEST FOR QUOTATION (SAMPLE)
+RFQ Reference: MMC-RFQ-2026-1842-SAMPLE
+Effective date: 2026-04-01
+================================================================
+
+Supplier portal: rfq.midwest-motors-components.example
+Program buyer: sourcing@midwest-motors-components.example
+
+================================================================
+1. PROGRAM & PART
+================================================================
+Customer / legal entity:   Midwest Motors Components LLC
+Program:                   MMC Light Truck 2028
+Part description:          Front cross-member reinforcement insert
+Internal part number:      MMC-FCS-4412
+Manufacturing process:     hydroforming, laser trim, robotic weld
+Material specification:    HSLA 590, 2.0 mm nominal thickness
+Annual volume (steady):    95,000 assemblies per year
+SOP (start of production): 2028-09-01
+
+Dimensional note: General tolerance ±0.15 mm unless noted on drawing MMC-FCS-4412-DRW-04.
+
+================================================================
+2. COMMERCIAL TERMS
+================================================================
+Incoterm:                  EXW Columbus, OH
+Payment terms:             Net 60 days from invoice
+Annual productivity discount: 1.5% effective year 2 onward (document in quote)
+
+================================================================
+3. QUALITY & PPAP
+================================================================
+PPAP submission level:     Level 3 per AIAG, unless engineering notifies otherwise.
+Cpk expectation:           ≥ 1.33 on all SC/CC characteristics at PPAP submission.
+Surface finish:            E-coat compatible; no rust at point of use; visible surfaces free of cosmetic defects class B.
+
+================================================================
+4. ATTACHMENT CHECKLIST (ALL INCLUDED IN FULL PACKAGE)
+================================================================
+The following files accompany this RFQ in a complete submission package:
+
+  [x] MMC_Cost_Workbook_v3.xlsx          — piece price, tooling, packaging, logistics
+  [x] MMC-FCS-4412-DRW-04.pdf           — released drawing Rev 04
+  [x] MMC_Packaging_Standard_FCS.pdf     — expendable pack + slip sheet spec
+  [x] MMC_Supplier_Capacity_Form.xlsx    — capacity and contingency declaration
+
+No referenced documents are missing from this sample package.
+
+================================================================
+5. QUOTE SUBMISSION
+================================================================
+Return the completed cost workbook and signed capacity form no later than 14 calendar days
+from RFQ issue date. Technical questions must be logged in the portal Q&A thread.
+
+--- End of sample RFQ (complete-package scenario for parser / UI testing) ---

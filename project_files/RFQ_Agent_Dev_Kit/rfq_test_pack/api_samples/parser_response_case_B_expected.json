@@ -1,0 +1,48 @@
+{
+  "rfq_case": "B",
+  "document_completeness": "incomplete",
+  "customer": "NorthBridge Automotive",
+  "program": "NB-EV Crossover",
+  "part_name": "Rear Floor Mounting Bracket",
+  "part_number": "NB-RF-2388",
+  "process_family": [
+    "stamping",
+    "restrike",
+    "deburr"
+  ],
+  "material_grade": "SPHC",
+  "thickness_mm": 1.6,
+  "annual_volume": 220000,
+  "sop_date": "2027-05-15",
+  "general_tolerance_mm": 0.1,
+  "ppap_level": 3,
+  "incoterm": "FOB Shanghai",
+  "payment_terms": "Net 75",
+  "annual_reduction_pct": 2.0,
+  "required_attachments": [
+    {
+      "file_name": "Cost_Template.xlsx",
+      "type": "cost_template",
+      "included": true
+    },
+    {
+      "file_name": "Part_Drawing.pdf",
+      "type": "drawing",
+      "included": true
+    },
+    {
+      "file_name": "Packaging_Spec.pdf",
+      "type": "packaging_spec",
+      "included": false
+    },
+    {
+      "file_name": "DV_PV_Test_Standard.pdf",
+      "type": "test_standard",
+      "included": false
+    }
+  ],
+  "missing_references": [
+    "Packaging_Spec.pdf",
+    "DV_PV_Test_Standard.pdf"
+  ]
+}

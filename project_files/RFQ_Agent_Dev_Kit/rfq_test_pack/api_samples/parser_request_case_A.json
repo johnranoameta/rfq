@@ -1,0 +1,6 @@
+{
+  "case_id": "case_A",
+  "rfq_package_path": "./current_rfq_case_A_nominal",
+  "historical_dataset": "./historical_data/Historical_RFQ_Submissions.xlsx",
+  "mode": "parse_only"
+}

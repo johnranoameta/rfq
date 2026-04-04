@@ -1,0 +1,7 @@
+project_id,issue_code,issue_summary,resolved_in_final_quote,notes
+H003,ISS001,Packaging assumption was initially missing,1,Added returnable tote cost before final submission
+H007,ISS003,Gauge approval cost omitted from first pass,1,Separate line added in tooling
+H009,ISS008,Appearance inspection under-scoped,0,Margin erosion after launch
+H015,ISS004,Tight tolerance increased scrap during tryout,0,Underquoted initial ramp-up
+H016,ISS005,Net 90 term accepted without financing charge review,1,Commercial escalation internally approved
+H017,ISS007,Annual price down above baseline was not challenged,0,Negative margin by Year 3

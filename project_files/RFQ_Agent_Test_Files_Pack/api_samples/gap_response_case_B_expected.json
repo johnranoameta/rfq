@@ -1,0 +1,21 @@
+{
+  "case_id": "case_B",
+  "risk_score": 62,
+  "completeness_status": "fail",
+  "missing_attachments": [
+    "Packaging_Spec.pdf",
+    "DV_PV_Test_Standard.pdf"
+  ],
+  "triggered_rules": [
+    "RULE_001",
+    "RULE_002",
+    "RULE_027",
+    "RULE_028"
+  ],
+  "summary": "Incomplete RFQ package. Packaging and DV/PV standard are referenced but not included. Quote should not be released without clarification or documented assumptions.",
+  "recommended_actions": [
+    "Request missing packaging specification from customer or add provisional packaging assumption with approval.",
+    "Request DV/PV test standard NB-QA-118 before quality cost is finalized.",
+    "Add appearance approval timing risk to RFQ review notes."
+  ]
+}

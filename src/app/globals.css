@@ -6,7 +6,7 @@
   --foreground: #0b1224;
 
   /* Fonts (loaded in layout.tsx via <link>) */
-  --font-automotive-sans: "Oxanium", ui-sans-serif, system-ui;
+  --font-automotive-sans: "Oxanium", ui-sans-serif, system-ui, sans-serif;
   --font-automotive-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   --card: #ffffff;
@@ -34,6 +34,14 @@
   --border: #d7e2ff;
   --input: #d7e2ff;
   --ring: #ff6a00;
+}
+
+html[data-ui-font="inter"] {
+  --font-automotive-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html[data-ui-font="source-sans"] {
+  --font-automotive-sans: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
 }
 
 .dark {

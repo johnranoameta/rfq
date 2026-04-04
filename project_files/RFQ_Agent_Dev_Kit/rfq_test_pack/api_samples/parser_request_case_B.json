@@ -1,0 +1,6 @@
+{
+  "case_id": "case_B",
+  "rfq_package_path": "./current_rfq_case_B_missing_files",
+  "historical_dataset": "./historical_data/Historical_RFQ_Submissions.xlsx",
+  "mode": "parse_and_gap_review"
+}

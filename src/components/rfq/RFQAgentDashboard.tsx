@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { applySuppliedPackageDoc } from "@/lib/rfq/applySuppliedPackageDoc";
+import { gapFindingUploadSlot } from "@/lib/rfq/reconcileGapsWithDocuments";
+import { buildCaseDataFromPersisted } from "@/lib/rfq/caseFromPersisted";
+import { loadSidebarListCache, saveSidebarListCache } from "@/lib/rfq/sidebarListCache";
+import type { RfqParseSessionFull } from "@/lib/rfq/sqlite/parseSessions";
+import { useRouter } from "next/navigation";
+import { LogOut, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,10 +19,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CASES, HISTORICAL, type CaseData, type CaseId } from "@/data/rfqAgentV2";
+import type { CaseData, DocType, GapWorkflowStatus } from "@/data/rfqTypes";
+import {
+  buildCaseDataFromDemoPipeline,
+  DEFAULT_DEMO_UPLOAD,
+  DEMO_GAP_OUTPUT,
+  DEMO_MULTI_ITEM_GAP_OUTPUT,
+  DEMO_MULTI_ITEM_PARSE_OUTPUT,
+  DEMO_PARSE_OUTPUT,
+  getDefaultDemoSession,
+  isBundledSampleRfq,
+  isMultiItemBundledSample,
+  isPreloadedDemoUpload,
+} from "@/data/sampleRfqPipeline";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-
-type TabKey = "overview" | "documents" | "parts" | "gap" | "quote";
+import { SettingsMenu } from "@/components/settings/SettingsMenu";
+import { logout as clearAuthSession } from "@/components/auth/rfqAuth";
+import { AllRfqsLibrary } from "@/components/rfq/AllRfqsLibrary";
+import { RfqPackageUpload, STORED_NAME_DB_ONLY, type UploadedPackageFile } from "@/components/rfq/RfqPackageUpload";
+import {
+  SortableRfqTabBar,
+  loadDashboardTabOrder,
+  type DashboardTabKey,
+} from "@/components/rfq/SortableRfqTabBar";
 type GapFilterKey =
   | "all"
   | "sev-critical"
@@ -24,15 +50,57 @@ type GapFilterKey =
   | "sev-low"
   | `cat-${string}`;
 
-const CASE_DOTS: Record<CaseId, "emerald" | "red" | "amber"> = {
-  A: "emerald",
-  B: "red",
-  C: "amber",
-};
-
 function clampPct(n: number) {
   return Math.max(0, Math.min(100, n));
 }
+
+function isGapWorkflowClosed(w: GapWorkflowStatus | undefined): boolean {
+  return w === "resolved" || w === "accepted_risk";
+}
+
+/** Fallback package slot when a gap has no doc_slot (e.g. DB-backed sessions). */
+function gapRuleSupplySlotLegacy(c: CaseData, rule: string): string | null {
+  if (rule === "RULE_001") {
+    const d = c.docs.find((x) => x.type === "pkg" && x.status === "miss");
+    return d?.name ?? null;
+  }
+  if (rule === "RULE_002" || rule === "RULE_028") {
+    const d = c.docs.find((x) => x.type === "test" && (x.status === "miss" || x.status === "pend"));
+    return d?.name ?? null;
+  }
+  if (rule === "RULE_029") {
+    const d = c.docs.find((x) => x.type === "comm" && x.status === "ok");
+    return d?.name ?? null;
+  }
+  return null;
+}
+
+const DOC_TYPE_LABEL: Record<DocType, string> = {
+  rfq: "RFQ Main",
+  cost: "Cost Template",
+  draw: "Drawing",
+  pkg: "Packaging",
+  test: "Test Spec",
+  q: "Questionnaire",
+  tech: "Tech Spec",
+  qual: "Quality",
+  comm: "Commercial",
+  nda: "NDA",
+};
+
+const DOC_TYPE_BADGE_CLS: Record<DocType, string> = {
+  rfq:
+    "border-primary/35 bg-primary/10 text-primary dark:border-primary/45 dark:bg-primary/6 dark:text-primary/90",
+  cost: "border-amber-400/35 bg-amber-400/10 dark:text-amber-200 text-amber-800",
+  draw: "border-emerald-400/30 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700",
+  pkg: "border-orange-500/30 bg-orange-500/10 dark:text-orange-200 text-orange-700",
+  test: "border-cyan-500/30 bg-cyan-500/10 dark:text-cyan-200 text-cyan-800",
+  q: "border-violet-500/30 bg-violet-500/10 dark:text-violet-200 text-violet-700",
+  tech: "border-sky-500/30 bg-sky-500/10 dark:text-sky-200 text-sky-800",
+  qual: "border-rose-400/30 bg-rose-400/10 dark:text-rose-200 text-rose-800",
+  comm: "border-amber-600/30 bg-amber-600/10 dark:text-amber-200 text-amber-900",
+  nda: "border-indigo-500/30 bg-indigo-500/10 dark:text-indigo-200 text-indigo-800",
+};
 
 function riskBucket(score: number) {
   if (score >= 80) return "crit" as const;
@@ -73,22 +141,6 @@ function riskBadgeClasses(score: number) {
   return "border-emerald-400/35 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700";
 }
 
-function riskTextClasses(score: number) {
-  const b = riskBucket(score);
-  if (b === "crit") return "dark:text-red-200 text-red-700";
-  if (b === "high") return "dark:text-orange-200 text-orange-700";
-  if (b === "med") return "dark:text-amber-200 text-amber-800";
-  return "dark:text-emerald-200 text-emerald-700";
-}
-
-function riskPillBgOnly(score: number) {
-  const b = riskBucket(score);
-  if (b === "crit") return "bg-red-500/15 dark:bg-red-500/10";
-  if (b === "high") return "bg-orange-500/15 dark:bg-orange-500/10";
-  if (b === "med") return "bg-amber-400/15 dark:bg-amber-400/10";
-  return "bg-emerald-400/15 dark:bg-emerald-400/10";
-}
-
 function statusBadgeClasses(c: CaseData) {
   if (c.completeness === "complete" && c.risk_score < 40) {
     return "border-emerald-400/40 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700";
@@ -109,37 +161,280 @@ function formatMoney(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
+function uploadedFileFromPersistedRow(row: { session_id: string; original_filename: string }): UploadedPackageFile {
+  const lower = row.original_filename.toLowerCase();
+  const mimeType = lower.endsWith(".pdf")
+    ? "application/pdf"
+    : lower.endsWith(".txt")
+      ? "text/plain"
+      : "application/octet-stream";
+  return {
+    id: row.session_id,
+    originalName: row.original_filename,
+    size: 0,
+    mimeType,
+    storedName: STORED_NAME_DB_ONLY,
+  };
+}
+
 export default function RFQAgentDashboard() {
-  const [caseId, setCaseId] = useState<CaseId>("A");
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const router = useRouter();
+  const [session, setSession] = useState<{
+    file: UploadedPackageFile;
+    caseData: CaseData;
+  } | null>(() => getDefaultDemoSession());
+  /** Every successful upload stays listed here (sidebar) even when the dashboard view is reset. */
+  const [uploadedRfqs, setUploadedRfqs] = useState<UploadedPackageFile[]>(() => [DEFAULT_DEMO_UPLOAD]);
+  const [pipelineBusy, setPipelineBusy] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+  const [tabOrder, setTabOrder] = useState<DashboardTabKey[]>(() => loadDashboardTabOrder());
+  const [activeTab, setActiveTab] = useState<DashboardTabKey>("overview");
   const [gapFilter, setGapFilter] = useState<GapFilterKey>("all");
   const [expandedRule, setExpandedRule] = useState<Record<string, boolean>>({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarLoadBusy, setSidebarLoadBusy] = useState(false);
+  /** After first catalog/cache merge; avoids writing an empty cache before hydration runs. */
+  const [sidebarHydrated, setSidebarHydrated] = useState(false);
+  const supplyInputBaseId = useId();
+  const [supplyDocBusySlot, setSupplyDocBusySlot] = useState<string | null>(null);
+  const [supplyDocError, setSupplyDocError] = useState<string | null>(null);
 
-  const c = CASES[caseId];
+  const handleSupplyMissingDoc = useCallback(async (slotName: string, file: File) => {
+    setSupplyDocBusySlot(slotName);
+    setSupplyDocError(null);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const res = await fetch("/api/rfq/upload", { method: "POST", body });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; originalName?: string };
+      if (!res.ok) {
+        throw new Error(data.error || `Upload failed (${res.status})`);
+      }
+      const label = data.originalName || file.name;
+      setSession((prev) => {
+        if (!prev?.caseData) return prev;
+        return {
+          ...prev,
+          caseData: applySuppliedPackageDoc(prev.caseData, slotName, label),
+        };
+      });
+    } catch (e) {
+      setSupplyDocError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setSupplyDocBusySlot(null);
+    }
+  }, []);
 
-  const docMissingCount = useMemo(() => c.docs.filter((d) => d.status === "miss").length, [c.docs]);
+  /**
+   * Rehydrate sidebar after refresh/login: SQLite via catalog when possible, else localStorage backup.
+   * Logout only clears auth keys — RFQs remain in `data/rfq.sqlite` and in this cache.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let fromSource: UploadedPackageFile[] = [];
+      try {
+        const r = await fetch("/api/rfq/database/catalog", { cache: "no-store" });
+        const data = (await r.json()) as {
+          upload_analyses?: { session_id: string; original_filename: string }[];
+        };
+        const fromApi =
+          r.ok && Array.isArray(data.upload_analyses)
+            ? data.upload_analyses.map(uploadedFileFromPersistedRow)
+            : [];
+        const fromCache = loadSidebarListCache();
+        if (r.ok) {
+          const apiIds = new Set(fromApi.map((u) => u.id));
+          fromSource = [...fromApi, ...fromCache.filter((u) => !apiIds.has(u.id))];
+        } else {
+          fromSource = fromCache;
+        }
+      } catch {
+        if (!cancelled) fromSource = loadSidebarListCache();
+      }
+      if (cancelled) return;
+      setUploadedRfqs((prev) => {
+        const seen = new Set<string>();
+        const out: UploadedPackageFile[] = [];
+        const add = (u: UploadedPackageFile) => {
+          if (seen.has(u.id)) return;
+          seen.add(u.id);
+          out.push(u);
+        };
+        if (prev.some((p) => p.id === DEFAULT_DEMO_UPLOAD.id)) {
+          add(DEFAULT_DEMO_UPLOAD);
+        }
+        for (const u of fromSource) {
+          add(u);
+        }
+        for (const u of prev) {
+          if (u.id === DEFAULT_DEMO_UPLOAD.id) continue;
+          if (!seen.has(u.id)) add(u);
+        }
+        return out;
+      });
+      setSidebarHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarHydrated) return;
+    saveSidebarListCache(uploadedRfqs);
+  }, [uploadedRfqs, sidebarHydrated]);
+
+  const c = session?.caseData ?? null;
+
+  async function activateRfqFromSidebar(u: UploadedPackageFile) {
+    if (pipelineBusy || sidebarLoadBusy) return;
+    if (isPreloadedDemoUpload(u)) {
+      restoreDefaultDashboard();
+      return;
+    }
+    setSidebarLoadBusy(true);
+    setSessionNotice(null);
+    try {
+      const res = await fetch(`/api/rfq/database/sessions/${encodeURIComponent(u.id)}`, { cache: "no-store" });
+      if (res.ok) {
+        const row = (await res.json()) as RfqParseSessionFull;
+        const fileDb: UploadedPackageFile = {
+          id: u.id,
+          originalName: u.originalName,
+          size: u.size,
+          mimeType: u.mimeType || "application/pdf",
+          storedName: STORED_NAME_DB_ONLY,
+        };
+        setSession({ file: fileDb, caseData: buildCaseDataFromPersisted(row, fileDb) });
+        setPipelineBusy(false);
+        setGapFilter("all");
+        setExpandedRule({});
+        return;
+      }
+      if (isBundledSampleRfq(u.originalName)) {
+        setPipelineBusy(true);
+        setSession(null);
+        window.setTimeout(() => {
+          setSession({ file: u, caseData: buildCaseDataFromDemoPipeline(u) });
+          setPipelineBusy(false);
+          setGapFilter("all");
+          setExpandedRule({});
+        }, 650);
+        return;
+      }
+      setSessionNotice(
+        res.status === 404
+          ? "No stored analysis for this upload. Run PDF analysis while the file is on the server, or upload the PDF again."
+          : `Could not load RFQ (${res.status}).`,
+      );
+    } catch {
+      setSessionNotice("Network error loading stored RFQ.");
+    } finally {
+      setSidebarLoadBusy(false);
+    }
+  }
+
+  async function removeRfqFromSidebar(u: UploadedPackageFile) {
+    const isDemo = isPreloadedDemoUpload(u);
+    const msg = isDemo
+      ? `Remove the preloaded demo (“${u.originalName}”) from this list? (Nothing is stored in the database for this entry.)`
+      : `Remove “${u.originalName}” from this list and delete its saved analysis from the database?`;
+    if (!window.confirm(msg)) return;
+
+    setSidebarLoadBusy(true);
+    try {
+      if (!isDemo) {
+        await fetch(`/api/rfq/database/sessions/${encodeURIComponent(u.id)}`, { method: "DELETE" });
+      }
+    } catch {
+      /* still drop from sidebar */
+    } finally {
+      setSidebarLoadBusy(false);
+    }
+
+    const nextList = uploadedRfqs.filter((x) => x.id !== u.id);
+    setUploadedRfqs(nextList);
+
+    if (session?.file.id === u.id) {
+      if (nextList.length > 0) {
+        void activateRfqFromSidebar(nextList[0]!);
+      } else {
+        setSession(null);
+        setSessionNotice(null);
+      }
+    }
+  }
+
+  function handleUploaded(file: UploadedPackageFile) {
+    setUploadedRfqs((prev) => {
+      if (prev.some((u) => u.id === file.id)) return prev;
+      return [file, ...prev];
+    });
+    setSessionNotice(null);
+    if (isBundledSampleRfq(file.originalName)) {
+      setPipelineBusy(true);
+      setSession(null);
+      window.setTimeout(() => {
+        setSession({ file, caseData: buildCaseDataFromDemoPipeline(file) });
+        setPipelineBusy(false);
+        setGapFilter("all");
+        setExpandedRule({});
+      }, 650);
+      return;
+    }
+    setSessionNotice(`Stored “${file.originalName}”. For a full demo, upload a bundled sample RFQ (txt or pdf) from your package.`);
+  }
+
+  /** Resets dashboard to the preloaded demo and ensures the demo row exists in the sidebar again. */
+  function restoreDefaultDashboard() {
+    setUploadedRfqs((prev) => {
+      if (prev.some((x) => x.id === DEFAULT_DEMO_UPLOAD.id)) return prev;
+      return [DEFAULT_DEMO_UPLOAD, ...prev];
+    });
+    setSession(getDefaultDemoSession());
+    setSessionNotice(null);
+    setPipelineBusy(false);
+    setGapFilter("all");
+    setExpandedRule({});
+  }
+
+  const docMissingCount = useMemo(
+    () => (c ? c.docs.filter((d) => d.status === "miss").length : 0),
+    [c],
+  );
   const docConfidenceSummary = useMemo(() => {
+    if (!c) return null;
     const ok = c.docs.filter((d) => d.status === "ok" && typeof d.conf === "number");
     if (ok.length === 0) return null;
-    const avg = ok.reduce((a, d) => a + (d.conf ?? 0), 0) / ok.length;
-    return avg;
-  }, [c.docs]);
+    return ok.reduce((a, d) => a + (d.conf ?? 0), 0) / ok.length;
+  }, [c]);
 
   const tabMeta = useMemo(() => {
+    if (!c) {
+      return {
+        docCountText: "—",
+        docPillVariant: "secondary" as const,
+        gapCount: 0,
+        gapPillVariant: "default" as const,
+      };
+    }
     const missing = c.docs.filter((d) => d.status === "miss").length;
-    const highGaps = c.gap_findings.filter((f) => f.sev === "high").length;
-    const criticalGaps = c.gap_findings.filter((f) => f.sev === "critical").length;
-    const gapCount = c.gap_findings.length;
+    const openFindings = c.gap_findings.filter((f) => !isGapWorkflowClosed(c.gap_workflow?.[f.rule]));
+    const highGaps = openFindings.filter((f) => f.sev === "high").length;
+    const criticalGaps = openFindings.filter((f) => f.sev === "critical").length;
+    const gapCount = openFindings.length;
     return {
       docCountText: missing ? `${c.docs.length} • ${missing} missing` : `${c.docs.length}`,
-      docPillVariant: missing ? "destructive" : "secondary",
+      docPillVariant: missing ? ("destructive" as const) : ("secondary" as const),
       gapCount,
-      gapPillVariant: criticalGaps > 0 ? "destructive" : highGaps > 3 ? "accent" : highGaps > 0 ? "secondary" : "default",
+      gapPillVariant:
+        criticalGaps > 0 ? ("destructive" as const) : highGaps > 3 ? ("accent" as const) : highGaps > 0 ? ("secondary" as const) : ("default" as const),
     };
-  }, [c.docs, c.gap_findings]);
+  }, [c]);
 
   const gapFindingsFiltered = useMemo(() => {
+    if (!c) return [];
     const findings = c.gap_findings;
     if (gapFilter === "all") return findings;
     if (gapFilter.startsWith("sev-")) {
@@ -151,100 +446,77 @@ export default function RFQAgentDashboard() {
       return findings.filter((f) => f.cat === cat);
     }
     return findings;
-  }, [c.gap_findings, gapFilter]);
+  }, [c, gapFilter]);
 
   const catOptions = useMemo(() => {
+    if (!c) return [];
     const set = new Set(c.gap_findings.map((f) => f.cat));
     return Array.from(set).sort();
-  }, [c.gap_findings]);
+  }, [c]);
 
   const workflowSteps = useMemo(() => {
+    if (!c) {
+      return [
+        { n: 1, l: "Upload", s: "active" as const },
+        { n: 2, l: "Parse", s: "idle" as const },
+        { n: 3, l: "Normalize", s: "idle" as const },
+        { n: 4, l: "Gap Review", s: "idle" as const },
+        { n: 5, l: "Quote", s: "idle" as const },
+        { n: 6, l: "Submit", s: "idle" as const },
+        { n: 7, l: "Outcome", s: "idle" as const },
+      ] as const;
+    }
     return [
-      { n: 1, l: "Upload", s: c.completeness !== "missing" ? "done" : "idle" },
-      { n: 2, l: "Parse", s: c.docs.some((d) => d.status === "ok") ? "done" : "active" },
-      { n: 3, l: "Normalize", s: "done" },
-      { n: 4, l: "Gap Review", s: "active" },
-      { n: 5, l: "Quote", s: c.risk_score < 40 ? "active" : "idle" },
-      { n: 6, l: "Submit", s: "idle" },
-      { n: 7, l: "Outcome", s: "idle" },
+      { n: 1, l: "Upload", s: "done" as const },
+      { n: 2, l: "Parse", s: "done" as const },
+      { n: 3, l: "Normalize", s: "done" as const },
+      { n: 4, l: "Gap Review", s: "done" as const },
+      { n: 5, l: "Quote", s: c.risk_score < 40 ? ("active" as const) : ("idle" as const) },
+      { n: 6, l: "Submit", s: "idle" as const },
+      { n: 7, l: "Outcome", s: "idle" as const },
     ] as const;
-  }, [c.completeness, c.docs, c.risk_score]);
+  }, [c]);
 
   const notes = useMemo(() => {
-    const map: Record<CaseId, { title: string; body: string; severity: "low" | "medium" | "high" | "critical" }[]> =
+    if (!c) return [];
+    const items: { title: string; body: string; severity: "low" | "medium" | "high" | "critical" }[] = [
       {
-        A: [
-          {
-            title: "Annual Price Reduction",
-            body: `2% annual reduction after Year 1 must be modeled in the business case. At ${c.annual_vol.toLocaleString()} units and $4.08 launch price, cumulative impact over 5 years is approx. $160K.`,
-            severity: "medium",
-          },
-          {
-            title: "Package Complete",
-            body: "All 4 required documents received and parsed. Minor packaging cost gap is resolvable before quote release.",
-            severity: "low",
-          },
-        ],
-        B: [
-          {
-            title: "Incomplete Package — Quote Blocked",
-            body: "Packaging spec and DV/PV test standard are both missing. Quote cannot be released in this state.",
-            severity: "high",
-          },
-          {
-            title: "Appearance Approval Timeline Risk",
-            body: "Appearance sample approval is required prior to PPAP. This milestone can impact SOP commitment.",
-            severity: "medium",
-          },
-        ],
-        C: [
-          {
-            title: "High Risk — Management Review Required",
-            body: "Risk score 89/100 with multiple rule triggers (DDP Monterrey, Net 120, PPAP L5, supplier-funded gauges, and 4% APD). Do not submit without Finance and Engineering sign-off.",
-            severity: "critical",
-          },
-          {
-            title: "DDP Monterrey Logistics Gap",
-            body: "Freight + customs/brokerage are not reflected in the current template. DDP requires a full logistics rebuild.",
-            severity: "high",
-          },
-          {
-            title: "4% Annual Price Down Over Program Life",
-            body: "4% APD compounds over time and can erode margin by year 5 if floor margin is not validated.",
-            severity: "high",
-          },
-        ],
-      };
+        title: "Gap summary",
+        body: DEMO_GAP_OUTPUT.summary,
+        severity: "high",
+      },
+    ];
+    DEMO_GAP_OUTPUT.recommended_actions.forEach((a, i) => {
+      items.push({
+        title: `Recommended action ${i + 1}`,
+        body: a,
+        severity: "medium",
+      });
+    });
+    return items;
+  }, [c]);
 
-    return map[caseId];
-  }, [caseId, c.annual_vol]);
+  const totalDocCount = c?.docs.length ?? 0;
+  const missingDocPct =
+    totalDocCount > 0 ? clampPct(((totalDocCount - docMissingCount) / totalDocCount) * 100) : 0;
+  const openHighGaps =
+    c?.gap_findings.filter((f) => f.sev === "high" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length ?? 0;
+  const openMedGaps =
+    c?.gap_findings.filter((f) => f.sev === "medium" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length ?? 0;
+  const openCritGaps =
+    c?.gap_findings.filter((f) => f.sev === "critical" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length ?? 0;
+  const openLowGaps =
+    c?.gap_findings.filter((f) => f.sev === "low" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length ?? 0;
 
-  const totalDocCount = c.docs.length;
-  const missingDocPct = totalDocCount > 0 ? clampPct((totalDocCount - docMissingCount) / totalDocCount * 100) : 0;
-  const openHighGaps = c.gap_findings.filter((f) => f.sev === "high").length;
-  const openMedGaps = c.gap_findings.filter((f) => f.sev === "medium").length;
-  const openCritGaps = c.gap_findings.filter((f) => f.sev === "critical").length;
-  const openLowGaps = c.gap_findings.filter((f) => f.sev === "low").length;
-
-  const parsedDocCount = c.docs.length - docMissingCount;
+  const parsedDocCount = (c?.docs.length ?? 0) - docMissingCount;
   const completenessPctRounded = Math.round(missingDocPct);
   const completenessTone = missingDocPct >= 85 ? "good" : missingDocPct >= 60 ? "warn" : "bad";
 
-  const rulesTriggered = c.triggered_rules.length;
+  const rulesTriggered = c?.triggered_rules.length ?? 0;
   const rulesTriggeredPct = Math.round((rulesTriggered / 28) * 100);
 
   function toggleExpanded(rule: string) {
     setExpandedRule((prev) => ({ ...prev, [rule]: !prev[rule] }));
-  }
-
-  function resetExpansions() {
-    setExpandedRule({});
-  }
-
-  function selectCase(next: CaseId) {
-    setCaseId(next);
-    setGapFilter("all");
-    resetExpansions();
   }
 
   return (
@@ -256,25 +528,44 @@ export default function RFQAgentDashboard() {
           </div>
           <div className="h-6 w-px bg-border" />
           <div className="font-mono text-[12px] text-foreground px-2.5 py-1 rounded-lg border border-border bg-background/25">
-            {c.rfq_num}
+            {c?.rfq_num ?? "—"}
           </div>
           <div className="ml-1 flex-1 min-w-0 overflow-hidden">
-            <div className="text-sm font-semibold truncate">{c.title} — {c.customer}</div>
+            <div className="text-sm font-semibold truncate">
+              {c ? `${c.title} — ${c.customer}` : "No RFQ loaded"}
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="hidden sm:flex">
+            <div className="hidden sm:flex items-center gap-2">
               <ThemeToggle />
+              <SettingsMenu />
+            </div>
+            <div className="flex sm:hidden">
+              <SettingsMenu />
             </div>
             <div className="hidden sm:block text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
               Risk Score
             </div>
             <div className="px-3 py-1.5 rounded-xl border bg-background/30 backdrop-blur-sm font-mono text-xs font-semibold border-border">
-              <span className={`inline-flex items-center rounded-lg px-2.5 py-0.5 border leading-none ${riskBadgeClasses(c.risk_score)}`}>
-                {c.risk_score}/100
-              </span>
+              {c ? (
+                <span
+                  className={`inline-flex items-center rounded-lg px-2.5 py-0.5 border leading-none ${riskBadgeClasses(c.risk_score)}`}
+                >
+                  {c.risk_score}/100
+                </span>
+              ) : (
+                <span className="text-muted-foreground px-2">—</span>
+              )}
             </div>
-            <Badge className={["border", statusBadgeClasses(c), "bg-background/30 backdrop-blur-sm"].join(" ")} variant="outline">
-              {c.status_label}
+            <Badge
+              className={[
+                "border",
+                c ? statusBadgeClasses(c) : "text-muted-foreground",
+                "bg-background/30 backdrop-blur-sm",
+              ].join(" ")}
+              variant="outline"
+            >
+              {c?.status_label ?? "Idle"}
             </Badge>
           </div>
         </div>
@@ -302,7 +593,7 @@ export default function RFQAgentDashboard() {
                 sidebarOpen ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden",
               ].join(" ")}
             >
-              RFQ Test Cases
+              RFQ files
             </div>
 
             <button
@@ -327,192 +618,197 @@ export default function RFQAgentDashboard() {
 
           <div className={["flex-1 overflow-y-auto", sidebarOpen ? "p-2" : "p-1"].join(" ")}>
             <div className="space-y-2 pb-3">
-              {(
-                Object.keys(CASES) as CaseId[]
-              ).map((id) => {
-                const item = CASES[id];
-                const active = id === caseId;
-                const dot = CASE_DOTS[id];
-                const dotCls =
-                  dot === "emerald"
-                    ? "bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.35)]"
-                    : dot === "red"
-                      ? "bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.35)]"
-                      : "bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.35)]";
+              {pipelineBusy ? (
+                <div
+                  className={[
+                    "rounded-2xl border border-border bg-card/60 p-4 text-[12px] text-muted-foreground",
+                    sidebarOpen ? "" : "px-2 py-3 text-center",
+                  ].join(" ")}
+                >
+                  {sidebarOpen ? "Running parse → gap review (demo)…" : "…"}
+                </div>
+              ) : null}
 
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => selectCase(id)}
-                    className={[
-                      "group w-full text-left rounded-2xl border border-border bg-card/60 shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                      sidebarOpen ? "p-4 sm:p-3" : "p-2",
-                      active
-                        ? "border-accent/70 bg-card ring-1 ring-accent/20"
-                        : "hover:bg-card hover:border-accent/35 hover:shadow-md",
-                    ].join(" ")}
-                  >
+              <div className="space-y-2">
+                {uploadedRfqs.map((u) => {
+                  const drivesDashboard = session?.file.id === u.id;
+                  return (
                     <div
+                      key={u.id}
                       className={[
-                        "flex min-w-0",
-                        sidebarOpen ? "items-start gap-2" : "items-center justify-center",
+                        "flex rounded-2xl border bg-card/60 shadow-sm overflow-hidden transition",
+                        drivesDashboard
+                          ? "border-accent/50 ring-1 ring-accent/20"
+                          : "border-border hover:border-accent/35",
                       ].join(" ")}
                     >
-                      <div
+                      <button
+                        type="button"
+                        disabled={pipelineBusy || sidebarLoadBusy}
+                        onClick={() => void activateRfqFromSidebar(u)}
                         className={[
-                          sidebarOpen ? "mt-1" : "mt-0",
-                          "w-2.5 h-2.5 rounded-full transition",
-                          dotCls,
-                          active ? "ring-1 ring-accent/60 scale-110" : "group-hover:scale-105",
+                          "flex-1 min-w-0 text-left transition",
+                          sidebarOpen ? "p-3" : "p-2",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50",
+                          pipelineBusy || sidebarLoadBusy ? "opacity-60 cursor-wait" : "cursor-pointer hover:bg-card/80",
                         ].join(" ")}
-                      />
-                      {sidebarOpen ? (
-                        <div className="flex-1 min-w-0">
-                          <>
-                            <div
-                              className={[
-                                "font-mono text-[10px] uppercase tracking-wide transition",
-                                active
-                                  ? "text-accent dark:text-accent/90 font-bold"
-                                  : "text-muted-foreground group-hover:text-accent/90",
-                              ].join(" ")}
-                            >
-                              {item.id} · {item.part_number}
-                            </div>
-                            <div
-                              className="mt-1 text-[12px] font-semibold leading-tight whitespace-normal break-words tracking-tight"
-                              title={item.title}
-                            >
-                              {item.title}
-                            </div>
-                            <div className="mt-1 flex items-center gap-2 min-w-0">
-                              <div className="text-[11px] font-mono text-muted-foreground break-words whitespace-normal">
-                                {sidebarCustomerLabel(item.customer)} / {sidebarProgramLabel(item.program)}
+                        aria-label={`Open RFQ ${u.originalName}`}
+                        aria-current={drivesDashboard ? "true" : undefined}
+                      >
+                        <div className="flex min-w-0 gap-2">
+                          <div
+                            className={[
+                              "w-2.5 h-2.5 rounded-full shrink-0 mt-1.5",
+                              drivesDashboard
+                                ? "bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.35)]"
+                                : "bg-muted-foreground/35",
+                            ].join(" ")}
+                          />
+                          {sidebarOpen ? (
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <div className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
+                                {drivesDashboard ? "Driving dashboard" : "Open"}
+                                {isPreloadedDemoUpload(u) ? " · demo file" : ""}
                               </div>
+                              <div
+                                className="text-[11px] font-semibold leading-tight break-words"
+                                title={u.originalName}
+                              >
+                                {u.originalName}
+                              </div>
+                              {drivesDashboard && session ? (
+                                <div className="text-[10px] font-mono text-muted-foreground">
+                                  {sidebarCustomerLabel(session.caseData.customer)} /{" "}
+                                  {sidebarProgramLabel(session.caseData.program)}
+                                </div>
+                              ) : null}
                             </div>
-                          </>
+                          ) : null}
                         </div>
-                      ) : null}
+                      </button>
                       {sidebarOpen ? (
-                        <div
+                        <button
+                          type="button"
                           className={[
-                            "font-mono rounded-xl border transition self-start flex-none shrink-0 mt-1",
-                            "text-[10px] px-3 py-2 !pt-[2px] !pb-[2px]",
-                            "border-accent/70 ring-1 ring-accent/20",
-                            riskPillBgOnly(item.risk_score),
+                            "shrink-0 px-2 border-l border-border/80 text-destructive hover:bg-destructive/10",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-destructive/40",
+                            pipelineBusy || sidebarLoadBusy ? "opacity-50 cursor-not-allowed" : "",
                           ].join(" ")}
-                          style={{
-                            marginTop: -5,
-                            paddingTop: 2,
-                            paddingBottom: 2,
+                          disabled={pipelineBusy || sidebarLoadBusy}
+                          aria-label={
+                            isPreloadedDemoUpload(u)
+                              ? `Remove ${u.originalName} from list`
+                              : `Delete ${u.originalName} from list and database`
+                          }
+                          title={
+                            isPreloadedDemoUpload(u)
+                              ? "Remove demo from list"
+                              : "Remove from list and delete saved analysis"
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void removeRfqFromSidebar(u);
                           }}
                         >
-                          <span
-                            className={`inline-flex items-center gap-1 font-semibold ${riskTextClasses(
-                              item.risk_score
-                            )}`}
-                          >
-                            Score {item.risk_score}
-                          </span>
-                        </div>
+                          <Trash2 className="size-3.5 mx-auto" />
+                        </button>
                       ) : null}
                     </div>
-                  </button>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
+          </div>
 
-            {sidebarOpen ? (
-              <Card className="m-1 bg-card/45 border-border">
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                    Historical Reference
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0 text-[12px] text-muted-foreground leading-relaxed space-y-3">
-                  <div className="font-mono text-[11px]">
-                    <span className="text-accent dark:text-accent/90">18 submitted projects</span>
-                  </div>
-                  <div className="font-mono text-[11px]">
-                    <span className="dark:text-emerald-200 text-emerald-700">14 Won</span>
-                    <span className="text-muted-foreground"> · </span>
-                    <span className="dark:text-red-200 text-red-700">4 Lost</span>
-                  </div>
-                  <div className="pt-1 font-mono text-[11px] text-muted-foreground">
-                    NorthBridge Automotive<br />
-                    <span className="text-[11px]">SPCC / SPHC / SPFC family</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : null}
+          <div
+            className={[
+              "shrink-0 border-t border-border bg-secondary/15",
+              sidebarOpen ? "p-2" : "p-1.5 flex justify-center",
+            ].join(" ")}
+          >
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className={[
+                "shadow-sm hover:bg-destructive/90",
+                sidebarOpen ? "w-full justify-center gap-2" : "h-8 w-8 p-0",
+              ].join(" ")}
+              aria-label="Log out"
+              title="Log out"
+              onClick={() => {
+                clearAuthSession();
+                router.push("/login");
+              }}
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              {sidebarOpen ? <span className="text-[12px] font-semibold">Log out</span> : null}
+            </Button>
           </div>
         </aside>
 
         <main className="flex-1 flex flex-col overflow-hidden">
-          <nav className="flex items-center gap-1 border-b border-border bg-secondary/20 px-2 py-1 overflow-x-auto flex-nowrap">
-            {(
-              [
-                { key: "overview", label: "Overview" },
-                { key: "documents", label: "Documents" },
-                { key: "parts", label: "Part Detail" },
-                { key: "gap", label: "Gap Analysis" },
-                { key: "quote", label: "Quote & Benchmark" },
-              ] as const
-            ).map((t) => {
-              const active = t.key === activeTab;
-              let pill: ReactNode = null;
-              if (t.key === "documents") {
-                pill = (
-                  <Badge
-                    variant="secondary"
-                    className={[
-                      "ml-2",
-                      docMissingCount ? "border-destructive/40 bg-red-500/10 dark:text-red-200 text-red-700" : "",
-                    ].join(" ")}
-                  >
-                    {tabMeta.docCountText}
-                  </Badge>
-                );
-              }
-              if (t.key === "gap") {
-                pill = (
-                  <Badge
-                    variant="secondary"
-                    className={[
-                      "ml-2",
-                      openHighGaps > 3
-                        ? "border-destructive/40 bg-orange-500/10 dark:text-orange-200 text-orange-700"
-                        : openHighGaps > 0
-                          ? "border-amber-400/35 bg-amber-400/10 dark:text-amber-200 text-amber-800"
-                          : "",
-                    ].join(" ")}
-                  >
-                    {tabMeta.gapCount} total
-                  </Badge>
-                );
-              }
-
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setActiveTab(t.key)}
-                  className={[
-                    "h-9 px-3 rounded-xl text-[13px] font-semibold transition whitespace-nowrap flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                    active ? "bg-card border border-accent/40 text-accent dark:text-accent/90" : "text-muted-foreground hover:text-foreground hover:bg-card/50",
-                  ].join(" ")}
-                >
-                  {t.label}
-                  {pill}
-                </button>
-              );
-            })}
-          </nav>
+          {!pipelineBusy ? (
+            <nav aria-label="Dashboard sections" className="flex flex-col">
+              <SortableRfqTabBar
+                tabOrder={tabOrder}
+                onTabOrderChange={setTabOrder}
+                activeTab={activeTab}
+                onTabSelect={setActiveTab}
+                docCountText={tabMeta.docCountText}
+                docMissingCount={docMissingCount}
+                gapCount={tabMeta.gapCount}
+                openHighGaps={openHighGaps}
+              />
+            </nav>
+          ) : null}
 
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            {pipelineBusy ? (
+              <div className="flex flex-col items-center justify-center min-h-[320px] gap-3 text-muted-foreground text-sm">
+                <div className="font-mono text-[12px]">Running demo pipeline…</div>
+                <div className="text-[11px] text-center max-w-sm">
+                  Parse → gap review → benchmark (simulated)
+                </div>
+              </div>
+            ) : activeTab === "catalog" ? (
+              <AllRfqsLibrary />
+            ) : !c ? (
+              <div className="max-w-xl mx-auto space-y-4 pt-4">
+                <Card className="border-border bg-card/50">
+                  <CardHeader className="p-5 pb-2">
+                    <CardTitle className="text-base font-semibold">No active session</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 pt-0 space-y-4 text-sm text-muted-foreground">
+                    <p>
+                      Open <span className="font-semibold text-foreground/90">All RFQs</span> for saved analyses, choose a
+                      file under <span className="font-semibold text-foreground/90">RFQ files</span>, or upload below.
+                    </p>
+                    {sessionNotice ? (
+                      <div
+                        className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-[12px] text-amber-900 dark:text-amber-200"
+                        role="status"
+                      >
+                        {sessionNotice}
+                      </div>
+                    ) : null}
+                    <RfqPackageUpload onUploaded={handleUploaded} />
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+            <>
             {activeTab === "overview" && (
               <div className="space-y-4">
+                {sessionNotice ? (
+                  <div
+                    className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-[12px] text-amber-900 dark:text-amber-200"
+                    role="status"
+                  >
+                    {sessionNotice}
+                  </div>
+                ) : null}
+                <RfqPackageUpload onUploaded={handleUploaded} />
                 <Card className="bg-card/45 border-border">
                   <CardContent className="p-5">
                     <div className="flex items-center gap-4">
@@ -643,11 +939,14 @@ export default function RFQAgentDashboard() {
                           Open Findings
                         </div>
                         <div className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
+                          {c.gap_findings.filter((f) => !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length} open ·{" "}
                           {c.gap_findings.length} total
                         </div>
                       </div>
 
-                      <div className="font-mono text-3xl font-semibold">{c.gap_findings.length}</div>
+                      <div className="font-mono text-3xl font-semibold">
+                        {c.gap_findings.filter((f) => !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length}
+                      </div>
 
                       <div className="flex flex-wrap gap-2">
                         {openCritGaps ? (
@@ -863,6 +1162,51 @@ export default function RFQAgentDashboard() {
                     </CardContent>
                   </Card>
                 </div>
+
+                <Card className="bg-card/45 border-border border-dashed">
+                  <CardHeader className="p-5 pb-3">
+                    <CardTitle className="text-[12px] tracking-wide font-semibold text-muted-foreground uppercase">
+                      Simulated pipeline output (reference)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 pt-0 space-y-4">
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Same payload shapes as the RFQ Agent dev kit: <span className="font-mono">POST /parse</span> and{" "}
+                      <span className="font-mono">POST /gap-review</span>. Values below match this session&apos;s bundled
+                      sample (default Case B or multi-item PDF when that file is loaded).
+                    </p>
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+                          Parse JSON
+                        </div>
+                        <pre className="text-[10px] font-mono leading-relaxed overflow-x-auto rounded-lg border border-border bg-background/40 p-3 max-h-[280px] overflow-y-auto">
+                          {JSON.stringify(
+                            session?.file.originalName && isMultiItemBundledSample(session.file.originalName)
+                              ? DEMO_MULTI_ITEM_PARSE_OUTPUT
+                              : DEMO_PARSE_OUTPUT,
+                            null,
+                            2,
+                          )}
+                        </pre>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+                          Gap review JSON
+                        </div>
+                        <pre className="text-[10px] font-mono leading-relaxed overflow-x-auto rounded-lg border border-border bg-background/40 p-3 max-h-[280px] overflow-y-auto">
+                          {JSON.stringify(
+                            session?.file.originalName && isMultiItemBundledSample(session.file.originalName)
+                              ? DEMO_MULTI_ITEM_GAP_OUTPUT
+                              : DEMO_GAP_OUTPUT,
+                            null,
+                            2,
+                          )}
+                        </pre>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
 
@@ -874,7 +1218,15 @@ export default function RFQAgentDashboard() {
                       Package Files — {c.docs.length} Documents
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-5 pt-0">
+                  <CardContent className="p-5 pt-0 space-y-3">
+                    {supplyDocError ? (
+                      <div
+                        role="alert"
+                        className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive"
+                      >
+                        {supplyDocError}
+                      </div>
+                    ) : null}
                     <Table className="text-[12px]">
                       <TableHeader>
                         <TableRow>
@@ -893,30 +1245,14 @@ export default function RFQAgentDashboard() {
                           <TableHead className="uppercase tracking-[0.08em] text-[11px] font-semibold">
                             Notes
                           </TableHead>
+                          <TableHead className="uppercase tracking-[0.08em] text-[11px] font-semibold w-[120px]">
+                            Supply
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {c.docs.map((d) => {
-                          const tagMap: Record<string, string> = {
-                            rfq: "RFQ Main",
-                            cost: "Cost Template",
-                            draw: "Drawing",
-                            pkg: "Packaging",
-                            test: "Test Spec",
-                            q: "Questionnaire",
-                          };
-                          const tagCls =
-                            d.type === "rfq"
-                              ? "border-primary/35 bg-primary/10 text-primary dark:border-primary/45 dark:bg-primary/6 dark:text-primary/90"
-                              : d.type === "cost"
-                                ? "border-amber-400/35 bg-amber-400/10 dark:text-amber-200 text-amber-800"
-                                : d.type === "draw"
-                                  ? "border-emerald-400/30 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700"
-                                  : d.type === "pkg"
-                                    ? "border-orange-500/30 bg-orange-500/10 dark:text-orange-200 text-orange-700"
-                                    : d.type === "test"
-                                      ? "border-cyan-500/30 bg-cyan-500/10 dark:text-cyan-200 text-cyan-800"
-                                      : "border-violet-500/30 bg-violet-500/10 dark:text-violet-200 text-violet-700";
+                          const tagCls = DOC_TYPE_BADGE_CLS[d.type];
 
                           const statusText =
                             d.status === "ok" ? "Parsed" : d.status === "miss" ? "Missing" : "Pending";
@@ -982,10 +1318,19 @@ export default function RFQAgentDashboard() {
                                   {d.status === "miss" ? "⚠ " : ""}
                                   {d.name}
                                 </div>
+                                {(() => {
+                                  const linked = c.gap_catalog?.filter((g) => g.doc_slot === d.name) ?? [];
+                                  if (linked.length === 0) return null;
+                                  return (
+                                    <div className="text-[10px] font-mono text-muted-foreground/85 mt-1 leading-tight">
+                                      Gap link: {linked.map((g) => g.rule).join(", ")}
+                                    </div>
+                                  );
+                                })()}
                               </TableCell>
                               <TableCell>
                                 <span className={["inline-flex rounded-md border px-2 py-1 text-[10px] font-mono", tagCls].join(" ")}>
-                                  {tagMap[d.type]}
+                                  {DOC_TYPE_LABEL[d.type]}
                                 </span>
                               </TableCell>
                               <TableCell>
@@ -996,6 +1341,41 @@ export default function RFQAgentDashboard() {
                               <TableCell>{confRow}</TableCell>
                               <TableCell className="text-muted-foreground text-[11px] leading-relaxed">
                                 {d.note}
+                              </TableCell>
+                              <TableCell className="align-middle">
+                                <>
+                                  <input
+                                    id={`${supplyInputBaseId}-${d.name.replace(/[^a-zA-Z0-9_-]/g, "_")}`}
+                                    type="file"
+                                    className="sr-only"
+                                    accept=".pdf,.xlsx,.xls,.doc,.docx,.txt,.png,.jpg,.jpeg"
+                                    disabled={supplyDocBusySlot !== null}
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      e.target.value = "";
+                                      if (f) void handleSupplyMissingDoc(d.name, f);
+                                    }}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-[11px]"
+                                    disabled={supplyDocBusySlot !== null}
+                                    onClick={() => {
+                                      const el = document.getElementById(
+                                        `${supplyInputBaseId}-${d.name.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+                                      ) as HTMLInputElement | null;
+                                      el?.click();
+                                    }}
+                                  >
+                                    {supplyDocBusySlot === d.name
+                                      ? "Uploading…"
+                                      : d.status === "ok"
+                                        ? "Replace"
+                                        : "Upload"}
+                                  </Button>
+                                </>
                               </TableCell>
                             </TableRow>
                           );
@@ -1173,37 +1553,65 @@ export default function RFQAgentDashboard() {
               <div className="space-y-4">
                 <Card className="bg-card/50 border-border">
                   <CardContent className="p-5 space-y-4">
+                    {supplyDocError ? (
+                      <div
+                        role="alert"
+                        className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive"
+                      >
+                        {supplyDocError}
+                      </div>
+                    ) : null}
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div className="text-[11px] font-semibold tracking-[0.12em] uppercase text-muted-foreground">
                         Gap Analysis
                       </div>
-                      <div className="text-[12px] text-muted-foreground font-mono">
-                        {c.gap_findings.length} findings
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="text-[12px] text-muted-foreground font-mono">
+                          {c.gap_findings.filter((f) => !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length} open ·{" "}
+                          {c.gap_findings.length} total
+                        </div>
+                        <Button type="button" variant="outline" size="sm" className="h-8 text-[11px]" onClick={() => setActiveTab("documents")}>
+                          Documents & upload
+                        </Button>
                       </div>
                     </div>
 
                     <div className="flex gap-3 flex-wrap">
                       <SeverityPill
                         sev="critical"
-                        count={c.gap_findings.filter((f) => f.sev === "critical").length}
+                        count={
+                          c.gap_findings.filter(
+                            (f) => f.sev === "critical" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule]),
+                          ).length
+                        }
                         active={gapFilter === "sev-critical"}
                         onClick={() => setGapFilter("sev-critical")}
                       />
                       <SeverityPill
                         sev="high"
-                        count={c.gap_findings.filter((f) => f.sev === "high").length}
+                        count={
+                          c.gap_findings.filter((f) => f.sev === "high" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule]))
+                            .length
+                        }
                         active={gapFilter === "sev-high"}
                         onClick={() => setGapFilter("sev-high")}
                       />
                       <SeverityPill
                         sev="medium"
-                        count={c.gap_findings.filter((f) => f.sev === "medium").length}
+                        count={
+                          c.gap_findings.filter(
+                            (f) => f.sev === "medium" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule]),
+                          ).length
+                        }
                         active={gapFilter === "sev-medium"}
                         onClick={() => setGapFilter("sev-medium")}
                       />
                       <SeverityPill
                         sev="low"
-                        count={c.gap_findings.filter((f) => f.sev === "low").length}
+                        count={
+                          c.gap_findings.filter((f) => f.sev === "low" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule]))
+                            .length
+                        }
                         active={gapFilter === "sev-low"}
                         onClick={() => setGapFilter("sev-low")}
                       />
@@ -1238,7 +1646,13 @@ export default function RFQAgentDashboard() {
                           onClick={() => setGapFilter("sev-high")}
                           className={filterButtonCls(gapFilter === "sev-high")}
                         >
-                          High ({c.gap_findings.filter((f) => f.sev === "high").length})
+                          High (
+                          {
+                            c.gap_findings.filter(
+                              (f) => f.sev === "high" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule]),
+                            ).length
+                          }
+                          )
                         </button>
                       ) : null}
                       {c.gap_findings.some((f) => f.sev === "medium") ? (
@@ -1247,7 +1661,13 @@ export default function RFQAgentDashboard() {
                           onClick={() => setGapFilter("sev-medium")}
                           className={filterButtonCls(gapFilter === "sev-medium")}
                         >
-                          Medium ({c.gap_findings.filter((f) => f.sev === "medium").length})
+                          Medium (
+                          {
+                            c.gap_findings.filter(
+                              (f) => f.sev === "medium" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule]),
+                            ).length
+                          }
+                          )
                         </button>
                       ) : null}
                       {c.gap_findings.some((f) => f.sev === "low") ? (
@@ -1256,7 +1676,13 @@ export default function RFQAgentDashboard() {
                           onClick={() => setGapFilter("sev-low")}
                           className={filterButtonCls(gapFilter === "sev-low")}
                         >
-                          Low ({c.gap_findings.filter((f) => f.sev === "low").length})
+                          Low (
+                          {
+                            c.gap_findings.filter(
+                              (f) => f.sev === "low" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule]),
+                            ).length
+                          }
+                          )
                         </button>
                       ) : null}
 
@@ -1280,6 +1706,13 @@ export default function RFQAgentDashboard() {
                       ) : (
                         gapFindingsFiltered.map((f) => {
                           const expanded = !!expandedRule[f.rule];
+                          const wf = c.gap_workflow?.[f.rule] ?? "open";
+                          const closed = isGapWorkflowClosed(wf);
+                          const supplySlot = gapFindingUploadSlot(c, f) ?? gapRuleSupplySlotLegacy(c, f.rule);
+                          const supplySlotDoc = supplySlot ? c.docs.find((d) => d.name === supplySlot) : undefined;
+                          const supplyLabel =
+                            supplySlotDoc?.status === "ok" ? "Replace" : supplySlot ? "Upload" : null;
+
                           const sevColor =
                             f.sev === "critical"
                               ? "bg-red-500"
@@ -1306,6 +1739,7 @@ export default function RFQAgentDashboard() {
                                 expanded
                                   ? "ring-1 ring-accent/60"
                                   : "hover:bg-card/35 hover:border-accent/30",
+                                closed ? "opacity-75 border-emerald-500/20 bg-emerald-500/[0.03]" : "",
                               ].join(" ")}
                             >
                               <button
@@ -1313,12 +1747,20 @@ export default function RFQAgentDashboard() {
                                 onClick={() => toggleExpanded(f.rule)}
                                 className="w-full text-left focus-visible:outline-none"
                               >
-                                <div className="p-4 grid grid-cols-[180px_1fr_170px] items-start gap-3">
+                                <div className="p-4 grid grid-cols-1 sm:grid-cols-[minmax(0,180px)_1fr_minmax(0,320px)] items-start gap-3">
                                   <div className="flex items-start gap-3">
                                     <div className={["mt-2 w-2.5 h-2.5 rounded-full shadow-sm", sevColor].join(" ")} />
                                     <div className="font-mono text-[10px] text-muted-foreground border border-border bg-background/20 rounded-md px-2 py-0.5 whitespace-nowrap">
                                       {f.rule}
                                     </div>
+                                    {f.doc_slot ? (
+                                      <div
+                                        className="font-mono text-[9px] text-muted-foreground/80 mt-1 max-w-[160px] truncate"
+                                        title={f.doc_slot}
+                                      >
+                                        Doc: {f.doc_slot}
+                                      </div>
+                                    ) : null}
                                   </div>
 
                                   <div className="min-w-0">
@@ -1347,7 +1789,40 @@ export default function RFQAgentDashboard() {
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center justify-end gap-2">
+                                  <div className="flex flex-wrap items-center justify-end gap-2">
+                                    {supplySlot && supplyLabel ? (
+                                      <>
+                                        <input
+                                          id={`${supplyInputBaseId}-gap-${f.rule.replace(/[^a-zA-Z0-9_-]/g, "_")}`}
+                                          type="file"
+                                          className="sr-only"
+                                          accept=".pdf,.xlsx,.xls,.doc,.docx,.txt,.png,.jpg,.jpeg"
+                                          disabled={supplyDocBusySlot !== null}
+                                          onClick={(e) => e.stopPropagation()}
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            e.target.value = "";
+                                            if (file) void handleSupplyMissingDoc(supplySlot, file);
+                                          }}
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-8 text-[11px]"
+                                          disabled={supplyDocBusySlot !== null}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const el = document.getElementById(
+                                              `${supplyInputBaseId}-gap-${f.rule.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+                                            ) as HTMLInputElement | null;
+                                            el?.click();
+                                          }}
+                                        >
+                                          {supplyDocBusySlot === supplySlot ? "Uploading…" : supplyLabel}
+                                        </Button>
+                                      </>
+                                    ) : null}
                                     <div
                                       className={[
                                         "rounded-lg border px-2 py-1 text-[11px] font-mono",
@@ -1358,15 +1833,28 @@ export default function RFQAgentDashboard() {
                                       {f.sev.toUpperCase()}
                                     </div>
                                     <select
-                                      className="h-8 rounded-lg border border-border bg-background/25 px-2 text-[11px] font-mono text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                      className="h-8 rounded-lg border border-border bg-background/25 px-2 text-[11px] font-mono text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background max-w-[140px]"
+                                      value={wf}
                                       onClick={(e) => e.stopPropagation()}
-                                      onChange={() => {}}
-                                      defaultValue="Open"
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        const v = e.target.value as GapWorkflowStatus;
+                                        setSession((prev) => {
+                                          if (!prev?.caseData) return prev;
+                                          return {
+                                            ...prev,
+                                            caseData: {
+                                              ...prev.caseData,
+                                              gap_workflow: { ...prev.caseData.gap_workflow, [f.rule]: v },
+                                            },
+                                          };
+                                        });
+                                      }}
                                     >
-                                      <option>Open</option>
-                                      <option>In Review</option>
-                                      <option>Resolved</option>
-                                      <option>Accepted Risk</option>
+                                      <option value="open">Open</option>
+                                      <option value="in_review">In Review</option>
+                                      <option value="resolved">Resolved</option>
+                                      <option value="accepted_risk">Accepted Risk</option>
                                     </select>
                                   </div>
                                 </div>
@@ -1600,9 +2088,9 @@ export default function RFQAgentDashboard() {
                                 Risk Flag
                               </div>
                               <div className="mt-1">
-                                {c.id === "B"
+                                {c.completeness === "incomplete"
                                   ? "Quote release is blocked — missing packaging spec and test standard must be resolved first. Benchmark data is reference only."
-                                  : "Multiple cost gaps detected across packaging, logistics, and PPAP L5. Corrected costs are higher than the current template. Management review required before submission."}
+                                  : "Multiple cost gaps detected across packaging, logistics, and PPAP. Management review may be required before submission."}
                               </div>
                             </div>
                           ) : null}
@@ -1612,6 +2100,8 @@ export default function RFQAgentDashboard() {
                   </CardContent>
                 </Card>
               </div>
+            )}
+            </>
             )}
           </div>
         </main>
@@ -1892,7 +2382,7 @@ function CostBreakdownBars({ c }: { c: CaseData }) {
 }
 
 function HistoricalBenchmark({ c }: { c: CaseData }) {
-  const histMatched = HISTORICAL.filter((h) => c.quote.hist_match.includes(h.id)).slice(0, 3);
+  const histMatched = c.historical_benchmark.filter((h) => c.quote.hist_match.includes(h.id)).slice(0, 3);
   const [lo, hi] = c.quote.hist_price_band;
   const [tlo, thi] = c.quote.hist_tooling_band;
   const l = c.quote.lines[0];

@@ -1,0 +1,6 @@
+{
+  "case_id": "case_C",
+  "rfq_package_path": "./current_rfq_case_C_high_risk",
+  "historical_dataset": "./historical_data/Historical_RFQ_Submissions.xlsx",
+  "mode": "parse_and_gap_review"
+}

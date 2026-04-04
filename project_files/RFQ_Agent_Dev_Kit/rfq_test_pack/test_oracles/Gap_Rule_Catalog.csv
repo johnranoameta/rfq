@@ -1,0 +1,29 @@
+rule_code,rule_name,category,severity,logic_summary,recommended_action
+RULE_001,missing_packaging_spec,completeness,High,Packaging specification referenced but file not included,Block final review until attachment is provided or packaging assumption is documented
+RULE_002,missing_test_standard,completeness,High,DV/PV or customer test standard referenced but missing,Escalate to customer or estimate contingency
+RULE_003,ppap_level_above_history,quality,High,PPAP level above similar historical family baseline,"Add PPAP labor, run-at-rate, and documentation cost"
+RULE_004,general_tolerance_tighter_than_history,technical,High,Tolerance tighter than similar family average,Review process capability and scrap contingency
+RULE_005,critical_tolerance_extreme,technical,High,Critical feature tolerance at or below 0.03 mm,Request feasibility review before quoting
+RULE_006,material_strength_upgrade,technical,Medium,Material grade materially higher than historical family,"Check die wear, springback, and cycle impact"
+RULE_007,supplier_funded_gauges,quality,High,Supplier must fund gauges/check fixtures,Separate tooling and amortization line
+RULE_008,appearance_inspection_100pct,quality,High,100 percent appearance inspection required,Add inspection labor and camera or manual station cost
+RULE_009,payment_term_extended,commercial,Medium,Payment term exceeds historical norm,Review financing impact and approval
+RULE_010,annual_reduction_above_baseline,commercial,Medium,Annual price down exceeds historical norm,Model margin erosion by year
+RULE_011,ddp_or_supplier_managed_freight,commercial,High,DDP or supplier-managed freight required,"Add freight, customs, and volatility buffer"
+RULE_012,returnable_packaging_required,logistics,Medium,Returnable rack or special container required,Quote packaging investment and cycle loss
+RULE_013,premium_freight_not_recoverable,commercial,Medium,Premium freight recovery excluded,Add launch buffer or negotiate exception
+RULE_014,tooling_not_customer_owned,commercial,Low,Tooling ownership unclear or supplier-owned,Clarify depreciation and asset recovery
+RULE_015,surface_finish_special,technical,Medium,Special surface or burr requirements below family norm,Review secondary operation cost
+RULE_016,cpk_target_above_norm,quality,Medium,Cpk target above family baseline,Assess extra process controls
+RULE_017,run_at_rate_required,quality,Medium,Run at rate required beyond normal PPAP,Add machine and labor trial cost
+RULE_018,annual_revalidation_required,quality,Low,Annual revalidation or corrosion retention required,Add recurring quality cost
+RULE_019,packaging_cost_line_missing_in_quote,quote,High,No explicit packaging cost in template,Prevent release until cost assumption exists
+RULE_020,quality_cost_line_missing_in_quote,quote,High,No explicit quality cost in template,Prevent release until PPAP/inspection cost exists
+RULE_021,freight_cost_line_missing_in_quote,quote,High,No freight line in quote despite non-standard incoterm,Prevent release until freight assumption exists
+RULE_022,volume_outside_historical_range,benchmark,Medium,Volume materially different from historical range,"Recalculate labor, automation, and amortization assumptions"
+RULE_023,piece_price_below_historical_low,benchmark,High,Quoted price below historical low band,Trigger management review for underquote risk
+RULE_024,piece_price_above_historical_high,benchmark,Low,Quoted price above historical high band,Commercial competitiveness risk
+RULE_025,scrap_rate_not_defined,quote,Medium,Scrap or material utilization assumption missing,Require manufacturing estimate
+RULE_026,tooling_cost_not_defined,quote,High,Tooling cost field blank,Prevent submission
+RULE_027,appearance_approval_required,quality,Medium,Appearance approval required prior to PPAP,Add sample timing and approval risk
+RULE_028,customer_spec_reference_unresolved,completeness,Medium,Spec number referenced but file not found,Create clarification tracker
