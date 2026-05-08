@@ -38,9 +38,9 @@ const TAB_LABELS: Record<DashboardTabKey, string> = {
   catalog: "All RFQs",
   overview: "Overview",
   documents: "Documents",
-  parts: "Part Detail",
-  gap: "Gap Analysis",
-  quote: "Quote & Benchmark",
+  parts: "Line Items & Match",
+  gap: "Gaps & Actions",
+  quote: "Quote & History",
 };
 
 function isTabKey(v: string): v is DashboardTabKey {

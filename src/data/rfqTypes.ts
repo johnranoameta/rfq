@@ -38,6 +38,30 @@ export type HistoricalEntry = {
   award: HistoricalAward;
 };
 
+export type ItemHistoricalComparison = {
+  item_index: number;
+  item_label: string;
+  part_name: string | null;
+  matches: Array<{
+    project_id: string;
+    score: number;
+    similarity_0_1?: number;
+    exact_part_number?: boolean;
+    reasons: string[];
+    record: {
+      rfq: {
+        part_name: string;
+        part_number: string;
+        material: string;
+        process: string;
+      };
+      quote_result: {
+        quoted_piece_price_usd: number;
+      };
+    };
+  }>;
+};
+
 export type DocEntry = {
   name: string;
   type: DocType;
@@ -142,4 +166,5 @@ export type CaseData = {
   gap_workflow?: Partial<Record<string, GapWorkflowStatus>>;
   quote: Quote;
   historical_benchmark: HistoricalEntry[];
+  item_historical_comparison?: ItemHistoricalComparison[];
 };

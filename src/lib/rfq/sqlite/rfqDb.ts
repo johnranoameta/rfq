@@ -49,6 +49,53 @@ function ensurePackSchema(db: Database.Database): void {
   }
 }
 
+const HISTORICAL_GAP_FINDINGS_DDL = `
+CREATE TABLE IF NOT EXISTS historical_gap_findings (
+  project_id TEXT NOT NULL,
+  issue_code TEXT NOT NULL,
+  issue_summary TEXT NOT NULL,
+  resolved_in_final_quote INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  PRIMARY KEY (project_id, issue_code)
+);`;
+
+function ensureHistoricalGapFindingsTable(db: Database.Database): void {
+  if (!tableExists(db, "historical_gap_findings")) {
+    db.exec(HISTORICAL_GAP_FINDINGS_DDL);
+  }
+}
+
+const KB_UPLOADED_RFQS_DDL = `
+CREATE TABLE IF NOT EXISTS kb_uploaded_rfqs (
+  session_id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  record_json TEXT NOT NULL,
+  original_filename TEXT NOT NULL,
+  source TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_kb_uploaded_project ON kb_uploaded_rfqs(project_id);
+`;
+
+function ensureKbUploadedRfqsTable(db: Database.Database): void {
+  if (!tableExists(db, "kb_uploaded_rfqs")) {
+    db.exec(KB_UPLOADED_RFQS_DDL);
+  }
+}
+
+const MATCH_SETTINGS_DDL = `
+CREATE TABLE IF NOT EXISTS rfq_match_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  config_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);`;
+
+function ensureMatchSettingsTable(db: Database.Database): void {
+  if (!tableExists(db, "rfq_match_settings")) {
+    db.exec(MATCH_SETTINGS_DDL);
+  }
+}
+
 export function getRfqDatabasePath(): string {
   const fromEnv = process.env.RFQ_DATABASE_PATH?.trim();
   if (fromEnv) return fromEnv;
@@ -67,5 +114,8 @@ export function getRfqDb(): Database.Database {
   dbSingleton.pragma("journal_mode = WAL");
   dbSingleton.pragma("foreign_keys = ON");
   ensurePackSchema(dbSingleton);
+  ensureHistoricalGapFindingsTable(dbSingleton);
+  ensureKbUploadedRfqsTable(dbSingleton);
+  ensureMatchSettingsTable(dbSingleton);
   return dbSingleton;
 }

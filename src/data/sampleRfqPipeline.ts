@@ -133,7 +133,7 @@ export const DEMO_MULTI_ITEM_GAP_OUTPUT = {
   risk_score: 58,
   completeness_status: "fail",
   missing_attachments: ["Packaging_Spec_MQU.pdf"],
-  triggered_rules: ["RULE_001", "RULE_002", "RULE_029", "RULE_028"],
+  triggered_rules: ["RULE_001", "RULE_002", "RULE_029", "RULE_028", "RULE_UX_TECH_MQU", "RULE_UX_COMM_GATE"],
   summary:
     "Multi-line RFQ package: packaging specification not received; DV/PV test plan requested under separate cover. " +
     "Commercial workbook attached under an interim filename — verify against Consolidated_Cost_Template_MQU-8842_RevB.xlsx before award.",
@@ -141,6 +141,8 @@ export const DEMO_MULTI_ITEM_GAP_OUTPUT = {
     "Request Packaging_Spec_MQU.pdf or document packaging assumptions with buyer sign-off.",
     "Follow up on DV_PV_Test_NB-QA-118.pdf before locking validation cost.",
     "Replace or formally accept RFQ-Commercial_Workbook_MQU_v3.xlsx vs. required Consolidated_Cost_Template_MQU-8842_RevB.xlsx.",
+    "Complete technical baseline review (tolerances, mat spec, SOP stack-up) per TECHNICAL REQUIREMENTS section.",
+    "Run commercial gate checklist (incoterms, payment, tooling amortization, quote validity) per COMMERCIAL TERMS section.",
   ],
 } as const;
 
@@ -279,6 +281,29 @@ const DEMO_MULTI_ITEM_GAP_FINDINGS: GapFinding[] = [
     evidence: "RFQ body + checklist reference NB-QA-118",
     action: "Track as formal clarification until file is received.",
     doc_slot: "DV_PV_Test_NB-QA-118.pdf",
+  },
+  {
+    rule: "RULE_UX_TECH_MQU",
+    sev: "medium",
+    cat: "technical",
+    title: "Technical baseline — line stack-up vs. controlled specs",
+    detail:
+      "Cross-check line-item tolerances, material callouts (incl. NB-MAT-SPEC-MQU-TS-014), SOP timing, and DV/PV hooks against the TECHNICAL REQUIREMENTS block in the master RFQ before engineering sign-off.",
+    impact: "Scrap, rework, or PPAP timing risk if CTQs drift from RFQ",
+    evidence: "RFQ sections: Line schedule + TECHNICAL REQUIREMENTS (Category: Technical)",
+    action:
+      "Engineering review: drawing Rev, heat treat / finish stack-up, inspection sampling vs. buyer CTQs; document assumptions.",
+  },
+  {
+    rule: "RULE_UX_COMM_GATE",
+    sev: "medium",
+    cat: "commercial",
+    title: "Commercial gate — terms match RFQ cover and template path",
+    detail:
+      "Confirm incoterms, payment terms, annual price-down, tooling amortization, and quote validity against the COMMERCIAL TERMS section and buyer standard PO language before binding submission.",
+    impact: "Margin or cash-flow exposure if award terms differ from quote assumptions",
+    evidence: "RFQ sections: COMMERCIAL TERMS (Category: Commercial) + controlled cost template rule",
+    action: "Commercial sign-off on checklist; align with Consolidated_Cost_Template_MQU-8842_RevB.xlsx at award.",
   },
 ];
 

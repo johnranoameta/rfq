@@ -311,5 +311,30 @@ export function buildCaseDataFromPersisted(
     gap_workflow: {},
     quote: estimateQuote(parsed, matches, gap),
     historical_benchmark: matchesToHistoricalEntries(matches),
+    item_historical_comparison: Array.isArray(row.historical.per_item_matches)
+      ? row.historical.per_item_matches.map((rowItem) => ({
+          item_index: rowItem.item_index,
+          item_label: rowItem.item_label,
+          part_name: rowItem.part_name,
+          matches: rowItem.matches.map((m) => ({
+            project_id: m.project_id,
+            score: m.score,
+            similarity_0_1: m.similarity_0_1,
+            exact_part_number: m.exact_part_number,
+            reasons: m.reasons,
+            record: {
+              rfq: {
+                part_name: m.record.rfq.part_name,
+                part_number: m.record.rfq.part_number,
+                material: m.record.rfq.material,
+                process: m.record.rfq.process,
+              },
+              quote_result: {
+                quoted_piece_price_usd: m.record.quote_result.quoted_piece_price_usd,
+              },
+            },
+          })),
+        }))
+      : undefined,
   };
 }

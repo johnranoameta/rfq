@@ -110,22 +110,46 @@ async function main() {
   page.drawLine({ start: { x: m, y }, end: { x: W - m, y }, thickness: 0.5, color: rgb(0.8, 0.81, 0.85) });
   y -= 16;
 
-  const commercial = [
-    "COMMERCIAL & QUALITY (apply to all lines unless line-specific note)",
+  const technicalSection = [
+    "TECHNICAL REQUIREMENTS  (Category: Technical)",
+    "General tolerance: per applicable drawing Rev; no looser than schedule header unless buyer approves in writing.",
+    "Material / process: grades and coil direction per NB-MAT-SPEC-MQU-TS-014; welding/staking only where drawing allows.",
+    "Surface & deburr: oil-free, e-coat compatible; no visible edge burrs on Class A handling surfaces after deburr op.",
+    "Engineering changes: acknowledge latest drawing Rev within 2 business days of NorthBridge transmittal.",
+    "PPAP: Level 3 for all lines; appearance sample approval required prior to PPAP submission (see CSR).",
+    "Validation: DV/PV scope per DV_PV_Test_NB-QA-118.pdf when issued; supplier to align timing with SOP.",
+  ];
+  for (const line of technicalSection) {
+    if (y < m + 55) {
+      page = pdfDoc.addPage([W, H]);
+      y = H - m;
+    }
+    const bold = line.startsWith("TECHNICAL");
+    page.drawText(line, { x: m, y, size: bold ? 10 : 9, font: bold ? fontBold : font, color: rgb(0.1, 0.14, 0.18) });
+    y -= bold ? 16 : 12;
+  }
+
+  y -= 10;
+  page.drawLine({ start: { x: m, y }, end: { x: W - m, y }, thickness: 0.5, color: rgb(0.8, 0.81, 0.85) });
+  y -= 14;
+
+  const commercialSection = [
+    "COMMERCIAL TERMS  (Category: Commercial)",
     "Incoterm: FOB Shanghai",
     "Payment terms: Net 75",
     "Annual price reduction: 2.0% after year 1",
-    "PPAP level: Level 3 (all lines)",
-    "Logistics: returnable packaging preferred; rack drawings to be supplied by buyer where applicable.",
+    "Quote currency: USD; valid through date on cover unless withdrawn earlier in writing.",
+    "Tooling: amortize per NorthBridge tooling schedule in controlled template; no tooling ship without PO release.",
+    "Logistics: returnable packaging preferred; rack drawings supplied by buyer where applicable.",
   ];
-  for (const line of commercial) {
-    if (y < m + 60) {
+  for (const line of commercialSection) {
+    if (y < m + 55) {
       page = pdfDoc.addPage([W, H]);
       y = H - m;
     }
     const bold = line.startsWith("COMMERCIAL");
-    page.drawText(line, { x: m, y, size: bold ? 10 : 9, font: bold ? fontBold : font, color: rgb(0.12, 0.14, 0.18) });
-    y -= bold ? 16 : 13;
+    page.drawText(line, { x: m, y, size: bold ? 10 : 9, font: bold ? fontBold : font, color: rgb(0.14, 0.1, 0.12) });
+    y -= bold ? 16 : 12;
   }
 
   y -= 8;
@@ -163,14 +187,14 @@ async function main() {
   y -= 14;
 
   const checklist = [
-    "[x] Sample_Multi_Item_RFQ.pdf  (RFQ / master schedule)  THIS DOCUMENT",
-    "[x] NB-RF-3100_drawing_RevB.pdf  (Drawing, line 1)",
-    "[x] NB-MAT-SPEC-MQU-TS-014.pdf  (Tech / material specification)",
+    "[x] Sample_Multi_Item_RFQ.pdf  (RFQ main)",
+    "[x] NB-RF-3100_drawing_RevB.pdf  [Technical]  Drawing line 1",
+    "[x] NB-MAT-SPEC-MQU-TS-014.pdf  [Technical]  Material / process specification",
     "[x] NorthBridge_CSR_IATF_2026_Supplier_Manual.pdf  (Quality / CSR)",
-    "[x] RFQ-Commercial_Workbook_MQU_v3.xlsx  (Commercial / cost  INTERIM  see Rev B template above)",
+    "[x] RFQ-Commercial_Workbook_MQU_v3.xlsx  [Commercial]  Cost workbook  INTERIM  see Rev B template",
     "[x] Supplier_NDA_2025.pdf  (NDA)",
-    "[ ] Packaging_Spec_MQU.pdf  (Packaging)  REQUIRED  NOT ATTACHED",
-    "[ ] DV_PV_Test_NB-QA-118.pdf  (Test spec)  REQUESTED  separate transmittal",
+    "[ ] Packaging_Spec_MQU.pdf  [Commercial/Logistics]  REQUIRED  NOT ATTACHED",
+    "[ ] DV_PV_Test_NB-QA-118.pdf  [Technical]  Test spec  REQUESTED  separate transmittal",
   ];
   for (const line of checklist) {
     if (y < m + 40) {

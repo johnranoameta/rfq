@@ -29,7 +29,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       meta: {
-        source: "project_files/RFQ_Agent_Test_Files_Pack/historical_data",
+        projectsSource: bundle.projectsSource,
+        gapSource: bundle.gapSource,
         candidatePool: bundle.projects.length,
         returned: matches.length,
       },

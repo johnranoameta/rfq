@@ -40,4 +40,8 @@ export type HistoricalKnowledgeBundle = {
   sourceDir: string;
   projects: HistoricalProjectRecord[];
   gapFindings: HistoricalGapRecord[];
+  /** Primary store for ranked historical RFQs (`rfq_projects` + quotes). */
+  projectsSource: "sqlite" | "jsonl";
+  /** Primary store for gap issue rows (`historical_gap_findings` table or CSV file). */
+  gapSource: "sqlite" | "csv";
 };

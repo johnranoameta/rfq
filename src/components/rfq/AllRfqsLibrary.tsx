@@ -45,6 +45,16 @@ type SeedProjectRow = {
 
 type CatalogResponse = {
   upload_analyses: UploadAnalysisSummary[];
+  historical_uploads: Array<{
+    session_id: string;
+    project_id: string;
+    original_filename: string;
+    source: string;
+    customer: string;
+    program: string;
+    part_number: string;
+    created_at: string;
+  }>;
   seed_projects: SeedProjectRow[];
   error?: string;
 };
@@ -63,6 +73,26 @@ export function AllRfqsLibrary() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [histUploadBusy, setHistUploadBusy] = useState(false);
+  const [histUploadError, setHistUploadError] = useState<string | null>(null);
+  const [histDeletingProjectId, setHistDeletingProjectId] = useState<string | null>(null);
+
+  function displayRfqId(id: string): string {
+    const m = id.match(/^H(\d+)$/i);
+    if (!m) return id;
+    return `RFQ-SEAT-HIST-${m[1]!.padStart(3, "0")}`;
+  }
+
+  function uploadMatchId(u: UploadAnalysisSummary): string {
+    const ref = (u.rfq_reference ?? "").trim();
+    if (ref) return ref;
+    return `U-${u.session_id.replace(/-/g, "").slice(0, 12)}`;
+  }
+
+  function seedMatchId(rfqId: number): string {
+    return displayRfqId(`H${String(rfqId).padStart(3, "0")}`);
+  }
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
@@ -111,6 +141,47 @@ export function AllRfqsLibrary() {
       window.alert(e instanceof Error ? e.message : "Delete failed");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function uploadHistoricalFile(file: File) {
+    setHistUploadError(null);
+    setHistUploadBusy(true);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const res = await fetch("/api/rfq/database/historical", {
+        method: "POST",
+        body,
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; inserted?: number };
+      if (!res.ok) {
+        throw new Error(json.error || `Upload failed (${res.status})`);
+      }
+      await loadCatalog();
+    } catch (e) {
+      setHistUploadError(e instanceof Error ? e.message : "Historical upload failed");
+    } finally {
+      setHistUploadBusy(false);
+    }
+  }
+
+  async function deleteHistoricalProject(projectId: string) {
+    if (!window.confirm(`Delete historical record "${projectId}"?`)) return;
+    setHistDeletingProjectId(projectId);
+    try {
+      const res = await fetch(`/api/rfq/database/historical/${encodeURIComponent(projectId)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok && res.status !== 404) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error || `Delete failed (${res.status})`);
+      }
+      await loadCatalog();
+    } catch (e) {
+      setHistUploadError(e instanceof Error ? e.message : "Historical delete failed");
+    } finally {
+      setHistDeletingProjectId(null);
     }
   }
 
@@ -166,7 +237,48 @@ export function AllRfqsLibrary() {
   }
 
   const uploads = data?.upload_analyses ?? [];
+  const historicalUploads = data?.historical_uploads ?? [];
   const seeds = data?.seed_projects ?? [];
+  const q = search.trim().toLowerCase();
+  const filteredUploads =
+    q.length === 0
+      ? uploads
+      : uploads.filter((u) => {
+          const tokens = [
+            u.session_id,
+            uploadMatchId(u),
+            u.upload_id,
+            u.original_filename,
+            u.customer_name ?? "",
+            u.program_name ?? "",
+            u.part_number ?? "",
+            u.rfq_reference ?? "",
+          ];
+          return tokens.some((t) => t.toLowerCase().includes(q));
+        });
+  const filteredSeeds =
+    q.length === 0
+      ? seeds
+      : seeds.filter((s) => {
+          const tokens = [
+            String(s.rfq_id),
+            seedMatchId(s.rfq_id),
+            s.customer_name,
+            s.program_name,
+            s.part_name,
+            s.part_number,
+            s.process_family,
+            s.rfq_case_code ?? "",
+          ];
+          return tokens.some((t) => t.toLowerCase().includes(q));
+        });
+  const filteredHistoricalUploads =
+    q.length === 0
+      ? historicalUploads
+      : historicalUploads.filter((h) => {
+          const tokens = [h.project_id, h.original_filename, h.customer, h.program, h.part_number, h.source];
+          return tokens.some((t) => t.toLowerCase().includes(q));
+        });
 
   return (
     <div className="space-y-6 max-w-[1200px]">
@@ -174,9 +286,18 @@ export function AllRfqsLibrary() {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">All RFQs</h2>
         </div>
-        <Button type="button" size="sm" variant="outline" onClick={() => void loadCatalog()}>
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by ID (U-/H-), file, part, program"
+            className="h-8 w-[320px] rounded-md border border-border bg-background px-2 text-[12px]"
+          />
+          <Button type="button" size="sm" variant="outline" onClick={() => void loadCatalog()}>
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <Card className="border-border bg-card/50">
@@ -186,14 +307,17 @@ export function AllRfqsLibrary() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {uploads.length === 0 ? (
+          {filteredUploads.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">
-              No persisted analyses yet. Upload a PDF and wait for parse + gap analysis to finish.
+              {uploads.length === 0
+                ? "No persisted analyses yet. Upload a 4-tab workbook (.xlsx/.xls) and wait for parse + gap analysis to finish."
+                : "No uploaded analyses match your search."}
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="text-[11px] uppercase">Match ID</TableHead>
                   <TableHead className="text-[11px] uppercase">File</TableHead>
                   <TableHead className="text-[11px] uppercase">Customer / program</TableHead>
                   <TableHead className="text-[11px] uppercase">Part</TableHead>
@@ -205,8 +329,9 @@ export function AllRfqsLibrary() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {uploads.map((u) => (
+                {filteredUploads.map((u) => (
                   <TableRow key={u.session_id} className="hover:bg-muted/20">
+                    <TableCell className="font-mono text-[11px]">{uploadMatchId(u)}</TableCell>
                     <TableCell className="font-mono text-[11px] max-w-[200px] truncate" title={u.original_filename}>
                       {u.original_filename}
                     </TableCell>
@@ -249,6 +374,94 @@ export function AllRfqsLibrary() {
                         disabled={deletingId === u.session_id}
                         aria-label={`Delete ${u.original_filename}`}
                         onClick={() => void deletePersistedSession(u.session_id, u.original_filename)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border bg-card/50">
+        <CardHeader className="p-4 pb-2 border-b border-border">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-[12px] uppercase tracking-wide font-semibold text-muted-foreground">
+              Historical uploads (managed)
+            </CardTitle>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="file"
+                className="sr-only"
+                accept=".jsonl,.json,application/json,text/plain"
+                disabled={histUploadBusy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) void uploadHistoricalFile(f);
+                }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={histUploadBusy}
+                onClick={(e) => {
+                  const input = (e.currentTarget.previousElementSibling as HTMLInputElement | null);
+                  input?.click();
+                }}
+              >
+                {histUploadBusy ? "Uploading…" : "Upload historical (.jsonl/.json)"}
+              </Button>
+            </label>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {histUploadError ? (
+            <div className="p-3 text-[12px] text-destructive border-b border-border">{histUploadError}</div>
+          ) : null}
+          {filteredHistoricalUploads.length === 0 ? (
+            <p className="p-4 text-sm text-muted-foreground">
+              {historicalUploads.length === 0
+                ? "No managed historical uploads yet."
+                : "No historical uploads match your search."}
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-[11px] uppercase">RFQ ID</TableHead>
+                  <TableHead className="text-[11px] uppercase">Customer / program</TableHead>
+                  <TableHead className="text-[11px] uppercase">Part</TableHead>
+                  <TableHead className="text-[11px] uppercase">Source file</TableHead>
+                  <TableHead className="text-[11px] uppercase">Saved</TableHead>
+                  <TableHead className="text-[11px] uppercase w-[52px]" aria-label="Delete" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredHistoricalUploads.map((h) => (
+                  <TableRow key={h.session_id} className="hover:bg-muted/20">
+                    <TableCell className="font-mono text-[11px]">{h.project_id}</TableCell>
+                    <TableCell className="text-[12px] text-muted-foreground">
+                      {[h.customer, h.program].filter(Boolean).join(" · ") || "—"}
+                    </TableCell>
+                    <TableCell className="font-mono text-[11px]">{h.part_number || "—"}</TableCell>
+                    <TableCell className="font-mono text-[11px] max-w-[220px] truncate" title={h.original_filename}>
+                      {h.original_filename}
+                    </TableCell>
+                    <TableCell className="text-[11px] text-muted-foreground font-mono whitespace-nowrap">{h.created_at}</TableCell>
+                    <TableCell className="p-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={histDeletingProjectId === h.project_id}
+                        aria-label={`Delete historical ${h.project_id}`}
+                        onClick={() => void deleteHistoricalProject(h.project_id)}
                       >
                         <Trash2 className="size-3.5" />
                       </Button>
@@ -308,16 +521,19 @@ export function AllRfqsLibrary() {
       <Card className="border-border bg-card/50">
         <CardHeader className="p-4 pb-2 border-b border-border">
           <CardTitle className="text-[12px] uppercase tracking-wide font-semibold text-muted-foreground">
-            Historical seed projects ({seeds.length})
+            Historical seed projects ({filteredSeeds.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
-          {seeds.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">No seed rows (database not initialized).</p>
+          {filteredSeeds.length === 0 ? (
+            <p className="p-4 text-sm text-muted-foreground">
+              {seeds.length === 0 ? "No seed rows (database not initialized)." : "No seed projects match your search."}
+            </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="text-[11px] uppercase">Match ID</TableHead>
                   <TableHead className="text-[11px] uppercase">ID</TableHead>
                   <TableHead className="text-[11px] uppercase">Customer</TableHead>
                   <TableHead className="text-[11px] uppercase">Program</TableHead>
@@ -329,8 +545,9 @@ export function AllRfqsLibrary() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {seeds.map((s) => (
+                {filteredSeeds.map((s) => (
                   <TableRow key={s.rfq_id} className="hover:bg-muted/20">
+                    <TableCell className="font-mono text-[11px]">{seedMatchId(s.rfq_id)}</TableCell>
                     <TableCell className="font-mono text-[11px]">{s.rfq_id}</TableCell>
                     <TableCell className="text-[12px]">{s.customer_name}</TableCell>
                     <TableCell className="text-[12px] text-muted-foreground">{s.program_name}</TableCell>

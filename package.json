@@ -6,6 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:pm2": "pm2 start ecosystem.config.cjs --env production",
+    "pm2:reload": "pm2 reload ecosystem.config.cjs --env production",
+    "pm2:stop": "pm2 stop rfq-ui",
+    "pm2:logs": "pm2 logs rfq-ui",
+    "pm2:delete": "pm2 delete rfq-ui",
+    "deploy:pm2": "npm run build && pm2 start ecosystem.config.cjs --env production",
+    "deploy:pm2:reload": "npm run build && pm2 reload rfq-ui",
     "lint": "eslint",
     "sample-pdf": "node scripts/generate-sample-rfq-pdf.mjs",
     "sample-multi-pdf": "node scripts/generate-multi-item-rfq-pdf.mjs",
@@ -25,9 +32,11 @@
     "pdf-parse": "^2.4.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "pm2": "^6.0.14",
     "@tailwindcss/postcss": "^4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",

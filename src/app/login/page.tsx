@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Key, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ import { verifyHardcodedLogin, completeSignIn } from "@/components/auth/rfqAuth"
 import { SettingsMenu } from "@/components/settings/SettingsMenu";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState("RFQ1");
   const [password, setPassword] = useState("Manu1a!");
   const [showPassword, setShowPassword] = useState(false);
@@ -30,8 +28,16 @@ export default function LoginPage() {
         return;
       }
 
-      completeSignIn(rememberDevice);
-      router.replace("/");
+      const saved = completeSignIn(rememberDevice);
+      if (!saved) {
+        setError(
+          "Could not save your session (browser storage blocked or unavailable). Allow site storage / cookies for this site, or try another browser.",
+        );
+        return;
+      }
+
+      /** Full reload so `/` always reads storage; client-only auth + `router.replace` can appear to do nothing in some setups. */
+      window.location.assign("/");
     } finally {
       setSubmitting(false);
     }

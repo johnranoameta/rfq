@@ -20,8 +20,8 @@ export function isAuthenticated() {
 }
 
 /** Persist on this device (localStorage) or until browser session ends (sessionStorage). */
-export function completeSignIn(rememberDevice: boolean) {
-  if (typeof window === "undefined") return;
+export function completeSignIn(rememberDevice: boolean): boolean {
+  if (typeof window === "undefined") return false;
   try {
     if (rememberDevice) {
       window.localStorage.setItem(AUTH_STORAGE_KEY, "1");
@@ -30,8 +30,12 @@ export function completeSignIn(rememberDevice: boolean) {
       window.sessionStorage.setItem(AUTH_STORAGE_KEY, "1");
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
     }
+    const ok =
+      window.localStorage.getItem(AUTH_STORAGE_KEY) === "1" ||
+      window.sessionStorage.getItem(AUTH_STORAGE_KEY) === "1";
+    return ok;
   } catch {
-    // ignore
+    return false;
   }
 }
 

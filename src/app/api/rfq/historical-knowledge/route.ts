@@ -5,8 +5,8 @@ import { loadHistoricalKnowledge } from "@/lib/rfq/loadHistoricalKnowledge";
 export const runtime = "nodejs";
 
 /**
- * Historical RFQ knowledge base (Parsed_Historical_RFQs.jsonl + Historical_Gap_Findings.csv).
- * Intended for agents / server-side matching — not authenticated in this demo.
+ * Historical RFQ knowledge base. Primary data: SQLite (`rfq_projects` + `quote_submissions`, `historical_gap_findings`);
+ * falls back to JSONL/CSV under `project_files/.../historical_data/`.
  *
  * Query: ?q=substring — filter projects (case-insensitive) over full JSON
  *        ?gaps=0 — omit gap findings (smaller payload)
@@ -25,8 +25,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       meta: {
-        source: "project_files/RFQ_Agent_Test_Files_Pack/historical_data",
-        absoluteDir: bundle.sourceDir,
+        projectsSource: bundle.projectsSource,
+        gapSource: bundle.gapSource,
+        sqlitePathNote:
+          "Historical projects load from data/rfq.sqlite (seed tables) when available; gaps table seeded from CSV once.",
+        historicalDataDir: bundle.sourceDir,
         totalProjects: bundle.projects.length,
         totalGapFindings: bundle.gapFindings.length,
         returnedProjects: projects.length,

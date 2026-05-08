@@ -13,6 +13,13 @@ export type PersistedParsePayload = {
 export type PersistedHistoricalPayload = {
   criteria: MatchCriteria;
   matches: RankedHistoricalMatch[];
+  per_item_matches?: Array<{
+    item_index: number;
+    item_label: string;
+    part_name: string | null;
+    criteria: MatchCriteria;
+    matches: RankedHistoricalMatch[];
+  }>;
   meta: { candidatePool: number };
 };
 

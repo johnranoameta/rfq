@@ -30,17 +30,22 @@ function formatBytes(n: number) {
   return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }
 
-function isPdfUpload(f: UploadedPackageFile): boolean {
-  return (
-    f.storedName === STORED_NAME_DB_ONLY ||
-    f.storedName.toLowerCase().endsWith(".pdf") ||
-    f.mimeType === "application/pdf"
-  );
+function isWorkbookRfqUpload(f: UploadedPackageFile): boolean {
+  if (f.storedName === STORED_NAME_DB_ONLY) return false;
+  return f.storedName.toLowerCase().endsWith(".xlsx") || f.storedName.toLowerCase().endsWith(".xls");
+}
+
+/** 4-sheet workbook on disk — eligible for server parse + gap (not DB-only rows). */
+function canRunStoredFileAnalysis(f: UploadedPackageFile): boolean {
+  if (f.storedName === STORED_NAME_DB_ONLY) return false;
+  return isWorkbookRfqUpload(f);
 }
 
 type HistoricalMatchRow = {
   project_id: string;
   score: number;
+  similarity_0_1?: number;
+  exact_part_number?: boolean;
   reasons: string[];
   record: {
     project_id: string;
@@ -50,7 +55,15 @@ type HistoricalMatchRow = {
   };
 };
 
-type FullAnalyzeOk = {
+type HistoricalPerItemRow = {
+  item_index: number;
+  item_label: string;
+  part_name: string | null;
+  criteria: Record<string, unknown>;
+  matches: HistoricalMatchRow[];
+};
+
+export type FullAnalyzeOk = {
   parse: {
     mode: string;
     model: string;
@@ -61,10 +74,13 @@ type FullAnalyzeOk = {
   historical: {
     criteria: Record<string, unknown>;
     matches: HistoricalMatchRow[];
+    per_item_matches?: HistoricalPerItemRow[];
     meta: { candidatePool: number };
   };
   gap: {
     risk_score: number;
+    risk_score_0_1?: number;
+    gap_model?: string;
     completeness_status: string;
     missing_attachments: string[];
     triggered_rules: string[];
@@ -77,6 +93,7 @@ type FullAnalyzeOk = {
       resolved_in_final_quote: boolean;
       notes: string;
     }>;
+    item_gaps?: { item: string; gaps: string[] }[];
   };
 };
 
@@ -88,9 +105,10 @@ type PipelineState =
 
 type RfqPackageUploadProps = {
   onUploaded?: (file: UploadedPackageFile) => void;
+  onAnalyzed?: (file: UploadedPackageFile, analysis: FullAnalyzeOk) => void | Promise<void>;
 };
 
-export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
+export function RfqPackageUpload({ onUploaded, onAnalyzed }: RfqPackageUploadProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<UploadedPackageFile[]>([]);
@@ -128,20 +146,25 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
     return data as UploadedPackageFile;
   }, []);
 
-  const runFullAnalysis = useCallback(async (f: UploadedPackageFile) => {
+  const runPackageAnalysis = useCallback(async (f: UploadedPackageFile) => {
     if (f.storedName === STORED_NAME_DB_ONLY) {
       setPdfPipeline((prev) => ({
         ...prev,
         [f.id]: {
           status: "error",
-          message: "This RFQ was opened from the database only. Re-upload the PDF to run analysis again.",
+          message:
+            "This RFQ was opened from the database only. Re-upload the 4-sheet workbook (.xlsx/.xls) to run analysis again.",
         },
       }));
       return;
     }
     setPdfPipeline((prev) => ({ ...prev, [f.id]: { status: "loading" } }));
     try {
-      const res = await fetch("/api/rfq/analyze-uploaded-pdf", {
+      if (!isWorkbookRfqUpload(f)) {
+        throw new Error("Workbook-only mode: upload a 4-sheet .xlsx/.xls RFQ file.");
+      }
+      const endpoint = "/api/rfq/analyze-uploaded-workbook";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -164,13 +187,14 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
           data: data as FullAnalyzeOk,
         },
       }));
+      await Promise.resolve(onAnalyzed?.(f, data as FullAnalyzeOk));
     } catch (e) {
       setPdfPipeline((prev) => ({
         ...prev,
         [f.id]: { status: "error", message: e instanceof Error ? e.message : "Analysis failed" },
       }));
     }
-  }, []);
+  }, [onAnalyzed]);
 
   const onFiles = useCallback(
     async (list: FileList | null) => {
@@ -186,8 +210,8 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
         }
         setItems((prev) => [...next, ...prev]);
         for (const uploaded of next) {
-          if (isPdfUpload(uploaded)) {
-            void runFullAnalysis(uploaded);
+          if (canRunStoredFileAnalysis(uploaded)) {
+            void runPackageAnalysis(uploaded);
           }
         }
       } catch (e) {
@@ -196,7 +220,7 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
         setBusy(false);
       }
     },
-    [uploadOne, onUploaded, runFullAnalysis],
+    [uploadOne, onUploaded, runPackageAnalysis],
   );
 
   return (
@@ -209,14 +233,15 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
       </CardHeader>
       <CardContent className="p-5 pt-0 space-y-3">
         <p className="text-[12px] text-muted-foreground leading-relaxed">
-          <span className="font-semibold text-foreground/90">PDFs:</span> after upload, the app runs{" "}
+          <span className="font-semibold text-foreground/90">4-sheet workbook (.xlsx/.xls):</span> after upload, the app runs{" "}
           <span className="font-mono text-[11px]">parse</span> +{" "}
           <span className="font-mono text-[11px]">historical match</span> +{" "}
-          <span className="font-mono text-[11px]">gap analysis</span> (requires{" "}
-          <span className="font-mono">OPENAI_API_KEY</span> and <span className="font-mono">project_files/.../historical_data</span>
-          ). Try <span className="font-mono">Sample_Multi_Item_RFQ.pdf</span> from{" "}
-          <span className="font-mono">/samples/</span>. For a green confidence demo on the Tech Spec row, use{" "}
-          <span className="font-mono">NB-MAT-SPEC-MQU-TS-014_RevA.pdf</span> via <span className="font-semibold">Replace</span>.
+          <span className="font-mono text-[11px]">OpenAI gap analysis</span> (requires{" "}
+          <span className="font-mono">OPENAI_API_KEY</span>, optional <span className="font-mono">OPENAI_MODEL_GAP</span>, and{" "}
+          <span className="font-mono">project_files/.../historical_data</span>
+          ). Workbooks need sheets <span className="font-mono">Header</span>, <span className="font-mono">Line_Items</span>,{" "}
+          <span className="font-mono">Technical_Specs</span>, <span className="font-mono">Supplier_Responses</span> (multiple rows per
+          supplier supported).
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -225,7 +250,7 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
             id={inputId}
             type="file"
             className="sr-only"
-            accept=".pdf,.txt,.md,.json,.csv,.xlsx,.xls,.doc,.docx,application/pdf,text/plain,text/markdown,application/json"
+            accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
             disabled={busy}
             multiple
             onChange={(e) => {
@@ -254,8 +279,10 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
           <ul className="text-[12px] space-y-4 border border-border rounded-lg p-3 bg-muted/20">
             {items.map((f) => {
               const ps = pdfPipeline[f.id] ?? { status: "idle" as const };
-              const pdf = isPdfUpload(f);
+              const analyzable = canRunStoredFileAnalysis(f);
               const parsed = ps.status === "ok" ? ps.data.parse.parsed : null;
+              const isWorkbook = parsed?.source_form === "four_sheet_workbook";
+              const wh = parsed?.workbook_header as Record<string, unknown> | undefined;
 
               return (
                 <li key={f.id} className="space-y-3 border-b border-border/60 pb-4 last:border-0 last:pb-0">
@@ -265,14 +292,14 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
                     <span className="text-muted-foreground truncate max-w-[200px]" title={f.storedName}>
                       {f.storedName}
                     </span>
-                    {pdf ? (
+                    {analyzable ? (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         className="h-7 text-[11px] gap-1"
                         disabled={busy || ps.status === "loading"}
-                        onClick={() => void runFullAnalysis(f)}
+                        onClick={() => void runPackageAnalysis(f)}
                       >
                         <RefreshCw className="size-3 opacity-80" aria-hidden />
                         {ps.status === "loading" ? "Analyzing…" : "Re-run analysis"}
@@ -280,52 +307,77 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
                     ) : null}
                   </div>
 
-                  {pdf && ps.status === "loading" ? (
+                  {analyzable && ps.status === "loading" ? (
                     <div className="text-[11px] text-muted-foreground animate-pulse">
-                      Parsing PDF, ranking historical projects, building gap summary…
+                      Reading workbook sheets, ranking historical projects, running OpenAI gap analysis…
                     </div>
                   ) : null}
 
-                  {pdf && ps.status === "error" ? (
+                  {analyzable && ps.status === "error" ? (
                     <div className="text-[11px] text-red-600 dark:text-red-300" role="alert">
                       {ps.message}
                     </div>
                   ) : null}
 
-                  {pdf && ps.status === "ok" ? (
+                  {analyzable && ps.status === "ok" ? (
                     <div className="space-y-3">
                       <div className="text-[10px] font-mono text-muted-foreground">
-                        {ps.data.parse.mode} · {ps.data.parse.model} · text layer ~{ps.data.parse.extractedTextChars}{" "}
-                        chars
+                        {ps.data.parse.mode} · {ps.data.parse.model}
+                        {!isWorkbook ? (
+                          <>
+                            {" "}
+                            · text layer ~{ps.data.parse.extractedTextChars} chars
+                          </>
+                        ) : null}
                       </div>
 
                       <Card className="bg-background/30 border-border">
                         <CardHeader className="p-3 pb-1">
                           <CardTitle className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Parsed header & commercial
+                            {isWorkbook ? "Workbook header (OEM / region / SOP)" : "Parsed header & commercial"}
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="p-3 pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                          {[
-                            ["RFQ ref", parsed?.rfq_reference],
-                            ["Issue date", parsed?.issue_date],
-                            ["Response due", parsed?.response_due_date],
-                            ["Quote valid", parsed?.quote_valid_until],
-                            ["Customer", parsed?.customer],
-                            ["Program", parsed?.program],
-                            ["Incoterm", parsed?.incoterm],
-                            ["Payment", parsed?.payment_terms],
-                            ["PPAP", parsed?.ppap_level],
-                            ["APD %", parsed?.annual_reduction_pct],
-                            ["Completeness", parsed?.document_completeness],
-                          ].map(([k, v]) => (
-                            <div key={String(k)} className="flex gap-2 border-b border-border/40 pb-1">
-                              <span className="text-muted-foreground shrink-0 w-[100px]">{String(k)}</span>
-                              <span className="font-mono text-foreground/90 break-all">
-                                {v === null || v === undefined ? "—" : String(v)}
-                              </span>
-                            </div>
-                          ))}
+                          {isWorkbook && wh ? (
+                            <>
+                              {[
+                                ["RFQ id", wh.rfq_id],
+                                ["Customer", wh.customer],
+                                ["Region", wh.region],
+                                ["Annual volume", wh.annual_volume],
+                                ["Currency", wh.currency],
+                                ["SOP", wh.sop],
+                              ].map(([k, v]) => (
+                                <div key={String(k)} className="flex gap-2 border-b border-border/40 pb-1">
+                                  <span className="text-muted-foreground shrink-0 w-[100px]">{String(k)}</span>
+                                  <span className="font-mono text-foreground/90 break-all">
+                                    {v === null || v === undefined ? "—" : String(v)}
+                                  </span>
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            [
+                              ["RFQ ref", parsed?.rfq_reference],
+                              ["Issue date", parsed?.issue_date],
+                              ["Response due", parsed?.response_due_date],
+                              ["Quote valid", parsed?.quote_valid_until],
+                              ["Customer", parsed?.customer],
+                              ["Program", parsed?.program],
+                              ["Incoterm", parsed?.incoterm],
+                              ["Payment", parsed?.payment_terms],
+                              ["PPAP", parsed?.ppap_level],
+                              ["APD %", parsed?.annual_reduction_pct],
+                              ["Completeness", parsed?.document_completeness],
+                            ].map(([k, v]) => (
+                              <div key={String(k)} className="flex gap-2 border-b border-border/40 pb-1">
+                                <span className="text-muted-foreground shrink-0 w-[100px]">{String(k)}</span>
+                                <span className="font-mono text-foreground/90 break-all">
+                                  {v === null || v === undefined ? "—" : String(v)}
+                                </span>
+                              </div>
+                            ))
+                          )}
                         </CardContent>
                       </Card>
 
@@ -345,6 +397,9 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
                                   <TableHead>Description</TableHead>
                                   <TableHead>Material</TableHead>
                                   <TableHead>Process</TableHead>
+                                  {isWorkbook ? (
+                                    <TableHead className="text-right">Target</TableHead>
+                                  ) : null}
                                   <TableHead className="text-right">Vol</TableHead>
                                   <TableHead>SOP</TableHead>
                                 </TableRow>
@@ -357,12 +412,49 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
                                     <TableCell>{String(row.part_name ?? "—")}</TableCell>
                                     <TableCell className="font-mono">{String(row.material_grade ?? "—")}</TableCell>
                                     <TableCell>{String(row.process ?? "—")}</TableCell>
+                                    {isWorkbook ? (
+                                      <TableCell className="text-right font-mono">
+                                        {typeof row.target_price === "number" ? String(row.target_price) : "—"}
+                                      </TableCell>
+                                    ) : null}
                                     <TableCell className="text-right font-mono">
                                       {typeof row.annual_volume === "number"
                                         ? row.annual_volume.toLocaleString()
                                         : "—"}
                                     </TableCell>
                                     <TableCell className="font-mono">{String(row.sop_date ?? "—")}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </CardContent>
+                        </Card>
+                      ) : null}
+
+                      {isWorkbook && Array.isArray(parsed?.suppliers_grouped) ? (
+                        <Card className="bg-background/30 border-border overflow-hidden">
+                          <CardHeader className="p-3 pb-1">
+                            <CardTitle className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Supplier responses (multi-line per supplier)
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            <Table className="text-[10px]">
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Supplier</TableHead>
+                                  <TableHead className="text-right">Lines</TableHead>
+                                  <TableHead>Items</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {(parsed!.suppliers_grouped as Record<string, unknown>[]).map((g, idx) => (
+                                  <TableRow key={idx}>
+                                    <TableCell className="font-mono">{String(g.supplier ?? "—")}</TableCell>
+                                    <TableCell className="text-right font-mono">{String(g.line_count ?? "—")}</TableCell>
+                                    <TableCell className="max-w-[240px] truncate" title={String((g.items as unknown[])?.join(", "))}>
+                                      {Array.isArray(g.items) ? (g.items as string[]).join(", ") : "—"}
+                                    </TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>
@@ -380,11 +472,38 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
                         <CardContent className="p-3 pt-0 space-y-2 text-[11px]">
                           <div className="flex flex-wrap gap-3">
                             <span className="font-semibold">Risk {ps.data.gap.risk_score}</span>
+                            {typeof ps.data.gap.risk_score_0_1 === "number" ? (
+                              <span className="text-muted-foreground font-mono">
+                                ({ps.data.gap.risk_score_0_1.toFixed(2)} normalized)
+                              </span>
+                            ) : null}
                             <span className="text-muted-foreground">
                               Completeness: {ps.data.gap.completeness_status}
                             </span>
+                            {ps.data.gap.gap_model ? (
+                              <span className="text-muted-foreground font-mono text-[10px]">{ps.data.gap.gap_model}</span>
+                            ) : null}
                           </div>
                           <p className="text-muted-foreground leading-relaxed">{ps.data.gap.summary}</p>
+                          {ps.data.gap.item_gaps && ps.data.gap.item_gaps.length > 0 ? (
+                            <div className="rounded-md border border-border/80 p-2 bg-muted/15">
+                              <div className="text-[10px] font-semibold uppercase text-muted-foreground mb-1">
+                                Item-level gaps (OpenAI)
+                              </div>
+                              <ul className="space-y-2 text-[10px]">
+                                {ps.data.gap.item_gaps.map((ig) => (
+                                  <li key={ig.item}>
+                                    <span className="font-semibold">{ig.item}</span>
+                                    <ul className="list-disc pl-4 mt-0.5">
+                                      {ig.gaps.map((g, i) => (
+                                        <li key={i}>{g}</li>
+                                      ))}
+                                    </ul>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
                           {ps.data.gap.missing_attachments.length ? (
                             <div>
                               <div className="text-[10px] font-semibold uppercase text-muted-foreground mb-1">
@@ -474,6 +593,104 @@ export function RfqPackageUpload({ onUploaded }: RfqPackageUploadProps) {
                           )}
                         </CardContent>
                       </Card>
+
+                      {Array.isArray(ps.data.historical.per_item_matches) &&
+                      ps.data.historical.per_item_matches.length > 0 ? (
+                        <Card className="bg-background/30 border-border overflow-hidden">
+                          <CardHeader className="p-3 pb-1">
+                            <CardTitle className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Item historical matching ({ps.data.historical.per_item_matches.length} line items analyzed)
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            <Table className="text-[10px]">
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Item</TableHead>
+                                  <TableHead>Part</TableHead>
+                                  <TableHead>Top match</TableHead>
+                                  <TableHead className="text-right">Similarity</TableHead>
+                                  <TableHead>Exact PN</TableHead>
+                                  <TableHead className="text-right">Top score</TableHead>
+                                  <TableHead className="text-right">Matches</TableHead>
+                                  <TableHead className="text-right">Details</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {ps.data.historical.per_item_matches.map((row) => {
+                                  const top = row.matches[0];
+                                  return (
+                                    <TableRow key={`${row.item_index}-${row.item_label}`}>
+                                      <TableCell className="font-mono">{row.item_label}</TableCell>
+                                      <TableCell className="max-w-[180px] truncate" title={row.part_name || "—"}>
+                                        {row.part_name || "—"}
+                                      </TableCell>
+                                      <TableCell className="font-mono">{top?.project_id ?? "—"}</TableCell>
+                                      <TableCell className="text-right font-mono">
+                                        {typeof top?.similarity_0_1 === "number"
+                                          ? `${Math.round(top.similarity_0_1 * 100)}%`
+                                          : "—"}
+                                      </TableCell>
+                                      <TableCell>{top?.exact_part_number ? "Yes" : "No"}</TableCell>
+                                      <TableCell className="text-right font-mono">{top?.score ?? 0}</TableCell>
+                                      <TableCell className="text-right font-mono">{row.matches.length}</TableCell>
+                                      <TableCell className="text-right">
+                                        {row.matches.length > 0 ? (
+                                          <details className="inline-block text-left">
+                                            <summary className="cursor-pointer text-muted-foreground">Top 3</summary>
+                                            <div className="mt-2 rounded border border-border bg-background/80 p-2 w-[440px] max-w-[80vw]">
+                                              <Table className="text-[10px]">
+                                                <TableHeader>
+                                                  <TableRow>
+                                                    <TableHead>ID</TableHead>
+                                                    <TableHead>Part</TableHead>
+                                                    <TableHead>Material</TableHead>
+                                                    <TableHead>Process</TableHead>
+                                                    <TableHead className="text-right">Similarity</TableHead>
+                                                    <TableHead>Exact PN</TableHead>
+                                                    <TableHead className="text-right">Score</TableHead>
+                                                    <TableHead className="text-right">Price</TableHead>
+                                                  </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                  {row.matches.slice(0, 3).map((m) => (
+                                                    <TableRow key={`${row.item_index}-${m.project_id}`}>
+                                                      <TableCell className="font-mono">{m.project_id}</TableCell>
+                                                      <TableCell className="max-w-[120px] truncate" title={String(m.record.rfq.part_name)}>
+                                                        {String(m.record.rfq.part_name)}
+                                                      </TableCell>
+                                                      <TableCell className="font-mono">{String(m.record.rfq.material)}</TableCell>
+                                                      <TableCell className="max-w-[120px] truncate" title={String(m.record.rfq.process)}>
+                                                        {String(m.record.rfq.process)}
+                                                      </TableCell>
+                                                      <TableCell className="text-right font-mono">
+                                                        {typeof m.similarity_0_1 === "number"
+                                                          ? `${Math.round(m.similarity_0_1 * 100)}%`
+                                                          : "—"}
+                                                      </TableCell>
+                                                      <TableCell>{m.exact_part_number ? "Yes" : "No"}</TableCell>
+                                                      <TableCell className="text-right font-mono">{m.score}</TableCell>
+                                                      <TableCell className="text-right font-mono">
+                                                        ${Number(m.record.quote_result.quoted_piece_price_usd).toFixed(2)}
+                                                      </TableCell>
+                                                    </TableRow>
+                                                  ))}
+                                                </TableBody>
+                                              </Table>
+                                            </div>
+                                          </details>
+                                        ) : (
+                                          <span className="text-muted-foreground">—</span>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </CardContent>
+                        </Card>
+                      ) : null}
 
                       <details className="text-[10px] font-mono">
                         <summary className="cursor-pointer text-muted-foreground">Raw parsed JSON</summary>

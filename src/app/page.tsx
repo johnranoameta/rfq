@@ -12,10 +12,17 @@ export default function Page() {
 
   useEffect(() => {
     const ok = isAuthenticated();
-    if (!ok) router.replace("/login");
-    // Schedule async to avoid "setState synchronously in effect" lint error.
-    setTimeout(() => setChecked(true), 0);
+    setChecked(true);
+    if (!ok) {
+      router.replace("/login");
+    }
   }, [router]);
+
+  /** Never spin forever if effects fail or JS is partially blocked (e.g. remote / strict extensions). */
+  useEffect(() => {
+    const id = window.setTimeout(() => setChecked(true), 3000);
+    return () => window.clearTimeout(id);
+  }, []);
 
   if (!checked) {
     return (
@@ -25,5 +32,19 @@ export default function Page() {
     );
   }
 
-  return isAuthenticated() ? <RFQAgentDashboard /> : null;
+  if (isAuthenticated()) {
+    return <RFQAgentDashboard />;
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3 p-6 text-center">
+      <p className="text-muted-foreground text-sm">You need to sign in to use the dashboard.</p>
+      <a
+        href="/login"
+        className="text-sm font-medium text-primary underline underline-offset-4 hover:opacity-90"
+      >
+        Open sign-in
+      </a>
+    </div>
+  );
 }

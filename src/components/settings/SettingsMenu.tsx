@@ -23,6 +23,10 @@ export function SettingsMenu() {
   const { mode, setMode } = useThemeMode();
   const { fontId, setFontId } = useUiFont();
   const [open, setOpen] = useState(false);
+  const [matchConfigText, setMatchConfigText] = useState("");
+  const [matchConfigLoaded, setMatchConfigLoaded] = useState(false);
+  const [matchConfigBusy, setMatchConfigBusy] = useState(false);
+  const [matchConfigError, setMatchConfigError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -44,6 +48,72 @@ export function SettingsMenu() {
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open || matchConfigLoaded) return;
+    let cancelled = false;
+    (async () => {
+      setMatchConfigBusy(true);
+      setMatchConfigError(null);
+      try {
+        const res = await fetch("/api/rfq/settings/match", { cache: "no-store" });
+        const json = (await res.json()) as { config?: unknown; error?: string };
+        if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+        if (!cancelled) {
+          setMatchConfigText(JSON.stringify(json.config ?? {}, null, 2));
+          setMatchConfigLoaded(true);
+        }
+      } catch (e) {
+        if (!cancelled) setMatchConfigError(e instanceof Error ? e.message : "Failed to load matching settings");
+      } finally {
+        if (!cancelled) setMatchConfigBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, matchConfigLoaded]);
+
+  async function saveMatchConfig() {
+    let parsed: unknown;
+    setMatchConfigError(null);
+    try {
+      parsed = JSON.parse(matchConfigText);
+    } catch {
+      setMatchConfigError("Invalid JSON format.");
+      return;
+    }
+    setMatchConfigBusy(true);
+    try {
+      const res = await fetch("/api/rfq/settings/match", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: parsed }),
+      });
+      const json = (await res.json()) as { config?: unknown; error?: string };
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      setMatchConfigText(JSON.stringify(json.config ?? {}, null, 2));
+    } catch (e) {
+      setMatchConfigError(e instanceof Error ? e.message : "Failed to save matching settings");
+    } finally {
+      setMatchConfigBusy(false);
+    }
+  }
+
+  async function resetMatchConfig() {
+    setMatchConfigBusy(true);
+    setMatchConfigError(null);
+    try {
+      const res = await fetch("/api/rfq/settings/match", { method: "DELETE" });
+      const json = (await res.json()) as { config?: unknown; error?: string };
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      setMatchConfigText(JSON.stringify(json.config ?? {}, null, 2));
+    } catch (e) {
+      setMatchConfigError(e instanceof Error ? e.message : "Failed to reset matching settings");
+    } finally {
+      setMatchConfigBusy(false);
+    }
+  }
 
   return (
     <div className="relative">
@@ -67,7 +137,7 @@ export function SettingsMenu() {
           ref={panelRef}
           role="dialog"
           aria-label="Settings"
-          className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(calc(100vw-24px),320px)] rounded-2xl border border-border bg-card/95 p-4 shadow-lg shadow-black/10 backdrop-blur-md dark:shadow-black/40"
+          className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(calc(100vw-24px),520px)] rounded-2xl border border-border bg-card/95 p-4 shadow-lg shadow-black/10 backdrop-blur-md dark:shadow-black/40"
         >
           <div className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
             Appearance
@@ -135,6 +205,31 @@ export function SettingsMenu() {
                 </button>
               );
             })}
+          </div>
+
+          <div className="mt-5 text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+            Match scoring
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
+            Tune historical matching weights and thresholds. Changes apply to new analyses.
+          </p>
+          <textarea
+            value={matchConfigText}
+            onChange={(e) => setMatchConfigText(e.target.value)}
+            className="mt-2 h-44 w-full rounded-xl border border-border bg-background/30 p-2 font-mono text-[11px]"
+            spellCheck={false}
+            disabled={matchConfigBusy}
+          />
+          {matchConfigError ? (
+            <div className="mt-2 text-[11px] text-destructive">{matchConfigError}</div>
+          ) : null}
+          <div className="mt-2 flex items-center gap-2">
+            <Button type="button" size="sm" variant="outline" disabled={matchConfigBusy} onClick={() => void resetMatchConfig()}>
+              Reset defaults
+            </Button>
+            <Button type="button" size="sm" disabled={matchConfigBusy || !matchConfigLoaded} onClick={() => void saveMatchConfig()}>
+              {matchConfigBusy ? "Saving…" : "Save scoring"}
+            </Button>
           </div>
         </div>
       ) : null}

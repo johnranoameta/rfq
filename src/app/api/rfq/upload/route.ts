@@ -9,15 +9,8 @@ const UPLOAD_DIR = RFQ_UPLOAD_DIR;
 const MAX_BYTES = 12 * 1024 * 1024;
 
 const ALLOWED_EXT = new Set([
-  ".pdf",
-  ".txt",
-  ".md",
-  ".json",
-  ".csv",
   ".xlsx",
   ".xls",
-  ".doc",
-  ".docx",
 ]);
 
 function extnameSafe(name: string): string {
@@ -55,8 +48,7 @@ export async function POST(request: Request) {
   if (!ext || !ALLOWED_EXT.has(ext)) {
     return NextResponse.json(
       {
-        error:
-          "Unsupported type. Allowed: PDF, text/markdown, JSON, CSV, Excel, Word.",
+        error: "Unsupported type. Allowed: Excel workbook (.xlsx/.xls) with 4 RFQ tabs.",
       },
       { status: 415 },
     );
