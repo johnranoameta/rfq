@@ -9,7 +9,10 @@ export const runtime = "nodejs";
 function isHistoricalProjectRecord(v: unknown): v is HistoricalProjectRecord {
   if (!v || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
-  return typeof o.project_id === "string" && o.rfq && o.quote_result;
+  if (typeof o.project_id !== "string") return false;
+  if (o.rfq == null || typeof o.rfq !== "object") return false;
+  if (o.quote_result == null || typeof o.quote_result !== "object") return false;
+  return true;
 }
 
 export async function GET() {
