@@ -38,7 +38,7 @@ const TAB_LABELS: Record<DashboardTabKey, string> = {
   catalog: "All RFQs",
   overview: "Overview",
   documents: "Documents",
-  parts: "Line Items & Match",
+  parts: "Match & Reuse",
   gap: "Gaps & Actions",
   quote: "Quote & History",
 };

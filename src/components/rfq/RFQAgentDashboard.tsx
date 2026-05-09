@@ -25,6 +25,10 @@ import { SettingsMenu } from "@/components/settings/SettingsMenu";
 import { logout as clearAuthSession } from "@/components/auth/rfqAuth";
 import { AllRfqsLibrary } from "@/components/rfq/AllRfqsLibrary";
 import {
+  OverviewTopReferenceCard,
+  RfqReferenceMatchPanel,
+} from "@/components/rfq/RfqReferenceMatchPanel";
+import {
   RfqPackageUpload,
   STORED_NAME_DB_ONLY,
   type FullAnalyzeOk,
@@ -152,12 +156,6 @@ function statusBadgeClasses(c: CaseData) {
 
 function formatMoney(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function displayRfqId(id: string): string {
-  const m = id.match(/^H(\d+)$/i);
-  if (!m) return id;
-  return `RFQ-SEAT-HIST-${m[1]!.padStart(3, "0")}`;
 }
 
 function uploadedFileFromPersistedRow(row: { session_id: string; original_filename: string }): UploadedPackageFile {
@@ -822,6 +820,11 @@ export default function RFQAgentDashboard() {
                   </CardContent>
                 </Card>
 
+                <OverviewTopReferenceCard
+                  caseData={c}
+                  onOpenMatches={() => setActiveTab("parts")}
+                />
+
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Card className="bg-background/25 dark:bg-card/40 border-border">
                     <CardContent className="p-5 space-y-3">
@@ -1346,105 +1349,7 @@ export default function RFQAgentDashboard() {
 
             {activeTab === "parts" && (
               <div className="space-y-4">
-                {Array.isArray(c.item_historical_comparison) && c.item_historical_comparison.length > 0 ? (
-                  <Card className="bg-card/50 border-border overflow-visible">
-                    <CardHeader className="p-4 pb-2 border-b border-border bg-secondary/10">
-                      <CardTitle className="text-[12px] tracking-wide font-semibold text-muted-foreground uppercase">
-                        New RFQ vs Historical (per item)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0 overflow-x-auto">
-                      <Table className="text-[11px] min-w-[1100px]">
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Item</TableHead>
-                            <TableHead>Part</TableHead>
-                            <TableHead>Top historical</TableHead>
-                            <TableHead>Matched RFQs</TableHead>
-                            <TableHead className="text-right">Similarity</TableHead>
-                            <TableHead>Exact PN</TableHead>
-                            <TableHead className="text-right">Score</TableHead>
-                            <TableHead className="text-right">Matches</TableHead>
-                            <TableHead className="text-right">Details</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {c.item_historical_comparison.map((row) => {
-                            const top = row.matches[0];
-                            const matchedIds = row.matches.slice(0, 3).map((m) => displayRfqId(m.project_id));
-                            return (
-                              <TableRow key={`${row.item_index}-${row.item_label}`}>
-                                <TableCell className="font-mono">{row.item_label}</TableCell>
-                                <TableCell className="max-w-[260px] whitespace-normal break-words" title={row.part_name || "—"}>
-                                  {row.part_name || "—"}
-                                </TableCell>
-                                <TableCell className="font-mono">{top?.project_id ? displayRfqId(top.project_id) : "—"}</TableCell>
-                                <TableCell className="max-w-[300px] whitespace-normal break-all font-mono" title={matchedIds.join(", ")}>
-                                  {matchedIds.length > 0 ? matchedIds.join(", ") : "—"}
-                                </TableCell>
-                                <TableCell className="text-right font-mono">
-                                  {typeof top?.similarity_0_1 === "number" ? `${Math.round(top.similarity_0_1 * 100)}%` : "—"}
-                                </TableCell>
-                                <TableCell>{top?.exact_part_number ? "Yes" : "No"}</TableCell>
-                                <TableCell className="text-right font-mono">{top?.score ?? 0}</TableCell>
-                                <TableCell className="text-right font-mono">{row.matches.length}</TableCell>
-                                <TableCell className="text-right">
-                                  {row.matches.length > 0 ? (
-                                    <details className="inline-block text-left">
-                                      <summary className="cursor-pointer text-muted-foreground">Top 3</summary>
-                                      <div className="mt-2 rounded border border-border bg-background/95 p-2 w-[760px] max-w-[92vw] shadow-lg">
-                                        <div className="max-h-[280px] overflow-auto">
-                                        <Table className="text-[10px] min-w-[720px]">
-                                          <TableHeader>
-                                            <TableRow>
-                                              <TableHead>RFQ ID</TableHead>
-                                              <TableHead>Part #</TableHead>
-                                              <TableHead>Part</TableHead>
-                                              <TableHead>Material</TableHead>
-                                              <TableHead>Process</TableHead>
-                                              <TableHead className="text-right">Similarity</TableHead>
-                                              <TableHead className="text-right">Score</TableHead>
-                                              <TableHead>Why matched</TableHead>
-                                            </TableRow>
-                                          </TableHeader>
-                                          <TableBody>
-                                            {row.matches.slice(0, 3).map((m) => (
-                                              <TableRow key={`${row.item_index}-${m.project_id}`}>
-                                                <TableCell className="font-mono">{displayRfqId(m.project_id)}</TableCell>
-                                                <TableCell className="font-mono">{m.record.rfq.part_number}</TableCell>
-                                                <TableCell className="max-w-[180px] whitespace-normal break-words" title={m.record.rfq.part_name}>
-                                                  {m.record.rfq.part_name}
-                                                </TableCell>
-                                                <TableCell className="font-mono">{m.record.rfq.material}</TableCell>
-                                                <TableCell className="max-w-[180px] whitespace-normal break-words" title={m.record.rfq.process}>
-                                                  {m.record.rfq.process}
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                  {typeof m.similarity_0_1 === "number" ? `${Math.round(m.similarity_0_1 * 100)}%` : "—"}
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">{m.score}</TableCell>
-                                                <TableCell className="max-w-[260px] whitespace-normal break-words" title={m.reasons.join("; ")}>
-                                                  {m.reasons.join("; ")}
-                                                </TableCell>
-                                              </TableRow>
-                                            ))}
-                                          </TableBody>
-                                        </Table>
-                                        </div>
-                                      </div>
-                                    </details>
-                                  ) : (
-                                    <span className="text-muted-foreground">—</span>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                ) : null}
+                <RfqReferenceMatchPanel caseData={c} />
 
                 <Card className="bg-card/50 border-border overflow-hidden">
                   <CardHeader className="p-5 pb-3 border-b border-border bg-secondary/15">
