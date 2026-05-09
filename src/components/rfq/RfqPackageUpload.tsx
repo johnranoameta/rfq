@@ -103,12 +103,22 @@ type PipelineState =
   | { status: "ok"; data: FullAnalyzeOk }
   | { status: "error"; message: string };
 
+/** Status values surfaced to the dashboard for sidebar progress pills. */
+export type AnalysisStatusKind = "queued" | "analyzing" | "done" | "error";
+
+export type AnalysisStatusEvent = {
+  fileId: string;
+  status: AnalysisStatusKind;
+  message?: string;
+};
+
 type RfqPackageUploadProps = {
   onUploaded?: (file: UploadedPackageFile) => void;
   onAnalyzed?: (file: UploadedPackageFile, analysis: FullAnalyzeOk) => void | Promise<void>;
+  onAnalysisStatusChange?: (event: AnalysisStatusEvent) => void;
 };
 
-export function RfqPackageUpload({ onUploaded, onAnalyzed }: RfqPackageUploadProps) {
+export function RfqPackageUpload({ onUploaded, onAnalyzed, onAnalysisStatusChange }: RfqPackageUploadProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<UploadedPackageFile[]>([]);
@@ -148,17 +158,17 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed }: RfqPackageUploadPro
 
   const runPackageAnalysis = useCallback(async (f: UploadedPackageFile) => {
     if (f.storedName === STORED_NAME_DB_ONLY) {
+      const message =
+        "This RFQ was opened from the database only. Re-upload the 4-sheet workbook (.xlsx/.xls) to run analysis again.";
       setPdfPipeline((prev) => ({
         ...prev,
-        [f.id]: {
-          status: "error",
-          message:
-            "This RFQ was opened from the database only. Re-upload the 4-sheet workbook (.xlsx/.xls) to run analysis again.",
-        },
+        [f.id]: { status: "error", message },
       }));
+      onAnalysisStatusChange?.({ fileId: f.id, status: "error", message });
       return;
     }
     setPdfPipeline((prev) => ({ ...prev, [f.id]: { status: "loading" } }));
+    onAnalysisStatusChange?.({ fileId: f.id, status: "analyzing" });
     try {
       if (!isWorkbookRfqUpload(f)) {
         throw new Error("Workbook-only mode: upload a 4-sheet .xlsx/.xls RFQ file.");
@@ -187,14 +197,17 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed }: RfqPackageUploadPro
           data: data as FullAnalyzeOk,
         },
       }));
+      onAnalysisStatusChange?.({ fileId: f.id, status: "done" });
       await Promise.resolve(onAnalyzed?.(f, data as FullAnalyzeOk));
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Analysis failed";
       setPdfPipeline((prev) => ({
         ...prev,
-        [f.id]: { status: "error", message: e instanceof Error ? e.message : "Analysis failed" },
+        [f.id]: { status: "error", message },
       }));
+      onAnalysisStatusChange?.({ fileId: f.id, status: "error", message });
     }
-  }, [onAnalyzed]);
+  }, [onAnalyzed, onAnalysisStatusChange]);
 
   const onFiles = useCallback(
     async (list: FileList | null) => {
@@ -207,6 +220,9 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed }: RfqPackageUploadPro
           const uploaded = await uploadOne(file);
           next.push(uploaded);
           onUploaded?.(uploaded);
+          if (canRunStoredFileAnalysis(uploaded)) {
+            onAnalysisStatusChange?.({ fileId: uploaded.id, status: "queued" });
+          }
         }
         setItems((prev) => [...next, ...prev]);
         for (const uploaded of next) {
@@ -220,7 +236,7 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed }: RfqPackageUploadPro
         setBusy(false);
       }
     },
-    [uploadOne, onUploaded, runPackageAnalysis],
+    [uploadOne, onUploaded, runPackageAnalysis, onAnalysisStatusChange],
   );
 
   return (

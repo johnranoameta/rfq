@@ -24,6 +24,7 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { SettingsMenu } from "@/components/settings/SettingsMenu";
 import { logout as clearAuthSession } from "@/components/auth/rfqAuth";
 import { AllRfqsLibrary } from "@/components/rfq/AllRfqsLibrary";
+import { RfqPortfolioPanel } from "@/components/rfq/RfqPortfolioPanel";
 import {
   OverviewTopReferenceCard,
   RfqReferenceMatchPanel,
@@ -31,7 +32,8 @@ import {
 import {
   RfqPackageUpload,
   STORED_NAME_DB_ONLY,
-  type FullAnalyzeOk,
+  type AnalysisStatusEvent,
+  type AnalysisStatusKind,
   type UploadedPackageFile,
 } from "@/components/rfq/RfqPackageUpload";
 import {
@@ -193,6 +195,29 @@ export default function RFQAgentDashboard() {
   const supplyInputBaseId = useId();
   const [supplyDocBusySlot, setSupplyDocBusySlot] = useState<string | null>(null);
   const [supplyDocError, setSupplyDocError] = useState<string | null>(null);
+  /** Per-file pipeline status (queued/analyzing/done/error) for sidebar progress pills. */
+  const [analysisStatus, setAnalysisStatus] = useState<
+    Record<string, { status: AnalysisStatusKind; message?: string }>
+  >({});
+
+  const handleAnalysisStatus = useCallback((event: AnalysisStatusEvent) => {
+    setAnalysisStatus((prev) => ({
+      ...prev,
+      [event.fileId]: { status: event.status, message: event.message },
+    }));
+    /** Successful "done" stops self-clearing after a brief delay so the sidebar settles. */
+    if (event.status === "done") {
+      window.setTimeout(() => {
+        setAnalysisStatus((prev) => {
+          const cur = prev[event.fileId];
+          if (!cur || cur.status !== "done") return prev;
+          const next = { ...prev };
+          delete next[event.fileId];
+          return next;
+        });
+      }, 4000);
+    }
+  }, []);
 
   const handleSupplyMissingDoc = useCallback(async (slotName: string, file: File) => {
     setSupplyDocBusySlot(slotName);
@@ -346,14 +371,26 @@ export default function RFQAgentDashboard() {
     setSessionNotice(`Stored “${file.originalName}”. Analysis runs only for the 4-sheet workbook format.`);
   }
 
-  async function handleAnalyzed(file: UploadedPackageFile, _analysis: FullAnalyzeOk) {
-    setSessionNotice(null);
+  async function handleAnalyzed(file: UploadedPackageFile) {
     setUploadedRfqs((prev) => {
       if (prev.some((u) => u.id === file.id)) return prev;
       return [file, ...prev];
     });
-    await activateRfqFromSidebar(file);
-    setActiveTab("parts");
+    /**
+     * Batch-upload race: when N workbooks are dropped at once, every analysis fires this
+     * callback. Only auto-activate the dashboard if nothing else is already driving it,
+     * so the user's first opened/active RFQ isn't yanked away by a later finisher.
+     */
+    const hasActiveSession = session !== null;
+    if (!hasActiveSession) {
+      setSessionNotice(null);
+      await activateRfqFromSidebar(file);
+      setActiveTab("parts");
+    } else if (session.file.id !== file.id) {
+      setSessionNotice(
+        `Analyzed “${file.originalName}”. Open it from the sidebar when ready.`,
+      );
+    }
   }
 
   const docMissingCount = useMemo(
@@ -591,6 +628,8 @@ export default function RFQAgentDashboard() {
               <div className="space-y-2">
                 {uploadedRfqs.map((u) => {
                   const drivesDashboard = session?.file.id === u.id;
+                  const status = analysisStatus[u.id];
+                  const inFlight = status?.status === "queued" || status?.status === "analyzing";
                   return (
                     <div
                       key={u.id}
@@ -598,7 +637,11 @@ export default function RFQAgentDashboard() {
                         "flex rounded-2xl border bg-card/60 shadow-sm overflow-hidden transition",
                         drivesDashboard
                           ? "border-accent/50 ring-1 ring-accent/20"
-                          : "border-border hover:border-accent/35",
+                          : status?.status === "error"
+                            ? "border-red-500/50"
+                            : status?.status === "analyzing" || status?.status === "queued"
+                              ? "border-cyan-500/45"
+                              : "border-border hover:border-accent/35",
                       ].join(" ")}
                     >
                       <button
@@ -620,7 +663,13 @@ export default function RFQAgentDashboard() {
                               "w-2.5 h-2.5 rounded-full shrink-0 mt-1.5",
                               drivesDashboard
                                 ? "bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.35)]"
-                                : "bg-muted-foreground/35",
+                                : status?.status === "error"
+                                  ? "bg-red-500"
+                                  : inFlight
+                                    ? "bg-cyan-400 animate-pulse"
+                                    : status?.status === "done"
+                                      ? "bg-emerald-400"
+                                      : "bg-muted-foreground/35",
                             ].join(" ")}
                           />
                           {sidebarOpen ? (
@@ -639,6 +688,9 @@ export default function RFQAgentDashboard() {
                                   {sidebarCustomerLabel(session.caseData.customer)} /{" "}
                                   {sidebarProgramLabel(session.caseData.program)}
                                 </div>
+                              ) : null}
+                              {status ? (
+                                <SidebarStatusPill status={status.status} message={status.message} />
                               ) : null}
                             </div>
                           ) : null}
@@ -723,6 +775,16 @@ export default function RFQAgentDashboard() {
               </div>
             ) : activeTab === "catalog" ? (
               <AllRfqsLibrary />
+            ) : activeTab === "portfolio" ? (
+              <RfqPortfolioPanel
+                onOpenRfq={(sessionId) => {
+                  const target = uploadedRfqs.find((u) => u.id === sessionId);
+                  if (target) {
+                    void activateRfqFromSidebar(target);
+                    setActiveTab("parts");
+                  }
+                }}
+              />
             ) : !c ? (
               <div className="max-w-xl mx-auto space-y-4 pt-4">
                 <Card className="border-border bg-card/50">
@@ -742,7 +804,11 @@ export default function RFQAgentDashboard() {
                         {sessionNotice}
                       </div>
                     ) : null}
-                    <RfqPackageUpload onUploaded={handleUploaded} onAnalyzed={handleAnalyzed} />
+                    <RfqPackageUpload
+                      onUploaded={handleUploaded}
+                      onAnalyzed={handleAnalyzed}
+                      onAnalysisStatusChange={handleAnalysisStatus}
+                    />
                   </CardContent>
                 </Card>
               </div>
@@ -758,7 +824,11 @@ export default function RFQAgentDashboard() {
                     {sessionNotice}
                   </div>
                 ) : null}
-                <RfqPackageUpload onUploaded={handleUploaded} onAnalyzed={handleAnalyzed} />
+                <RfqPackageUpload
+                  onUploaded={handleUploaded}
+                  onAnalyzed={handleAnalyzed}
+                  onAnalysisStatusChange={handleAnalysisStatus}
+                />
                 <Card className="bg-card/45 border-border">
                   <CardContent className="p-5">
                     <div className="flex items-center gap-4">
@@ -2020,6 +2090,42 @@ export default function RFQAgentDashboard() {
         </main>
       </div>
     </div>
+  );
+}
+
+function SidebarStatusPill({
+  status,
+  message,
+}: {
+  status: AnalysisStatusKind;
+  message?: string;
+}) {
+  const cls =
+    status === "error"
+      ? "border-red-500/40 bg-red-500/10 dark:text-red-200 text-red-700"
+      : status === "analyzing"
+        ? "border-cyan-500/40 bg-cyan-500/10 dark:text-cyan-200 text-cyan-800"
+        : status === "queued"
+          ? "border-amber-400/40 bg-amber-400/10 dark:text-amber-200 text-amber-800"
+          : "border-emerald-400/40 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700";
+  const label =
+    status === "error"
+      ? "Error"
+      : status === "analyzing"
+        ? "Analyzing…"
+        : status === "queued"
+          ? "Queued"
+          : "Analyzed";
+  return (
+    <span
+      className={[
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-wider",
+        cls,
+      ].join(" ")}
+      title={message ?? label}
+    >
+      {label}
+    </span>
   );
 }
 

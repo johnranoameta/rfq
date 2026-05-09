@@ -21,12 +21,20 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-export type DashboardTabKey = "catalog" | "overview" | "documents" | "parts" | "gap" | "quote";
+export type DashboardTabKey =
+  | "catalog"
+  | "portfolio"
+  | "overview"
+  | "documents"
+  | "parts"
+  | "gap"
+  | "quote";
 
 export const DASHBOARD_TAB_ORDER_STORAGE_KEY = "rfq-agent-dashboard-tab-order";
 
 const DEFAULT_TAB_ORDER: DashboardTabKey[] = [
   "catalog",
+  "portfolio",
   "overview",
   "documents",
   "parts",
@@ -36,6 +44,7 @@ const DEFAULT_TAB_ORDER: DashboardTabKey[] = [
 
 const TAB_LABELS: Record<DashboardTabKey, string> = {
   catalog: "All RFQs",
+  portfolio: "Portfolio",
   overview: "Overview",
   documents: "Documents",
   parts: "Match & Reuse",
