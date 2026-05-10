@@ -1,7 +1,7 @@
 import type { ParsedRfqWorkbook } from "@/lib/rfq/parseRfqWorkbook";
 
 /**
- * Maps a 4-sheet workbook into the shared "parsed RFQ" object shape for matching + OpenAI gap analysis.
+ * Maps a 4-sheet workbook into the shared "parsed RFQ" object shape for matching + model-assisted gap analysis.
  * Includes `suppliers_grouped` so the model can reason per supplier across multiple line items.
  */
 export function workbookToAgentParsed(w: ParsedRfqWorkbook): Record<string, unknown> {
@@ -10,15 +10,18 @@ export function workbookToAgentParsed(w: ParsedRfqWorkbook): Record<string, unkn
 
   const line_items = w.line_items.map((li, idx) => {
     const lineNo = Number.parseInt(String(li.item).replace(/\D/g, ""), 10) || idx + 1;
+    const lineVol = li.annual_volume != null && li.annual_volume > 0 ? li.annual_volume : null;
+    const headerVol = h.annual_volume > 0 ? h.annual_volume : null;
     return {
       line_no: lineNo,
       part_number: String(li.item).trim() || `L${idx + 1}`,
       part_name: li.part_name,
       material_grade: li.material,
       process: li.process,
-      annual_volume: h.annual_volume || null,
+      annual_volume: lineVol ?? headerVol,
       sop_date: h.sop || null,
       general_tolerance_mm: null,
+      thickness_mm: li.thickness_mm,
       notes: [li.system, li.subsystem, li.level].filter(Boolean).join(" · ") || null,
       target_price: li.target_price,
       tooling_flag: li.tooling,
@@ -26,6 +29,10 @@ export function workbookToAgentParsed(w: ParsedRfqWorkbook): Record<string, unkn
   });
 
   const first = w.line_items[0];
+  const spec_text =
+    w.technical_specs.length > 0
+      ? w.technical_specs.map((s) => `${s.part_name}: ${s.spec_text}`).join("\n")
+      : null;
 
   return {
     source_form: "four_sheet_workbook",
@@ -41,7 +48,7 @@ export function workbookToAgentParsed(w: ParsedRfqWorkbook): Record<string, unkn
     part_number: first ? String(first.item) : null,
     process_family: first?.process ? first.process.split(",").map((s) => s.trim()).filter(Boolean) : [],
     material_grade: first?.material ?? null,
-    thickness_mm: null,
+    thickness_mm: first?.thickness_mm ?? null,
     annual_volume: h.annual_volume || null,
     sop_date: h.sop || null,
     general_tolerance_mm: null,
@@ -50,6 +57,7 @@ export function workbookToAgentParsed(w: ParsedRfqWorkbook): Record<string, unkn
     payment_terms: null,
     annual_reduction_pct: null,
     line_items,
+    spec_text,
     workbook_header: {
       rfq_id: h.rfq_id,
       customer: h.customer,

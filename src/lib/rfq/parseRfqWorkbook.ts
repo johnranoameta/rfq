@@ -19,6 +19,10 @@ export type WorkbookLineItem = {
   process: string;
   target_price: number | null;
   tooling: string;
+  /** Sheet metal / plate nominal thickness for matching (mm). */
+  thickness_mm: number | null;
+  /** Optional per-line annual volume; falls back to header when null. */
+  annual_volume: number | null;
 };
 
 export type WorkbookTechSpec = {
@@ -137,6 +141,12 @@ function parseLineItems(sheet: XLSX.WorkSheet | undefined): WorkbookLineItem[] {
       process: pick(r, ["process", "proc", "manufacturing_process"]),
       target_price: num(pick(r, ["target_price", "target price", "target", "tgt_price"])),
       tooling: pick(r, ["tooling", "tooling_flag", "tooling flag", "nre"]),
+      thickness_mm: num(
+        pick(r, ["thickness_mm", "thickness", "gauge_mm", "t_mm", "material_thickness_mm"]),
+      ),
+      annual_volume: num(
+        pick(r, ["line_annual_volume", "item_annual_volume", "part_annual_volume", "line_volume"]),
+      ),
     });
   }
   return out;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { listKbCategories } from "@/lib/rfq/sqlite/kbCategories";
 import { listRfqParseSessionSummaries } from "@/lib/rfq/sqlite/parseSessions";
 import { listHistoricalUploadSummaries } from "@/lib/rfq/sqlite/historicalUploads";
 import { listSeedRfqProjects } from "@/lib/rfq/sqlite/seedRfqs";
@@ -14,7 +15,8 @@ export async function GET() {
     const upload_analyses = listRfqParseSessionSummaries();
     const historical_uploads = listHistoricalUploadSummaries();
     const seed_projects = listSeedRfqProjects();
-    return NextResponse.json({ upload_analyses, historical_uploads, seed_projects });
+    const kb_categories = listKbCategories();
+    return NextResponse.json({ upload_analyses, historical_uploads, seed_projects, kb_categories });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Database read failed";
     console.error("[database/catalog]", e);

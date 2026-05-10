@@ -252,8 +252,8 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed, onAnalysisStatusChang
           <span className="font-semibold text-foreground/90">4-sheet workbook (.xlsx/.xls):</span> after upload, the app runs{" "}
           <span className="font-mono text-[11px]">parse</span> +{" "}
           <span className="font-mono text-[11px]">historical match</span> +{" "}
-          <span className="font-mono text-[11px]">OpenAI gap analysis</span> (requires{" "}
-          <span className="font-mono">OPENAI_API_KEY</span>, optional <span className="font-mono">OPENAI_MODEL_GAP</span>, and{" "}
+          <span className="font-mono text-[11px]">model-assisted gap analysis</span> (requires a configured server API key
+          per README; optional model env vars; and{" "}
           <span className="font-mono">project_files/.../historical_data</span>
           ). Workbooks need sheets <span className="font-mono">Header</span>, <span className="font-mono">Line_Items</span>,{" "}
           <span className="font-mono">Technical_Specs</span>, <span className="font-mono">Supplier_Responses</span> (multiple rows per
@@ -325,7 +325,7 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed, onAnalysisStatusChang
 
                   {analyzable && ps.status === "loading" ? (
                     <div className="text-[11px] text-muted-foreground animate-pulse">
-                      Reading workbook sheets, ranking historical projects, running OpenAI gap analysis…
+                      Reading workbook sheets, ranking historical projects, running model-assisted gap analysis…
                     </div>
                   ) : null}
 
@@ -504,7 +504,7 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed, onAnalysisStatusChang
                           {ps.data.gap.item_gaps && ps.data.gap.item_gaps.length > 0 ? (
                             <div className="rounded-md border border-border/80 p-2 bg-muted/15">
                               <div className="text-[10px] font-semibold uppercase text-muted-foreground mb-1">
-                                Item-level gaps (OpenAI)
+                                Item-level gaps (model)
                               </div>
                               <ul className="space-y-2 text-[10px]">
                                 {ps.data.gap.item_gaps.map((ig) => (

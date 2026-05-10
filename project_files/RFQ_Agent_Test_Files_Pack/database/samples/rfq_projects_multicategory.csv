@@ -1,0 +1,35 @@
+rfq_id,customer_id,program_name,part_name,part_number,process_family,material_grade,thickness_mm,annual_volume,sop_date,general_tolerance_mm,ppap_level,incoterm,payment_terms,annual_reduction_pct,rfq_case_code,kb_class_hint
+19,1,48V Platform,48V Battery Management ECU,NB-KB-BMS-001,electronics,PCBA,1.6,100000,2025-04-01,0.05,4,FCA Plant,Net 75,2.5,HIST,electronics
+20,1,Connected Vehicle,Gateway Telematics Module,NB-KB-GW-002,electronics,PCBA,1.6,85000,2025-05-01,0.05,4,DDP Detroit,Net 60,2.0,HIST,electronics
+21,1,ADAS Suite,ADAS Sensor Fusion Hub PCB,NB-KB-ADAS-003,pcb_assembly,FR4,1.6,45000,2025-06-01,0.03,5,FOB Munich,Net 90,3.0,HIST,electronics
+22,1,Smart Seat,Seat Memory ECU Module,NB-KB-SEECU-004,electronics,PCBA,1.6,220000,2025-03-15,0.05,3,FOB Shanghai,Net 60,2.0,HIST,electronics
+23,1,EV Powertrain,High Voltage DC-DC Converter Board,NB-KB-DCDC-005,electronics,PCBA,2.0,60000,2025-07-01,0.04,4,FCA Plant,Net 75,2.5,HIST,electronics
+24,1,Connected Vehicle,T-Box Telematics ECU,NB-KB-TBOX-006,electronics,PCBA,1.6,95000,2025-05-20,0.05,4,DDP Chicago,Net 60,2.0,HIST,electronics
+25,1,EV Powertrain,Traction Inverter Control PCB,NB-KB-INV-007,pcb_assembly,FR4,2.4,40000,2025-08-01,0.03,5,FOB Shanghai,Net 90,3.0,HIST,electronics
+26,1,48V Platform,Battery Junction ECU,NB-KB-BJ-008,electronics,PCBA,1.6,78000,2025-04-20,0.05,4,FCA Plant,Net 75,2.5,HIST,electronics
+27,1,Hydraulics Program,6-Port Hydraulic Manifold Block,NB-KB-MAN-009,cnc_machining,AL6061,18.0,25000,2025-02-01,0.02,4,FOB Detroit,Net 60,2.0,HIST,machining
+28,1,Steering System,EPS Housing CNC Machined,NB-KB-ST-010,machining,AL7075,22.5,120000,2025-03-01,0.025,4,DDP Munich,Net 75,2.5,HIST,machining
+29,1,Brake Module,Valve Body Finish Machined,NB-KB-VLV-011,cnc_machining,Steel,15.0,90000,2025-01-15,0.02,4,FOB Shanghai,Net 60,2.0,HIST,machining
+30,1,Thermal System,Coolant Pump Cover Billet,NB-KB-PMP-012,machining,AL6061,14.0,65000,2025-04-10,0.03,3,FOB Shanghai,Net 60,2.0,HIST,machining
+31,1,Driveline,Precision Drive Shaft,NB-KB-SHAFT-013,cnc_machining,Steel,25.0,35000,2025-05-01,0.015,4,DDP Detroit,Net 75,2.5,HIST,machining
+32,1,Brake Module,Caliper Body 5-Axis Machined,NB-KB-CAL-014,machining,AL7075,30.0,80000,2025-02-20,0.02,4,FCA Plant,Net 75,2.5,HIST,machining
+33,1,Wheel End,Wheel Bearing Housing Machined,NB-KB-BRG-015,cnc_machining,Steel,20.0,150000,2025-06-01,0.025,3,FOB Shanghai,Net 60,2.0,HIST,machining
+34,1,EV Crossover,Battery Tray Stamping Progressive,NB-KB-STP-016,stamping,HSLA,2.0,200000,2025-01-01,0.08,3,FOB Shanghai,Net 60,2.0,HIST,stamping
+35,1,EV Utility,Heat Shield Stamped,NB-KB-STP-017,stamping,Aluminum,0.8,175000,2025-02-01,0.1,3,FOB Shanghai,Net 75,2.0,HIST,stamping
+36,1,EV Premium,Seat Rail Stamping Transfer Die,NB-KB-STP-018,stamping,SPCC,1.4,165000,2025-03-01,0.08,3,FOB Shanghai,Net 75,2.0,HIST,stamping
+37,1,EV Crossover,Motor Skid Mount Bracket Stamped,NB-KB-STP-019,stamping,SPHC,2.2,95000,2025-04-01,0.1,3,FOB Shanghai,Net 60,2.0,HIST,stamping
+38,1,Interior Trim,Instrument Panel Bezel A-Surface,NB-KB-INJ-020,injection_molding,PC/ABS,2.8,180000,2025-05-01,0.08,4,DDP Detroit,Net 75,2.5,HIST,injection
+39,1,Interior Trim,Door Upper Trim Molded,NB-KB-INJ-021,injection_molding,PP,2.2,220000,2025-05-15,0.1,3,FOB Shanghai,Net 60,2.0,HIST,injection
+40,1,Underhood,Air Resonator Injection Molded,NB-KB-INJ-022,injection_molding,PA66,3.5,140000,2025-06-01,0.1,3,FOB Shanghai,Net 60,2.0,HIST,injection
+41,1,Connectors,High Voltage Connector Housing,NB-KB-INJ-023,injection_molding,PBT,1.2,500000,2025-03-20,0.05,4,FOB Shanghai,Net 60,2.0,HIST,injection
+42,1,Interior Trim,Seat Map Pocket Molded,NB-KB-INJ-024,injection_molding,ABS,1.8,300000,2025-04-01,0.1,3,FOB Shanghai,Net 60,2.0,HIST,injection
+43,1,Interior Trim,Console Side Trim Molded,NB-KB-INJ-025,injection_molding,PC/ABS,2.0,160000,2025-07-01,0.08,4,DDP Detroit,Net 75,2.5,HIST,injection
+44,1,Smart Seat,Seat Adjuster Assembly,NB-KB-ASM-026,assembly,Mixed,0,130000,2025-02-15,0.1,4,FCA Plant,Net 75,2.5,HIST,assembly
+45,1,Climate,HVAC Module Assembly,NB-KB-ASM-027,assembly,Mixed,0,85000,2025-03-01,0.1,4,DDP Detroit,Net 75,2.5,HIST,assembly
+46,1,Brake Module,Brake Pedal Subassembly,NB-KB-ASM-028,assembly,Mixed,0,200000,2025-01-20,0.08,3,FOB Shanghai,Net 60,2.0,HIST,assembly
+47,1,Interior Trim,IP Subassembly Kitting,NB-KB-ASM-029,assembly,Mixed,0,95000,2025-05-01,0.1,3,FCA Plant,Net 75,2.5,HIST,assembly
+48,1,Thermal System,Thermal Valve Assembly Leak Tested,NB-KB-ASM-030,assembly,Mixed,0,70000,2025-04-15,0.05,4,FOB Shanghai,Net 60,2.0,HIST,assembly
+49,1,EV Powertrain,Motor End Cover Die Cast,NB-KB-CST-031,die_casting,A380,8.0,110000,2025-03-10,0.05,4,FOB Shanghai,Net 60,2.0,HIST,casting
+50,1,Chassis,Steering Knuckle Forging Finish,NB-KB-CST-032,forging,Steel,35.0,60000,2025-02-01,0.03,4,DDP Detroit,Net 75,2.5,HIST,casting
+51,1,Thermal System,Coolant Pump Housing Cast,NB-KB-CST-033,casting,AL-Si,12.0,88000,2025-04-01,0.04,3,FOB Shanghai,Net 60,2.0,HIST,casting
+52,1,Driveline,Differential Carrier Ductile Iron,NB-KB-CST-034,sand_casting,GJS-500,40.0,42000,2025-06-01,0.04,4,FOB Munich,Net 90,3.0,HIST,casting

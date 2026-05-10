@@ -21,7 +21,7 @@ type MatchRow = ItemRow["matches"][number];
  * Dimensions the historical match engine can credit (`rankHistoricalMatches`).
  * Used to compute Coverage = unique dimensions with at least one matching reason / total.
  */
-const MATCH_DIMENSIONS: Array<{ key: string; label: string; reasonMatchers: string[] }> = [
+export const MATCH_DIMENSIONS: Array<{ key: string; label: string; reasonMatchers: string[] }> = [
   { key: "material", label: "Material", reasonMatchers: ["material match"] },
   { key: "program", label: "Program", reasonMatchers: ["program match"] },
   { key: "process", label: "Process", reasonMatchers: ["process match"] },
@@ -58,7 +58,7 @@ const MATCH_DIMENSIONS: Array<{ key: string; label: string; reasonMatchers: stri
   },
 ];
 
-const TOTAL_DIMENSIONS = MATCH_DIMENSIONS.length;
+export const TOTAL_DIMENSIONS = MATCH_DIMENSIONS.length;
 
 export type ScoreBand = "high" | "medium" | "low";
 
@@ -92,7 +92,7 @@ function reuseRecommendation(b: ScoreBand, exactPn: boolean): string {
   return "Weak reference — proceed with caution; treat as new quote.";
 }
 
-function dimensionsCovered(reasons: string[]): Set<string> {
+export function dimensionsCovered(reasons: string[]): Set<string> {
   const hit = new Set<string>();
   const lower = reasons.map((r) => r.toLowerCase());
   for (const dim of MATCH_DIMENSIONS) {

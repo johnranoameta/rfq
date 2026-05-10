@@ -40,7 +40,7 @@ function inferQuoteFromParsed(parsed: Record<string, unknown>): { piece: number;
 }
 
 /**
- * Builds a {@link HistoricalProjectRecord} from normalized parse output (PDF OpenAI or workbook)
+ * Builds a {@link HistoricalProjectRecord} from normalized parse output (PDF model extract or workbook)
  * so uploads can be merged into the KB for future `rankHistoricalMatches` calls.
  */
 export function buildKbRecordFromParsed(

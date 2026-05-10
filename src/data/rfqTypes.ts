@@ -153,6 +153,9 @@ export type CaseData = {
   currency: string;
   tooling_owner: string;
   process: string[];
+  /** Assigned when a workbook analysis persists (Knowledge Base sidebar class). */
+  kb_category_label?: string | null;
+  kb_category_slug?: string | null;
   supplier_funded_gauges?: boolean;
   risk_score: number;
   completeness: "complete" | "incomplete" | "missing";

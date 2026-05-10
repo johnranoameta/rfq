@@ -3,7 +3,7 @@ import type { RankedHistoricalMatch } from "@/lib/rfq/loadHistoricalKnowledge";
 
 export type GapAnalysisResult = {
   risk_score: number;
-  /** 0–1 when produced by OpenAI gap analysis (higher = more risk). */
+  /** 0–1 when produced by model-assisted gap analysis (higher = more risk). */
   risk_score_0_1?: number;
   /** Model id used for LLM gap analysis, when applicable. */
   gap_model?: string;
@@ -13,7 +13,7 @@ export type GapAnalysisResult = {
   summary: string;
   recommended_actions: string[];
   historical_issues: HistoricalGapRecord[];
-  /** Optional line- or part-level gaps (OpenAI). */
+  /** Optional line- or part-level gaps from the model pass. */
   item_gaps?: { item: string; gaps: string[] }[];
 };
 

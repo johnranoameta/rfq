@@ -1,7 +1,10 @@
 import Database from "better-sqlite3";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { mkdirSync } from "fs";
 import { dirname, join } from "path";
+
+import { classifyKbClass, KB_CLASS_ORDER } from "@/lib/rfq/kbCanonicalClasses";
+import { normalizedKbLabelKey } from "@/lib/rfq/kbLabelNormalize";
 
 let dbSingleton: Database.Database | null = null;
 
@@ -47,6 +50,16 @@ function ensurePackSchema(db: Database.Database): void {
   if (!tableExists(db, "rfq_parse_sessions")) {
     db.exec(PARSE_SESSIONS_DDL);
   }
+}
+
+/** Extra historical rows across KB classes (electronics, machining, etc.). Runs once if only base seed (18 RFQs) is present. */
+function ensureKbMulticategorySeed(db: Database.Database): void {
+  const dir = packDatabaseDir();
+  const seedPath = join(dir, "03_kb_multicategory_seed.sql");
+  if (!existsSync(seedPath)) return;
+  const row = db.prepare("SELECT COUNT(*) AS c FROM rfq_projects WHERE rfq_id >= 19").get() as { c: number };
+  if (row.c > 0) return;
+  db.exec(readFileSync(seedPath, "utf8"));
 }
 
 const HISTORICAL_GAP_FINDINGS_DDL = `
@@ -96,6 +109,123 @@ function ensureMatchSettingsTable(db: Database.Database): void {
   }
 }
 
+function columnExists(db: Database.Database, table: string, col: string): boolean {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return rows.some((r) => r.name === col);
+}
+
+const KB_CATEGORIES_DDL = `
+CREATE TABLE IF NOT EXISTS kb_categories (
+  category_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  letter TEXT NOT NULL DEFAULT '?',
+  icon_bg TEXT NOT NULL DEFAULT '#f0f0f0',
+  icon_fg TEXT NOT NULL DEFAULT '#333333',
+  profile_id TEXT NOT NULL DEFAULT '',
+  blurb TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL DEFAULT 'system',
+  sort_order INTEGER NOT NULL DEFAULT 100,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);`;
+
+function ensureKbCategoriesTable(db: Database.Database): void {
+  db.exec(KB_CATEGORIES_DDL);
+}
+
+function seedCanonicalKbCategories(db: Database.Database): void {
+  const n = db.prepare(`SELECT COUNT(*) AS c FROM kb_categories`).get() as { c: number };
+  if (n.c > 0) return;
+  const ins = db.prepare(
+    `INSERT INTO kb_categories (slug, label, letter, icon_bg, icon_fg, profile_id, blurb, source, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'system', ?)`,
+  );
+  let order = 10;
+  for (const m of KB_CLASS_ORDER) {
+    ins.run(m.id, m.label, m.letter, m.iconBg, m.iconFg, m.profileId, m.blurb, order);
+    order += 10;
+  }
+}
+
+function ensureRfqProjectsKbSlugColumn(db: Database.Database): void {
+  if (!tableExists(db, "rfq_projects")) return;
+  if (!columnExists(db, "rfq_projects", "kb_category_slug")) {
+    db.exec(`ALTER TABLE rfq_projects ADD COLUMN kb_category_slug TEXT`);
+  }
+}
+
+function backfillRfqProjectKbSlugs(db: Database.Database): void {
+  if (!tableExists(db, "rfq_projects")) return;
+  if (!columnExists(db, "rfq_projects", "kb_category_slug")) return;
+  const rows = db
+    .prepare(
+      `SELECT rfq_id, process_family, part_name, program_name FROM rfq_projects WHERE kb_category_slug IS NULL OR TRIM(kb_category_slug) = ''`,
+    )
+    .all() as { rfq_id: number; process_family: string; part_name: string; program_name: string }[];
+  const upd = db.prepare(`UPDATE rfq_projects SET kb_category_slug = ? WHERE rfq_id = ?`);
+  for (const r of rows) {
+    upd.run(classifyKbClass(r), r.rfq_id);
+  }
+}
+
+/** Merge kb_categories rows that share the same normalized label (e.g. system `casting` vs AI duplicate). */
+function dedupeKbCategoriesByNormalizedLabel(db: Database.Database): void {
+  if (!tableExists(db, "kb_categories")) return;
+  type CatRow = {
+    category_id: number;
+    slug: string;
+    label: string;
+    source: string;
+    sort_order: number;
+  };
+  const rows = db
+    .prepare(`SELECT category_id, slug, label, source, sort_order FROM kb_categories`)
+    .all() as CatRow[];
+  const byKey = new Map<string, CatRow[]>();
+  for (const r of rows) {
+    const k = normalizedKbLabelKey(r.label);
+    if (!k) continue;
+    const arr = byKey.get(k) ?? [];
+    arr.push(r);
+    byKey.set(k, arr);
+  }
+  for (const group of byKey.values()) {
+    if (group.length < 2) continue;
+    group.sort((a, b) => {
+      if (a.source === "system" && b.source !== "system") return -1;
+      if (b.source === "system" && a.source !== "system") return 1;
+      return a.sort_order - b.sort_order || a.category_id - b.category_id;
+    });
+    const winner = group[0]!;
+    for (const L of group.slice(1)) {
+      if (tableExists(db, "rfq_projects") && columnExists(db, "rfq_projects", "kb_category_slug")) {
+        db.prepare(`UPDATE rfq_projects SET kb_category_slug = ? WHERE kb_category_slug = ?`).run(winner.slug, L.slug);
+      }
+      if (tableExists(db, "rfq_parse_sessions") && columnExists(db, "rfq_parse_sessions", "kb_category_slug")) {
+        db.prepare(
+          `UPDATE rfq_parse_sessions SET kb_category_slug = ?, kb_category_label = ? WHERE kb_category_slug = ?`,
+        ).run(winner.slug, winner.label, L.slug);
+      }
+      db.prepare(`DELETE FROM kb_categories WHERE category_id = ?`).run(L.category_id);
+    }
+  }
+}
+
+function ensureParseSessionKbColumns(db: Database.Database): void {
+  if (!tableExists(db, "rfq_parse_sessions")) return;
+  const cols: [string, string][] = [
+    ["kb_category_slug", "TEXT"],
+    ["kb_category_label", "TEXT"],
+    ["part_display_name", "TEXT"],
+    ["process_family_hint", "TEXT"],
+  ];
+  for (const [name, decl] of cols) {
+    if (!columnExists(db, "rfq_parse_sessions", name)) {
+      db.exec(`ALTER TABLE rfq_parse_sessions ADD COLUMN ${name} ${decl}`);
+    }
+  }
+}
+
 export function getRfqDatabasePath(): string {
   const fromEnv = process.env.RFQ_DATABASE_PATH?.trim();
   if (fromEnv) return fromEnv;
@@ -114,8 +244,15 @@ export function getRfqDb(): Database.Database {
   dbSingleton.pragma("journal_mode = WAL");
   dbSingleton.pragma("foreign_keys = ON");
   ensurePackSchema(dbSingleton);
+  ensureKbMulticategorySeed(dbSingleton);
   ensureHistoricalGapFindingsTable(dbSingleton);
   ensureKbUploadedRfqsTable(dbSingleton);
   ensureMatchSettingsTable(dbSingleton);
+  ensureKbCategoriesTable(dbSingleton);
+  seedCanonicalKbCategories(dbSingleton);
+  ensureRfqProjectsKbSlugColumn(dbSingleton);
+  ensureParseSessionKbColumns(dbSingleton);
+  dedupeKbCategoriesByNormalizedLabel(dbSingleton);
+  backfillRfqProjectKbSlugs(dbSingleton);
   return dbSingleton;
 }

@@ -150,7 +150,7 @@ function asItemGaps(v: unknown): { item: string; gaps: string[] }[] {
 }
 
 /**
- * OpenAI-based gap analysis using parsed extraction + ranked historical projects + heuristic baseline.
+ * Model-assisted gap analysis using parsed extraction + ranked historical projects + heuristic baseline.
  * Preserves {@link GapAnalysisResult.historical_issues} from the caller (CSV-backed).
  */
 export async function runOpenAiGapAnalysis(params: {

@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import { NextResponse } from "next/server";
 
+import { assignKbCategoryForParsed, heuristicKbAssignment, partDisplayNameFromParsed } from "@/lib/rfq/assignKbCategoryForParsed";
 import { buildGapAnalysisFromWorkbook } from "@/lib/rfq/gapFromWorkbook";
 import { loadHistoricalKnowledge, rankHistoricalMatches } from "@/lib/rfq/loadHistoricalKnowledge";
 import { mapParsedLineItemsToMatchCriteria, mapParsedToMatchCriteria } from "@/lib/rfq/mapParsedToMatch";
@@ -27,7 +28,7 @@ function buildSelfProjectIdCandidates(parsed: Record<string, unknown>, uploadId:
 
 /**
  * 4-sheet workbook (Header, Line_Items, Technical_Specs, Supplier_Responses) →
- * historical match → heuristic workbook gaps → OpenAI gap analysis.
+ * historical match → heuristic workbook gaps → optional model-assisted gap pass.
  */
 export async function POST(request: Request) {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "OPENAI_API_KEY is not set. Add it to .env.local to enable workbook gap analysis (OpenAI).",
+          "Workbook gap analysis is not configured on this server (missing language-model API key). See the repository README for setup.",
       },
       { status: 503 },
     );
@@ -121,7 +122,17 @@ export async function POST(request: Request) {
         heuristicGap,
       });
     } catch (gapErr) {
-      console.error("[analyze-uploaded-workbook] OpenAI gap analysis failed; using heuristic only", gapErr);
+      console.error("[analyze-uploaded-workbook] model gap analysis failed; using heuristic only", gapErr);
+    }
+
+    let kbAssignment = heuristicKbAssignment(parsed as Record<string, unknown>);
+    try {
+      kbAssignment = await assignKbCategoryForParsed({
+        apiKey,
+        parsed: parsed as Record<string, unknown>,
+      });
+    } catch (kbErr) {
+      console.error("[analyze-uploaded-workbook] KB category assignment failed; using heuristic", kbErr);
     }
 
     const parse = {
@@ -157,6 +168,8 @@ export async function POST(request: Request) {
           },
           historical: historicalPayload,
           gap,
+          kbCategory: { slug: kbAssignment.slug, label: kbAssignment.label },
+          partDisplayName: partDisplayNameFromParsed(parsed as Record<string, unknown>),
         });
         try {
           upsertKnowledgeBaseFromUpload({
@@ -177,6 +190,11 @@ export async function POST(request: Request) {
       parse,
       historical: historicalPayload,
       gap,
+      kb_category: {
+        slug: kbAssignment.slug,
+        label: kbAssignment.label,
+        source: kbAssignment.source,
+      },
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Workbook analysis failed";

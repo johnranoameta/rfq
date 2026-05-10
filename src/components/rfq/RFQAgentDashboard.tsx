@@ -6,8 +6,9 @@ import { gapFindingUploadSlot } from "@/lib/rfq/reconcileGapsWithDocuments";
 import { buildCaseDataFromPersisted } from "@/lib/rfq/caseFromPersisted";
 import { loadSidebarListCache, saveSidebarListCache } from "@/lib/rfq/sidebarListCache";
 import type { RfqParseSessionFull } from "@/lib/rfq/sqlite/parseSessions";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Trash2 } from "lucide-react";
+import { CircleHelp, LogOut, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,8 +24,11 @@ import type { CaseData, DocType, GapWorkflowStatus } from "@/data/rfqTypes";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { SettingsMenu } from "@/components/settings/SettingsMenu";
 import { logout as clearAuthSession } from "@/components/auth/rfqAuth";
+import "./rfq-assistant.css";
 import { AllRfqsLibrary } from "@/components/rfq/AllRfqsLibrary";
+import { RfqKbMainPanel } from "@/components/rfq/RfqKbMainPanel";
 import { RfqPortfolioPanel } from "@/components/rfq/RfqPortfolioPanel";
+import { RfqMatchCoverageMatrix } from "@/components/rfq/RfqMatchCoverageMatrix";
 import {
   OverviewTopReferenceCard,
   RfqReferenceMatchPanel,
@@ -36,11 +40,35 @@ import {
   type AnalysisStatusKind,
   type UploadedPackageFile,
 } from "@/components/rfq/RfqPackageUpload";
-import {
-  SortableRfqTabBar,
-  loadDashboardTabOrder,
-  type DashboardTabKey,
-} from "@/components/rfq/SortableRfqTabBar";
+import { KB_CLASS_COUNT } from "@/lib/rfq/kbCanonicalClasses";
+import { partitionKbBuckets, type KbBucket } from "@/lib/rfq/kbBucketPartition";
+import type { KbCategoryRow } from "@/lib/rfq/sqlite/kbCategories";
+import type { RfqParseSessionRow } from "@/lib/rfq/sqlite/parseSessions";
+import type { SeedRfqProjectRow } from "@/lib/rfq/sqlite/seedRfqs";
+type WorkspaceMode = "kb" | "new" | "library" | "portfolio";
+type NewWorkspaceTab = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "documents" | "quote";
+
+type CatalogPayload = {
+  upload_analyses?: RfqParseSessionRow[];
+  historical_uploads?: { project_id?: string }[];
+  seed_projects?: Array<{
+    rfq_id: number;
+    customer_id?: number;
+    customer_name: string;
+    program_name: string;
+    part_name: string;
+    part_number: string;
+    process_family: string;
+    material_grade: string | null;
+    annual_volume: number | null;
+    sop_date: string | null;
+    rfq_case_code: string | null;
+    created_at?: string | null;
+    kb_category_slug?: string | null;
+  }>;
+  kb_categories?: KbCategoryRow[];
+  error?: string;
+};
 type GapFilterKey =
   | "all"
   | "sev-critical"
@@ -184,8 +212,11 @@ export default function RFQAgentDashboard() {
   const [uploadedRfqs, setUploadedRfqs] = useState<UploadedPackageFile[]>([]);
   const [pipelineBusy, setPipelineBusy] = useState(false);
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
-  const [tabOrder, setTabOrder] = useState<DashboardTabKey[]>(() => loadDashboardTabOrder());
-  const [activeTab, setActiveTab] = useState<DashboardTabKey>("overview");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("new");
+  const [newWsTab, setNewWsTab] = useState<NewWorkspaceTab>("summary");
+  const [kbSelectedSlug, setKbSelectedSlug] = useState<string | null>(null);
+  const [sidebarQuery, setSidebarQuery] = useState("");
+  const [catalog, setCatalog] = useState<CatalogPayload | null>(null);
   const [gapFilter, setGapFilter] = useState<GapFilterKey>("all");
   const [expandedRule, setExpandedRule] = useState<Record<string, boolean>>({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -255,9 +286,8 @@ export default function RFQAgentDashboard() {
       let fromSource: UploadedPackageFile[] = [];
       try {
         const r = await fetch("/api/rfq/database/catalog", { cache: "no-store" });
-        const data = (await r.json()) as {
-          upload_analyses?: { session_id: string; original_filename: string }[];
-        };
+        const data = (await r.json()) as CatalogPayload;
+        if (r.ok) setCatalog(data);
         const fromApi =
           r.ok && Array.isArray(data.upload_analyses)
             ? data.upload_analyses.map(uploadedFileFromPersistedRow)
@@ -360,6 +390,15 @@ export default function RFQAgentDashboard() {
         setSessionNotice(null);
       }
     }
+    void (async () => {
+      try {
+        const r = await fetch("/api/rfq/database/catalog", { cache: "no-store" });
+        const data = (await r.json()) as CatalogPayload;
+        if (r.ok) setCatalog(data);
+      } catch {
+        /* ignore */
+      }
+    })();
   }
 
   function handleUploaded(file: UploadedPackageFile) {
@@ -384,13 +423,23 @@ export default function RFQAgentDashboard() {
     const hasActiveSession = session !== null;
     if (!hasActiveSession) {
       setSessionNotice(null);
+      setWorkspaceMode("new");
       await activateRfqFromSidebar(file);
-      setActiveTab("parts");
+      setNewWsTab("summary");
     } else if (session.file.id !== file.id) {
       setSessionNotice(
         `Analyzed “${file.originalName}”. Open it from the sidebar when ready.`,
       );
     }
+    void (async () => {
+      try {
+        const r = await fetch("/api/rfq/database/catalog", { cache: "no-store" });
+        const data = (await r.json()) as CatalogPayload;
+        if (r.ok) setCatalog(data);
+      } catch {
+        /* ignore */
+      }
+    })();
   }
 
   const docMissingCount = useMemo(
@@ -404,28 +453,36 @@ export default function RFQAgentDashboard() {
     return ok.reduce((a, d) => a + (d.conf ?? 0), 0) / ok.length;
   }, [c]);
 
-  const tabMeta = useMemo(() => {
-    if (!c) {
-      return {
-        docCountText: "—",
-        docPillVariant: "secondary" as const,
-        gapCount: 0,
-        gapPillVariant: "default" as const,
-      };
-    }
-    const missing = c.docs.filter((d) => d.status === "miss").length;
-    const openFindings = c.gap_findings.filter((f) => !isGapWorkflowClosed(c.gap_workflow?.[f.rule]));
-    const highGaps = openFindings.filter((f) => f.sev === "high").length;
-    const criticalGaps = openFindings.filter((f) => f.sev === "critical").length;
-    const gapCount = openFindings.length;
-    return {
-      docCountText: missing ? `${c.docs.length} • ${missing} missing` : `${c.docs.length}`,
-      docPillVariant: missing ? ("destructive" as const) : ("secondary" as const),
-      gapCount,
-      gapPillVariant:
-        criticalGaps > 0 ? ("destructive" as const) : highGaps > 3 ? ("accent" as const) : highGaps > 0 ? ("secondary" as const) : ("default" as const),
-    };
-  }, [c]);
+  const kbClassBuckets = useMemo((): KbBucket[] => {
+    const cats = catalog?.kb_categories ?? [];
+    if (cats.length === 0) return [];
+    return partitionKbBuckets(
+      cats,
+      (catalog?.seed_projects ?? []) as SeedRfqProjectRow[],
+      catalog?.upload_analyses ?? [],
+    );
+  }, [catalog?.kb_categories, catalog?.seed_projects, catalog?.upload_analyses]);
+
+  useEffect(() => {
+    if (workspaceMode !== "kb") return;
+    const valid = kbSelectedSlug && kbClassBuckets.some((b) => b.slug === kbSelectedSlug);
+    if (valid) return;
+    const firstWithData = kbClassBuckets.find((b) => b.projects.length > 0);
+    setKbSelectedSlug(firstWithData?.slug ?? kbClassBuckets[0]?.slug ?? null);
+  }, [workspaceMode, kbClassBuckets, kbSelectedSlug]);
+
+  const headerKbClassCount = catalog?.kb_categories?.length ?? KB_CLASS_COUNT;
+  const headerHistoricalCount =
+    (catalog?.seed_projects?.length ?? 0) +
+    (catalog?.historical_uploads?.length ?? 0) +
+    (catalog?.upload_analyses?.length ?? 0);
+  const headerSavedAnalysesCount = catalog?.upload_analyses?.length ?? 0;
+  const headerNewCount = uploadedRfqs.length;
+
+  const kbBucketSelected = useMemo(() => {
+    if (!kbSelectedSlug) return null;
+    return kbClassBuckets.find((b) => b.slug === kbSelectedSlug) ?? null;
+  }, [kbClassBuckets, kbSelectedSlug]);
 
   const gapFindingsFiltered = useMemo(() => {
     if (!c) return [];
@@ -515,216 +572,277 @@ export default function RFQAgentDashboard() {
     setExpandedRule((prev) => ({ ...prev, [rule]: !prev[rule] }));
   }
 
+  function showRaToast(msg: string) {
+    const el = document.createElement("div");
+    el.className =
+      "fixed bottom-5 right-5 z-[200] rounded-lg px-4 py-2 text-[13px] text-white shadow-lg";
+    el.style.background = "#0f2340";
+    el.textContent = msg;
+    document.body.appendChild(el);
+    window.setTimeout(() => el.remove(), 2200);
+  }
+
+  function rfqSidebarStatusDot(u: UploadedPackageFile): string {
+    const drivesDashboard = session?.file.id === u.id;
+    const status = analysisStatus[u.id];
+    const inFlight = status?.status === "queued" || status?.status === "analyzing";
+    if (drivesDashboard) return "dot-amber";
+    if (status?.status === "error") return "dot-red";
+    if (inFlight) return "dot-blue";
+    if (status?.status === "done") return "dot-green";
+    return "dot-blue opacity-50";
+  }
+
   return (
-    <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="h-[52px] w-full border-b border-border/80 bg-secondary/25 backdrop-blur bg-gradient-to-r from-secondary/30 via-secondary/20 to-transparent">
-        <div className="h-full flex items-center gap-4 px-5">
-          <div className="font-semibold tracking-wider text-xs text-accent dark:text-accent/90 uppercase">
-            RFQ<span className="text-muted-foreground font-normal">·</span>Agent
+    <div
+      className={["rfq-assistant rfq-assistant-app", sidebarOpen ? "" : "collapsed"].join(" ")}
+      style={{ fontFamily: "'DM Sans', ui-sans-serif, system-ui, sans-serif" }}
+    >
+      <header className="ra-header">
+        <div className="ra-header-brand">
+          <div className="ra-brand-logo">R</div>
+          <div className="ra-brand-text">
+            <div className="ra-brand-title">RFQ Assistant</div>
+            <div className="ra-brand-sub">Procurement Intelligence</div>
           </div>
-          <div className="h-6 w-px bg-border" />
-          <div className="font-mono text-[12px] text-foreground px-2.5 py-1 rounded-lg border border-border bg-background/25">
-            {c?.rfq_num ?? "—"}
+        </div>
+        <div className="ra-header-pills min-w-0">
+          <span className="ra-hpill">
+            <strong>{headerKbClassCount}</strong> KB classes
+          </span>
+          <span className="ra-hpill">
+            <strong>{headerHistoricalCount}</strong> Historical RFQs
+          </span>
+          <span className="ra-hpill">
+            <strong>{headerNewCount}</strong> New RFQs
+          </span>
+          {c && workspaceMode === "new" ? (
+            <span className="ra-hpill hidden xl:inline">
+              <strong>{c.rfq_num}</strong> · Risk {c.risk_score}/100
+            </span>
+          ) : null}
+        </div>
+        <div className="ra-header-actions">
+          <Link
+            href="/help"
+            className="ra-hbtn inline-flex items-center justify-center gap-1.5 px-2.5 py-2 min-w-9"
+            title="User guide — how to use the app (opens in new tab)"
+            aria-label="Open user guide in a new tab"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <CircleHelp className="size-[18px] shrink-0" aria-hidden />
+            <span className="text-[11px] sm:text-[12px] font-medium whitespace-nowrap">Guide</span>
+          </Link>
+          <div className="hidden sm:block">
+            <ThemeToggle />
           </div>
-          <div className="ml-1 flex-1 min-w-0 overflow-hidden">
-            <div className="text-sm font-semibold truncate">
-              {c ? `${c.title} — ${c.customer}` : "No RFQ loaded"}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-2">
-              <ThemeToggle />
-              <SettingsMenu />
-            </div>
-            <div className="flex sm:hidden">
-              <SettingsMenu />
-            </div>
-            <div className="hidden sm:block text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-              Risk Score
-            </div>
-            <div className="px-3 py-1.5 rounded-xl border bg-background/30 backdrop-blur-sm font-mono text-xs font-semibold border-border">
-              {c ? (
-                <span
-                  className={`inline-flex items-center rounded-lg px-2.5 py-0.5 border leading-none ${riskBadgeClasses(c.risk_score)}`}
-                >
-                  {c.risk_score}/100
-                </span>
-              ) : (
-                <span className="text-muted-foreground px-2">—</span>
-              )}
-            </div>
-            <Badge
-              className={[
-                "border",
-                c ? statusBadgeClasses(c) : "text-muted-foreground",
-                "bg-background/30 backdrop-blur-sm",
-              ].join(" ")}
-              variant="outline"
-            >
-              {c?.status_label ?? "Idle"}
-            </Badge>
-          </div>
+          <button
+            type="button"
+            className="ra-hbtn"
+            onClick={() => {
+              setWorkspaceMode("kb");
+            }}
+          >
+            Knowledge base
+          </button>
+          <button
+            type="button"
+            className="ra-hbtn ra-hbtn-primary"
+            onClick={() => {
+              setWorkspaceMode("new");
+              setNewWsTab("summary");
+            }}
+          >
+            + New RFQ
+          </button>
+          <SettingsMenu />
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        <aside
-          className={[
-            "border-r border-border bg-secondary/25 flex flex-col overflow-hidden",
-            "transition-[width] duration-300 ease-in-out",
-            sidebarOpen
-              ? "w-[210px] sm:w-[240px] md:w-[260px] lg:w-[290px]"
-              : "w-[44px]",
-          ].join(" ")}
-        >
-          <div
-            className={[
-              "h-[45px] flex items-center border-b border-border bg-secondary/10 rfq-sidebar-header-fixed",
-              sidebarOpen ? "px-5 justify-between" : "px-2 justify-center",
-            ].join(" ")}
+      <div className="rfq-assistant-body">
+        <aside className="ra-sidebar">
+          <button
+            type="button"
+            className="ra-sidebar-toggle"
+            aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            onClick={() => setSidebarOpen((v) => !v)}
           >
-            <div
-              className={[
-                "text-[10px] font-semibold tracking-[0.12em] leading-none text-muted-foreground uppercase transition-all",
-                sidebarOpen ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden",
-              ].join(" ")}
-            >
-              RFQ files
-            </div>
+            ‹
+          </button>
 
+          <div className="ra-sidebar-section">
+            <div className="ra-sidebar-label">Workspace</div>
             <button
               type="button"
-              aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-              onClick={() => setSidebarOpen((v) => !v)}
-              className={[
-                "rounded-md border bg-background/20 hover:bg-background/25 text-foreground/80 dark:text-foreground",
-                "flex items-center justify-center",
-                "h-7 w-7 p-0",
-                sidebarOpen
-                  ? "border-border"
-                  : "border-accent/70 bg-accent/15 hover:bg-accent/20 ring-1 ring-accent/25 shadow-[0_0_10px_rgba(99,102,241,0.25)]",
-                "transition",
-              ].join(" ")}
+              className={["ra-nav-item ra-nav-item-btn", workspaceMode === "kb" ? "active" : ""].join(" ")}
+              onClick={() => setWorkspaceMode("kb")}
             >
-              <span className="font-mono text-[14px] font-bold leading-none">
-                {sidebarOpen ? "X" : "+"}
-              </span>
+              <span className="ra-nav-text">Knowledge Base</span>
+              <span className="ra-nav-badge">{headerHistoricalCount}</span>
+            </button>
+            <button
+              type="button"
+              className={["ra-nav-item ra-nav-item-btn", workspaceMode === "new" ? "active" : ""].join(" ")}
+              onClick={() => setWorkspaceMode("new")}
+            >
+              <span className="ra-nav-text">New RFQs</span>
+              <span className="ra-nav-badge ra-nav-badge-warn">{headerNewCount}</span>
+            </button>
+            <button
+              type="button"
+              className={["ra-nav-item ra-nav-item-btn", workspaceMode === "library" ? "active" : ""].join(" ")}
+              onClick={() => setWorkspaceMode("library")}
+            >
+              <span className="ra-nav-text">Saved analyses</span>
+              <span className="ra-nav-badge">{headerSavedAnalysesCount}</span>
+            </button>
+            <button
+              type="button"
+              className={["ra-nav-item ra-nav-item-btn", workspaceMode === "portfolio" ? "active" : ""].join(" ")}
+              onClick={() => setWorkspaceMode("portfolio")}
+            >
+              <span className="ra-nav-text">Portfolio</span>
             </button>
           </div>
 
-          <div className={["flex-1 overflow-y-auto", sidebarOpen ? "p-2" : "p-1"].join(" ")}>
-            <div className="space-y-2 pb-3">
-              {pipelineBusy ? (
-                <div
-                  className={[
-                    "rounded-2xl border border-border bg-card/60 p-4 text-[12px] text-muted-foreground",
-                    sidebarOpen ? "" : "px-2 py-3 text-center",
-                  ].join(" ")}
-                >
-                  {sidebarOpen ? "Running parse → gap review…" : "…"}
-                </div>
-              ) : null}
+          <div className="ra-divider" />
 
-              <div className="space-y-2">
-                {uploadedRfqs.map((u) => {
+          <div className="ra-sidebar-search">
+            <span className="ra-search-icon" aria-hidden>
+              ⌕
+            </span>
+            <input
+              value={sidebarQuery}
+              onChange={(e) => setSidebarQuery(e.target.value)}
+              placeholder="Search…"
+              aria-label="Filter sidebar"
+            />
+          </div>
+
+          <div className="ra-sidebar-scroll">
+            {pipelineBusy ? (
+              <div className="text-[12px] text-[var(--ra-muted)] px-1 py-2">
+                {sidebarOpen ? "Running parse → gap review…" : "…"}
+              </div>
+            ) : workspaceMode === "kb" ? (
+              kbClassBuckets
+                .filter((b) => {
+                  const q = sidebarQuery.trim().toLowerCase();
+                  if (!q) return true;
+                  if (b.label.toLowerCase().includes(q)) return true;
+                  return b.projects.some(
+                    (p) =>
+                      p.part_name.toLowerCase().includes(q) ||
+                      p.program_name.toLowerCase().includes(q) ||
+                      p.part_number.toLowerCase().includes(q),
+                  );
+                })
+                .map((b) => {
+                  const active = kbSelectedSlug === b.slug;
+                  return (
+                    <button
+                      key={b.slug}
+                      type="button"
+                      className={["ra-kb-item ra-nav-item-btn", active ? "active" : ""].join(" ")}
+                      onClick={() => setKbSelectedSlug(b.slug)}
+                    >
+                      <div
+                        className="ra-kb-icon"
+                        style={{
+                          background: b.icon_bg,
+                          color: b.icon_fg,
+                        }}
+                      >
+                        {b.letter}
+                      </div>
+                      {sidebarOpen ? (
+                        <div className="min-w-0 flex-1 text-left">
+                          <div className="ra-kb-name">{b.label}</div>
+                          <div className="ra-kb-count">
+                            {b.projects.length} RFQ{b.projects.length === 1 ? "" : "s"}
+                          </div>
+                        </div>
+                      ) : null}
+                    </button>
+                  );
+                })
+            ) : workspaceMode === "new" ? (
+              uploadedRfqs
+                .filter((u) => {
+                  const q = sidebarQuery.trim().toLowerCase();
+                  if (!q) return true;
+                  return u.originalName.toLowerCase().includes(q);
+                })
+                .map((u) => {
                   const drivesDashboard = session?.file.id === u.id;
                   const status = analysisStatus[u.id];
-                  const inFlight = status?.status === "queued" || status?.status === "analyzing";
                   return (
-                    <div
-                      key={u.id}
-                      className={[
-                        "flex rounded-2xl border bg-card/60 shadow-sm overflow-hidden transition",
-                        drivesDashboard
-                          ? "border-accent/50 ring-1 ring-accent/20"
-                          : status?.status === "error"
-                            ? "border-red-500/50"
-                            : status?.status === "analyzing" || status?.status === "queued"
-                              ? "border-cyan-500/45"
-                              : "border-border hover:border-accent/35",
-                      ].join(" ")}
-                    >
+                    <div key={u.id} className="flex border border-[var(--ra-border)] rounded-[var(--ra-radius)] overflow-hidden">
                       <button
                         type="button"
                         disabled={pipelineBusy || sidebarLoadBusy}
-                        onClick={() => void activateRfqFromSidebar(u)}
+                        onClick={() => {
+                          setWorkspaceMode("new");
+                          void activateRfqFromSidebar(u);
+                        }}
                         className={[
-                          "flex-1 min-w-0 text-left transition",
-                          sidebarOpen ? "p-3" : "p-2",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50",
-                          pipelineBusy || sidebarLoadBusy ? "opacity-60 cursor-wait" : "cursor-pointer hover:bg-card/80",
+                          "rfq-item flex-1 text-left border-0 bg-transparent",
+                          drivesDashboard ? "active" : "",
+                          pipelineBusy || sidebarLoadBusy ? "opacity-60 cursor-wait" : "cursor-pointer",
                         ].join(" ")}
                         aria-label={`Open RFQ ${u.originalName}`}
-                        aria-current={drivesDashboard ? "true" : undefined}
                       >
-                        <div className="flex min-w-0 gap-2">
-                          <div
-                            className={[
-                              "w-2.5 h-2.5 rounded-full shrink-0 mt-1.5",
-                              drivesDashboard
-                                ? "bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.35)]"
-                                : status?.status === "error"
-                                  ? "bg-red-500"
-                                  : inFlight
-                                    ? "bg-cyan-400 animate-pulse"
-                                    : status?.status === "done"
-                                      ? "bg-emerald-400"
-                                      : "bg-muted-foreground/35",
-                            ].join(" ")}
-                          />
-                          {sidebarOpen ? (
-                            <div className="flex-1 min-w-0 space-y-1">
-                              <div className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
-                                {drivesDashboard ? "Driving dashboard" : "Open"}
-                              </div>
-                              <div
-                                className="text-[11px] font-semibold leading-tight break-words"
-                                title={u.originalName}
-                              >
-                                {u.originalName}
-                              </div>
-                              {drivesDashboard && session ? (
-                                <div className="text-[10px] font-mono text-muted-foreground">
-                                  {sidebarCustomerLabel(session.caseData.customer)} /{" "}
-                                  {sidebarProgramLabel(session.caseData.program)}
-                                </div>
-                              ) : null}
-                              {status ? (
-                                <SidebarStatusPill status={status.status} message={status.message} />
-                              ) : null}
+                        {sidebarOpen ? (
+                          <>
+                            <div className="rfq-item-name">
+                              <span className={`status-dot ${rfqSidebarStatusDot(u)}`} />
+                              <span className="truncate">{u.originalName}</span>
                             </div>
-                          ) : null}
-                        </div>
+                            <div className="rfq-item-meta">
+                              {drivesDashboard && session
+                                ? `${sidebarCustomerLabel(session.caseData.customer)} · ${sidebarProgramLabel(session.caseData.program)}${session.caseData.kb_category_label ? ` · ${session.caseData.kb_category_label}` : ""}`
+                                : status
+                                  ? `${status.status}`
+                                  : "Saved"}
+                            </div>
+                            {status ? <SidebarStatusPill status={status.status} message={status.message} /> : null}
+                          </>
+                        ) : (
+                          <span className={`status-dot ${rfqSidebarStatusDot(u)} mx-auto block`} />
+                        )}
                       </button>
                       {sidebarOpen ? (
                         <button
                           type="button"
-                          className={[
-                            "shrink-0 px-2 border-l border-border/80 text-destructive hover:bg-destructive/10",
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-destructive/40",
-                            pipelineBusy || sidebarLoadBusy ? "opacity-50 cursor-not-allowed" : "",
-                          ].join(" ")}
+                          className="shrink-0 px-2 border-l border-[var(--ra-border)] text-[var(--ra-red)] hover:bg-[var(--ra-red-bg)]"
                           disabled={pipelineBusy || sidebarLoadBusy}
-                          aria-label={`Delete ${u.originalName} from list and database`}
-                          title="Remove from list and delete saved analysis"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void removeRfqFromSidebar(u);
-                          }}
+                          aria-label={`Delete ${u.originalName}`}
+                          onClick={() => void removeRfqFromSidebar(u)}
                         >
                           <Trash2 className="size-3.5 mx-auto" />
                         </button>
                       ) : null}
                     </div>
                   );
-                })}
+                })
+            ) : (
+              <div
+                className={[
+                  "text-[12px] text-[var(--ra-muted)] leading-snug",
+                  sidebarOpen ? "px-2 py-3" : "px-1 py-2 text-center",
+                ].join(" ")}
+              >
+                {sidebarOpen
+                  ? "Saved analyses and Portfolio apply to your whole workspace. Open Knowledge Base to browse by procurement class."
+                  : "…"}
               </div>
-            </div>
+            )}
           </div>
 
           <div
             className={[
-              "shrink-0 border-t border-border bg-secondary/15",
+              "shrink-0 border-t border-[var(--ra-border)] bg-[var(--ra-bg)]",
               sidebarOpen ? "p-2" : "p-1.5 flex justify-center",
             ].join(" ")}
           >
@@ -749,52 +867,58 @@ export default function RFQAgentDashboard() {
           </div>
         </aside>
 
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {!pipelineBusy ? (
-            <nav aria-label="Dashboard sections" className="flex flex-col">
-              <SortableRfqTabBar
-                tabOrder={tabOrder}
-                onTabOrderChange={setTabOrder}
-                activeTab={activeTab}
-                onTabSelect={setActiveTab}
-                docCountText={tabMeta.docCountText}
-                docMissingCount={docMissingCount}
-                gapCount={tabMeta.gapCount}
-                openHighGaps={openHighGaps}
+        <main className="ra-canvas">
+          {pipelineBusy ? (
+            <div className="flex flex-col items-center justify-center flex-1 gap-3 text-[var(--ra-muted)] text-sm">
+              <div className="ra-mono text-[12px]">Running analysis pipeline…</div>
+              <div className="text-[11px] text-center max-w-sm">Parse → gap review → benchmark</div>
+            </div>
+          ) : workspaceMode === "kb" ? (
+            kbBucketSelected ? (
+              <RfqKbMainPanel
+                kbBucket={kbBucketSelected}
+                projects={kbBucketSelected.projects}
+                onOpenPortfolioRfq={(sessionId) => {
+                  const target = uploadedRfqs.find((u) => u.id === sessionId);
+                  if (target) {
+                    setWorkspaceMode("new");
+                    void activateRfqFromSidebar(target);
+                    setNewWsTab("matching");
+                  }
+                }}
               />
-            </nav>
-          ) : null}
-
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-            {pipelineBusy ? (
-              <div className="flex flex-col items-center justify-center min-h-[320px] gap-3 text-muted-foreground text-sm">
-                <div className="font-mono text-[12px]">Running analysis pipeline…</div>
-                <div className="text-[11px] text-center max-w-sm">
-                  Parse → gap review → benchmark
-                </div>
-              </div>
-            ) : activeTab === "catalog" ? (
+            ) : (
+              <div className="ra-canvas-content text-[var(--ra-muted)] text-sm">Loading knowledge base…</div>
+            )
+          ) : workspaceMode === "library" ? (
+            <div className="ra-canvas-content min-h-0 flex flex-col">
               <AllRfqsLibrary />
-            ) : activeTab === "portfolio" ? (
+            </div>
+          ) : workspaceMode === "portfolio" ? (
+            <div className="ra-canvas-content min-h-0 flex flex-col">
               <RfqPortfolioPanel
                 onOpenRfq={(sessionId) => {
                   const target = uploadedRfqs.find((u) => u.id === sessionId);
                   if (target) {
+                    setWorkspaceMode("new");
                     void activateRfqFromSidebar(target);
-                    setActiveTab("parts");
+                    setNewWsTab("matching");
                   }
                 }}
               />
-            ) : !c ? (
-              <div className="max-w-xl mx-auto space-y-4 pt-4">
-                <Card className="border-border bg-card/50">
+            </div>
+          ) : !c ? (
+              <div className="ra-canvas-content max-w-xl mx-auto">
+                <Card className="border-[var(--ra-border)] bg-[var(--ra-card)] shadow-[var(--ra-shadow)]">
                   <CardHeader className="p-5 pb-2">
-                    <CardTitle className="text-base font-semibold">No active session</CardTitle>
+                    <CardTitle className="text-base font-semibold text-[var(--ra-text)]">No active RFQ</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-5 pt-0 space-y-4 text-sm text-muted-foreground">
+                  <CardContent className="p-5 pt-0 space-y-4 text-sm text-[var(--ra-mid)]">
                     <p>
-                      Open <span className="font-semibold text-foreground/90">All RFQs</span> for saved analyses, choose a
-                      file under <span className="font-semibold text-foreground/90">RFQ files</span>, or upload below.
+                      Use the sidebar to open <span className="font-semibold text-[var(--ra-text)]">Knowledge Base</span>{" "}
+                      (by class), <span className="font-semibold text-[var(--ra-text)]">Saved analyses</span>, or{" "}
+                      <span className="font-semibold text-[var(--ra-text)]">Portfolio</span>, pick a file under New RFQs,
+                      or upload a workbook below.
                     </p>
                     {sessionNotice ? (
                       <div
@@ -814,7 +938,75 @@ export default function RFQAgentDashboard() {
               </div>
             ) : (
             <>
-            {activeTab === "overview" && (
+            <div className="ra-workflow-bar">
+              <div className="ra-workflow-steps">
+                {workflowSteps.map((s, i) => {
+                  const st = s.s === "done" ? "done" : s.s === "active" ? "current" : "pending";
+                  const icon = st === "done" ? "✓" : String(s.n);
+                  return (
+                    <span key={s.n} className="inline-flex items-center">
+                      {i > 0 ? <span className="ra-wf-arrow">›</span> : null}
+                      <div className={`ra-wf-step ${st}`}>
+                        <div className="ra-wf-ic">{icon}</div>
+                        <span>{s.l}</span>
+                      </div>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="ra-canvas-top !pt-2">
+              <div className="min-w-0">
+                <div className="ra-canvas-title truncate">{c.title}</div>
+                <div className="ra-canvas-sub truncate">
+                  {c.customer} · {c.process[0] ?? "—"} · {c.rfq_num}
+                  {c.kb_category_label ? ` · KB class: ${c.kb_category_label}` : ""}
+                  {docConfidenceSummary ? ` · Avg conf ${(docConfidenceSummary * 100).toFixed(0)}%` : ""}
+                </div>
+              </div>
+              <div className="ra-canvas-actions items-center">
+                <button
+                  type="button"
+                  className="ra-btn"
+                  onClick={() => showRaToast("Customer questions generated (demo).")}
+                >
+                  Generate Questions
+                </button>
+                <button
+                  type="button"
+                  className="ra-btn ra-btn-primary"
+                  onClick={() => showRaToast("Draft response generated (demo).")}
+                >
+                  Draft Response
+                </button>
+              </div>
+            </div>
+            <div className="ra-tabs" role="tablist" aria-label="RFQ sections">
+              {(
+                [
+                  ["summary", "Parsed Summary"],
+                  ["matching", "Matching"],
+                  ["coverage", "Coverage"],
+                  ["gaps", "Gaps & Conflicts"],
+                  ["reuse", "Reuse Guidance"],
+                  ["documents", "Documents"],
+                  ["quote", "Quote & History"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={newWsTab === key}
+                  className={["ra-tab", newWsTab === key ? "active" : ""].join(" ")}
+                  onClick={() => setNewWsTab(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="ra-canvas-content">
+            {newWsTab === "summary" && (
               <div className="space-y-4">
                 {sessionNotice ? (
                   <div
@@ -829,70 +1021,10 @@ export default function RFQAgentDashboard() {
                   onAnalyzed={handleAnalyzed}
                   onAnalysisStatusChange={handleAnalysisStatus}
                 />
-                <Card className="bg-card/45 border-border">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-4">
-                      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                        Workflow
-                      </div>
-                      <div className="h-px flex-1 bg-border" />
-                      <div className="text-[11px] text-muted-foreground font-mono">
-                        {docConfidenceSummary ? `Avg conf: ${(docConfidenceSummary * 100).toFixed(0)}%` : "Confidence pending"}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center gap-3">
-                      {workflowSteps.map((s, i) => {
-                        const done = s.s === "done";
-                        const active = s.s === "active";
-                        const idle = s.s === "idle";
-
-                        const circleCls = done
-                          ? "bg-emerald-400/15 border-emerald-400/40 dark:text-emerald-200 text-emerald-700"
-                          : active
-                            ? "bg-accent/15 border-accent/50 text-accent dark:text-accent/90"
-                            : idle
-                              ? "bg-card/40 border-border text-muted-foreground"
-                              : "bg-card/40 border-border text-muted-foreground";
-
-                        const lineCls =
-                          i < workflowSteps.length - 1
-                            ? done
-                              ? "bg-emerald-400/60"
-                              : "bg-border"
-                            : "";
-
-                        return (
-                          <div key={s.n} className="flex items-center gap-3 flex-1 min-w-[120px]">
-                            <div
-                              className={[
-                                "w-8 h-8 rounded-full border flex items-center justify-center font-mono text-xs font-semibold",
-                                circleCls,
-                              ].join(" ")}
-                            >
-                              {s.n}
-                            </div>
-                            <div className="flex flex-col">
-                              <div className="text-[11px] font-semibold text-foreground">
-                                {s.l}
-                              </div>
-                              <div className="text-[10px] font-mono text-muted-foreground">
-                                {done ? "done" : active ? "in progress" : "pending"}
-                              </div>
-                            </div>
-                            {i < workflowSteps.length - 1 && (
-                              <div className={["h-[2px] flex-1 rounded-full", lineCls].join(" ")} />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
 
                 <OverviewTopReferenceCard
                   caseData={c}
-                  onOpenMatches={() => setActiveTab("parts")}
+                  onOpenMatches={() => setNewWsTab("matching")}
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1191,7 +1323,7 @@ export default function RFQAgentDashboard() {
               </div>
             )}
 
-            {activeTab === "documents" && (
+            {newWsTab === "documents" && (
               <div className="space-y-4">
                 <Card className="bg-card/45 border-border">
                   <CardHeader className="p-5 pb-3">
@@ -1417,7 +1549,7 @@ export default function RFQAgentDashboard() {
               </div>
             )}
 
-            {activeTab === "parts" && (
+            {newWsTab === "matching" && (
               <div className="space-y-4">
                 <RfqReferenceMatchPanel caseData={c} />
 
@@ -1532,7 +1664,9 @@ export default function RFQAgentDashboard() {
               </div>
             )}
 
-            {activeTab === "gap" && (
+            {newWsTab === "coverage" && <RfqMatchCoverageMatrix caseData={c} />}
+
+            {newWsTab === "gaps" && (
               <div className="space-y-4">
                 <Card className="bg-card/50 border-border">
                   <CardContent className="p-5 space-y-4">
@@ -1553,7 +1687,7 @@ export default function RFQAgentDashboard() {
                           {c.gap_findings.filter((f) => !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length} open ·{" "}
                           {c.gap_findings.length} total
                         </div>
-                        <Button type="button" variant="outline" size="sm" className="h-8 text-[11px]" onClick={() => setActiveTab("documents")}>
+                        <Button type="button" variant="outline" size="sm" className="h-8 text-[11px]" onClick={() => setNewWsTab("documents")}>
                           Documents & upload
                         </Button>
                       </div>
@@ -1891,7 +2025,51 @@ export default function RFQAgentDashboard() {
               </div>
             )}
 
-            {activeTab === "quote" && (
+            {newWsTab === "reuse" && (
+              <div className="ra-two-col">
+                <div className="flex flex-col gap-4 min-w-0">
+                  <OverviewTopReferenceCard caseData={c} onOpenMatches={() => setNewWsTab("matching")} />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="ra-btn ra-btn-primary"
+                      onClick={() => showRaToast("Draft response generated (demo).")}
+                    >
+                      Generate Draft Response
+                    </button>
+                    <button
+                      type="button"
+                      className="ra-btn"
+                      onClick={() => showRaToast("Customer questions generated (demo).")}
+                    >
+                      Generate Customer Questions
+                    </button>
+                    <button type="button" className="ra-btn" onClick={() => setNewWsTab("quote")}>
+                      View Cost Breakdown
+                    </button>
+                  </div>
+                </div>
+                <div className="ra-mini">
+                  <h4>Open actions</h4>
+                  <ul className="list-none flex flex-col gap-2 text-[var(--ra-mid)] text-[12.5px] leading-snug">
+                    {c.gap_findings.filter((f) => !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length === 0 ? (
+                      <li>— No open gaps; reuse guidance follows the top reference above.</li>
+                    ) : (
+                      c.gap_findings
+                        .filter((f) => !isGapWorkflowClosed(c.gap_workflow?.[f.rule]))
+                        .slice(0, 12)
+                        .map((f) => (
+                          <li key={f.rule}>
+                            — {f.action || f.title}
+                          </li>
+                        ))
+                    )}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {newWsTab === "quote" && (
               <div className="space-y-4">
                 <Card className="bg-card/50 border-border overflow-hidden">
                   <CardHeader className="p-5 pb-3 border-b border-border bg-secondary/15">
@@ -2084,9 +2262,9 @@ export default function RFQAgentDashboard() {
                 </Card>
               </div>
             )}
+            </div>
             </>
             )}
-          </div>
         </main>
       </div>
     </div>

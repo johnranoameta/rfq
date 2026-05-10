@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Eye, EyeOff, Key, User } from "lucide-react";
+import Link from "next/link";
+import { CircleHelp, Eye, EyeOff, Key, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { verifyHardcodedLogin, completeSignIn } from "@/components/auth/rfqAuth";
@@ -52,6 +53,17 @@ export default function LoginPage() {
           </div>
           <div className="h-6 w-px bg-border" />
           <div className="flex-1 min-w-0" />
+          <Link
+            href="/help"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+            title="User guide — how to use the app (opens in new tab)"
+            aria-label="Open user guide in a new tab"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <CircleHelp className="size-5 shrink-0" />
+            <span className="text-xs font-medium">Guide</span>
+          </Link>
           <div className="hidden sm:flex">
             <SettingsMenu />
           </div>

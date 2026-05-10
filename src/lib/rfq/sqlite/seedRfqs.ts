@@ -13,6 +13,7 @@ export type SeedRfqProjectRow = {
   sop_date: string | null;
   rfq_case_code: string | null;
   created_at: string | null;
+  kb_category_slug: string | null;
 };
 
 /** Relational RFQs from the test-pack seed (`02_seed_data.sql`). */
@@ -32,7 +33,8 @@ export function listSeedRfqProjects(): SeedRfqProjectRow[] {
         p.annual_volume,
         p.sop_date,
         p.rfq_case_code,
-        p.created_at
+        p.created_at,
+        p.kb_category_slug
       FROM rfq_projects p
       JOIN customers c ON c.customer_id = p.customer_id
       ORDER BY p.rfq_id ASC`,

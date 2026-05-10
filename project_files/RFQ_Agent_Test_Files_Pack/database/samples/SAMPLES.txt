@@ -1,0 +1,22 @@
+Multicategory historical RFQ samples
+=====================================
+
+1) Automatic load (recommended)
+   The app runs `03_kb_multicategory_seed.sql` once when `data/rfq.sqlite` still has only
+   the original 18 `rfq_projects` rows (no rows with rfq_id >= 19). Restart the Next.js server
+   or hit any API that opens the DB so the migration runs.
+
+2) Full reset
+   Delete `data/rfq.sqlite`, then start the app. Schema + base seed + multicategory seed apply in order.
+
+3) Manual SQL (existing DB that already has rfq_id 19+)
+   If you already ran the app once without this file, either reset the DB or run the SQL by hand:
+   sqlite3 data/rfq.sqlite < project_files/RFQ_Agent_Test_Files_Pack/database/03_kb_multicategory_seed.sql
+
+4) CSV in this folder
+   `rfq_projects_multicategory.csv` mirrors the extra rows for editing in Excel.
+   The column `kb_class_hint` is documentation only (not loaded by SQLite).
+   To turn edits into SQL, update `03_kb_multicategory_seed.sql` to match, or use your own import pipeline.
+
+Expected KB sidebar counts after migration (with classifier in src/lib/rfq/kbCanonicalClasses.ts):
+   Electronics: 8, Machining: 7, Stamping: 22 (18 original + 4 new), Injection: 6, Assembly: 5, Casting: 4.

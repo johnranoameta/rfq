@@ -284,6 +284,8 @@ export function buildCaseDataFromPersisted(
     id: `db-${row.session_id.slice(0, 8)}`,
     rfq_num: str(parsed.rfq_reference) || `RFQ-DB-${file.id.slice(0, 8)}`,
     title: partName,
+    kb_category_label: row.kb_category_label?.trim() || null,
+    kb_category_slug: row.kb_category_slug?.trim() || null,
     customer: str(parsed.customer) || row.customer_name || "—",
     program: str(parsed.program) || row.program_name || "—",
     part_number: partNumber,
