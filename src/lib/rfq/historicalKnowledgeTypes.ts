@@ -26,6 +26,8 @@ export type HistoricalProjectRecord = {
   rfq: HistoricalRfqCore;
   quote_result: HistoricalRfqQuoteResult;
   notes: string;
+  /** When set, this row came from `kb_uploaded_rfqs` for this parse session (exclude on re-match). */
+  kb_source_session_id?: string;
 };
 
 export type HistoricalGapRecord = {

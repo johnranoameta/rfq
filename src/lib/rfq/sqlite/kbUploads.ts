@@ -1,4 +1,4 @@
-import { buildKbRecordFromParsed } from "@/lib/rfq/buildKbRecordFromParsed";
+import { buildKbUploadedPersistPayload } from "@/lib/rfq/buildKbRecordFromParsed";
 import { clearHistoricalKnowledgeCache } from "@/lib/rfq/loadHistoricalKnowledge";
 import { getRfqDb } from "@/lib/rfq/sqlite/rfqDb";
 
@@ -13,7 +13,7 @@ export function upsertKnowledgeBaseFromUpload(params: {
   source: "pdf" | "workbook";
 }): void {
   const db = getRfqDb();
-  const record = buildKbRecordFromParsed(params.sessionId, params.parsed, {
+  const payload = buildKbUploadedPersistPayload(params.sessionId, params.parsed, {
     originalFilename: params.originalFilename,
     source: params.source,
   });
@@ -29,8 +29,8 @@ export function upsertKnowledgeBaseFromUpload(params: {
        created_at = datetime('now')`,
   ).run({
     session_id: params.sessionId,
-    project_id: record.project_id,
-    record_json: JSON.stringify(record),
+    project_id: payload.aggregate.project_id,
+    record_json: JSON.stringify(payload),
     original_filename: params.originalFilename,
     source: params.source,
   });

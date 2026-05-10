@@ -2,6 +2,7 @@ import { readFile } from "fs/promises";
 import { NextResponse } from "next/server";
 
 import { assignKbCategoryForParsed, heuristicKbAssignment, partDisplayNameFromParsed } from "@/lib/rfq/assignKbCategoryForParsed";
+import { filterSelfKbProjects } from "@/lib/rfq/buildKbRecordFromParsed";
 import { buildGapAnalysisFromWorkbook } from "@/lib/rfq/gapFromWorkbook";
 import { loadHistoricalKnowledge, rankHistoricalMatches } from "@/lib/rfq/loadHistoricalKnowledge";
 import { mapParsedLineItemsToMatchCriteria, mapParsedToMatchCriteria } from "@/lib/rfq/mapParsedToMatch";
@@ -16,15 +17,6 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const MAX_BYTES = 12 * 1024 * 1024;
-
-function buildSelfProjectIdCandidates(parsed: Record<string, unknown>, uploadId: string): string[] {
-  const out = new Set<string>();
-  const ref = typeof parsed.rfq_reference === "string" ? parsed.rfq_reference.trim() : "";
-  if (ref) out.add(ref);
-  const compact = uploadId.replace(/-/g, "").slice(0, 12);
-  if (compact) out.add(`U-${compact}`);
-  return [...out];
-}
 
 /**
  * 4-sheet workbook (Header, Line_Items, Technical_Specs, Supplier_Responses) →
@@ -79,8 +71,7 @@ export async function POST(request: Request) {
     const workbook = parseRfqWorkbook(buffer);
     const parsed = workbookToAgentParsed(workbook);
     const bundle = await loadHistoricalKnowledge();
-    const selfIds = buildSelfProjectIdCandidates(parsed, uploadId);
-    const candidateProjects = bundle.projects.filter((p) => !selfIds.includes(p.project_id));
+    const candidateProjects = filterSelfKbProjects(bundle.projects, uploadId, parsed);
     const criteria = mapParsedToMatchCriteria(parsed);
     const itemCriteria = mapParsedLineItemsToMatchCriteria(parsed);
     const perItemMatches = itemCriteria.map((item, idx) => {

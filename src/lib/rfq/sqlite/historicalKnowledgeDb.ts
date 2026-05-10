@@ -32,6 +32,25 @@ type ProjectQuoteRow = {
   award_result: string | null;
 };
 
+function expandKbUploadRecordJson(json: string): HistoricalProjectRecord[] {
+  try {
+    const obj = JSON.parse(json) as unknown;
+    if (!obj || typeof obj !== "object") return [];
+    const o = obj as Record<string, unknown>;
+    const lines = o.kb_line_candidates;
+    if (Array.isArray(lines) && lines.length > 0) {
+      return lines as HistoricalProjectRecord[];
+    }
+    const agg = o.aggregate;
+    if (agg && typeof agg === "object") {
+      return [agg as HistoricalProjectRecord];
+    }
+    return [obj as HistoricalProjectRecord];
+  } catch {
+    return [];
+  }
+}
+
 function rowToRecord(r: ProjectQuoteRow): HistoricalProjectRecord {
   const packaging = Number(r.packaging_cost_per_pc ?? 0);
   return {
@@ -103,7 +122,7 @@ export function loadHistoricalProjectsFromDatabase(db: Database): HistoricalProj
     const raw = db
       .prepare(`SELECT record_json FROM kb_uploaded_rfqs ORDER BY datetime(created_at) ASC`)
       .all() as { record_json: string }[];
-    uploaded = raw.map((r) => JSON.parse(r.record_json) as HistoricalProjectRecord);
+    uploaded = raw.flatMap((r) => expandKbUploadRecordJson(r.record_json));
   } catch {
     uploaded = [];
   }

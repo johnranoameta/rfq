@@ -1,6 +1,19 @@
 import { randomUUID } from "crypto";
 
 import type { HistoricalProjectRecord } from "@/lib/rfq/historicalKnowledgeTypes";
+
+function aggregateFromKbUploadJson(raw: string): HistoricalProjectRecord | null {
+  try {
+    const obj = JSON.parse(raw) as unknown;
+    if (!obj || typeof obj !== "object") return null;
+    const o = obj as Record<string, unknown>;
+    const agg = o.aggregate;
+    if (agg && typeof agg === "object") return agg as HistoricalProjectRecord;
+    return obj as HistoricalProjectRecord;
+  } catch {
+    return null;
+  }
+}
 import { clearHistoricalKnowledgeCache } from "@/lib/rfq/loadHistoricalKnowledge";
 import { getRfqDb } from "@/lib/rfq/sqlite/rfqDb";
 
@@ -35,7 +48,7 @@ export function listHistoricalUploadSummaries(): HistoricalUploadSummary[] {
   return rows.map((r) => {
     let record: HistoricalProjectRecord | null = null;
     try {
-      record = JSON.parse(r.record_json) as HistoricalProjectRecord;
+      record = aggregateFromKbUploadJson(r.record_json);
     } catch {
       record = null;
     }

@@ -62,6 +62,11 @@ const VARIED_LINE_FIELDS = {
     thickness: [2.4, 1.85, 3.1, 2.0],
     lineVol: [220000, 480000, 900000, 310000],
   },
+  /** Same line geometry/volumes as INJ-HOU-001 — use with 001 to test matching across different RFQ references. */
+  "RFQ-INJ-HOU-002": {
+    thickness: [2.4, 1.85, 3.1, 2.0],
+    lineVol: [220000, 480000, 900000, 310000],
+  },
   "RFQ-ASM-MOD-001": {
     thickness: [null, null, null],
     lineVol: [45000, 12000, 28000],
@@ -351,6 +356,70 @@ const RFQS = [
         material: "ABS",
         process: "Injection molding, Tampo print",
         target_price: 1.2,
+        tooling: "Yes",
+        spec_text:
+          "Battery Door requires Injection molding, Tampo print. Snap fit life 500 cycles; UL94 V-0 resin.",
+      },
+    ],
+  },
+  /** Near-duplicate of RFQ-INJ-HOU-001 for cross-reference matching tests (distinct Header.rfq_id / rfq_reference). */
+  {
+    rfq_id: "RFQ-INJ-HOU-002",
+    customer: "Litware Medical",
+    region: "NA",
+    annual_volume: 185000,
+    currency: "USD",
+    sop: "2027-05",
+    suppliers: ["CleanMold", "MedPlast Partners", "GammaPolymers"],
+    lines: [
+      {
+        item: "001",
+        part_name: "Pump Housing",
+        system: "Fluidics",
+        subsystem: "Pump",
+        level: "Component",
+        material: "PPSU",
+        process: "Injection molding",
+        target_price: 8.35,
+        tooling: "Yes",
+        spec_text:
+          "Pump Housing requires Injection molding. Biocompatible per ISO 10993; no voids >0.2 mm on pressure face.",
+      },
+      {
+        item: "002",
+        part_name: "Display Bezel",
+        system: "UI",
+        subsystem: "Enclosure",
+        level: "Component",
+        material: "PC/ABS",
+        process: "Injection molding, Laser etch",
+        target_price: 5.05,
+        tooling: "Yes",
+        spec_text:
+          "Display Bezel requires Injection molding, Laser etch. UV stable; color ΔE ≤1.0 vs master plaque.",
+      },
+      {
+        item: "003",
+        part_name: "Cable Strain Relief",
+        system: "Interconnect",
+        subsystem: "Cable",
+        level: "Component",
+        material: "TPU 95A",
+        process: "Injection molding",
+        target_price: 0.44,
+        tooling: "Yes",
+        spec_text:
+          "Cable Strain Relief requires Injection molding. Shore 95A ±3; pull-out 80 N min on 4 mm OD cable.",
+      },
+      {
+        item: "004",
+        part_name: "Battery Door",
+        system: "Power",
+        subsystem: "Enclosure",
+        level: "Component",
+        material: "ABS",
+        process: "Injection molding, Tampo print",
+        target_price: 1.18,
         tooling: "Yes",
         spec_text:
           "Battery Door requires Injection molding, Tampo print. Snap fit life 500 cycles; UL94 V-0 resin.",
