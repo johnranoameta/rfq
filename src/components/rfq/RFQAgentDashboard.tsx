@@ -623,6 +623,12 @@ export default function RFQAgentDashboard() {
           ) : null}
         </div>
         <div className="ra-header-actions">
+          <Link href="/extraction" className="ra-hbtn hidden md:inline-flex">
+            Word extract
+          </Link>
+          <Link href="/baseline" className="ra-hbtn hidden lg:inline-flex">
+            Baseline object
+          </Link>
           <Link
             href="/help"
             className="ra-hbtn inline-flex items-center justify-center gap-1.5 px-2.5 py-2 min-w-9"
