@@ -192,7 +192,10 @@ def extract_document(
         for item in pool_items:
             if item.get("type") != "pdf":
                 continue
-            pdf_path = Path(item["path"])
+            pdf_raw = item.get("path")
+            if not pdf_raw or not Path(pdf_raw).is_file():
+                continue
+            pdf_path = Path(pdf_raw)
             try:
                 pdf_data = _extract_pdf_item(pdf_path, pdf_dir)
                 item["pdf_text"] = pdf_data
@@ -212,7 +215,12 @@ def extract_document(
         for item in pool_items:
             if item.get("type") != "excel":
                 continue
-            xls_path = Path(item["path"])
+            xls_raw = item.get("path")
+            if not xls_raw or not Path(xls_raw).is_file():
+                if item.get("export_skipped"):
+                    log.info("Skipping Excel embed %s: %s", item.get("filename"), item["export_skipped"])
+                continue
+            xls_path = Path(xls_raw)
             try:
                 xl_data = _extract_excel_item(xls_path, binaries_dir, xl_app)
                 out_json = binaries_dir / f"{xls_path.stem}.json"

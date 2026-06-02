@@ -247,7 +247,7 @@ def _build_content_index(record: dict[str, Any]) -> list[dict[str, Any]]:
         )
 
     for item in record.get("object_pool_files") or []:
-        if item.get("type") == "unknown":
+        if item.get("type") in ("unknown", "excel_skipped", "word_skipped"):
             continue
         prov = item.get("provenance") or {}
         items.append(

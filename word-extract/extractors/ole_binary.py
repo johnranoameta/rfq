@@ -191,7 +191,7 @@ def extract_object_pool(
                 except OSError as exc:
                     record.update(
                         {
-                            "type": "excel",
+                            "type": "excel_skipped",
                             "filename": out_name,
                             "export_skipped": str(exc),
                         }
@@ -217,7 +217,7 @@ def extract_object_pool(
                 except OSError as exc:
                     record.update(
                         {
-                            "type": "word",
+                            "type": "word_skipped",
                             "filename": out_name,
                             "export_skipped": str(exc),
                         }
