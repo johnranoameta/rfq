@@ -18,7 +18,7 @@ import {
   FIELD_CATEGORIES,
   type RfqObjectField,
   type RfqObjectPackage,
-} from "@/lib/extraction/loadRfqObject";
+} from "@/lib/extraction/rfqObjectTypes";
 import "@/components/rfq/rfq-assistant.css";
 
 function blank(v: string | null | undefined) {

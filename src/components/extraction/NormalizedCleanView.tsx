@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { NormalizedPackage, SectionFieldRow } from "@/lib/extraction/loadNormalized";
+import type { NormalizedPackage, SectionFieldRow } from "@/lib/extraction/normalizedTypes";
 
 function blank(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";

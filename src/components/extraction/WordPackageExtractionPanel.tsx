@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import NormalizedCleanView from "@/components/extraction/NormalizedCleanView";
-import type { NormalizedPackage } from "@/lib/extraction/loadNormalized";
+import type { NormalizedPackage } from "@/lib/extraction/normalizedTypes";
 import "@/components/rfq/rfq-assistant.css";
 
 type UploadedWordFile = {

@@ -1,36 +1,20 @@
-import fs from "fs";
 import path from "path";
 
-const DEFAULT_RFQ_EXTRACTION_ROOT = "D:\\RFQ_EXTRACTION";
-
-/** Python Word-package engine root. Override with RFQ_ENGINE_ROOT when deploying. */
-function resolveEngineRoot(): string {
-  const fromEnv = process.env.RFQ_ENGINE_ROOT?.trim();
-  if (fromEnv) return path.resolve(fromEnv);
-
-  const candidates = [
-    path.join(process.cwd(), ".."),
-    DEFAULT_RFQ_EXTRACTION_ROOT,
+/**
+ * Python Word-package engine root.
+ * Set RFQ_ENGINE_ROOT on the server (e.g. path to RFQ_EXTRACTION checkout).
+ */
+export const ENGINE_ROOT = path.resolve(
+  process.env.RFQ_ENGINE_ROOT?.trim() ||
     path.join(process.cwd(), "..", "word-extract"),
-  ];
-
-  for (const root of candidates) {
-    if (fs.existsSync(path.join(root, "extract_rfq.py"))) {
-      return path.resolve(root);
-    }
-  }
-
-  return path.resolve(candidates[1] ?? candidates[0]);
-}
-
-export const ENGINE_ROOT = resolveEngineRoot();
-
-export const ENGINE_OUTPUT_DIR = path.join(
-  process.env.RFQ_OUTPUT_DIR ?? path.join(ENGINE_ROOT, "output"),
 );
 
-export const ENGINE_UPLOADS_DIR = path.join(
-  process.env.RFQ_UPLOADS_DIR ?? path.join(ENGINE_ROOT, "uploads"),
+export const ENGINE_OUTPUT_DIR = path.resolve(
+  process.env.RFQ_OUTPUT_DIR?.trim() || path.join(ENGINE_ROOT, "output"),
+);
+
+export const ENGINE_UPLOADS_DIR = path.resolve(
+  process.env.RFQ_UPLOADS_DIR?.trim() || path.join(ENGINE_ROOT, "uploads"),
 );
 
 export const EXTRACTION_MANIFEST = path.join(ENGINE_OUTPUT_DIR, "extraction.json");
