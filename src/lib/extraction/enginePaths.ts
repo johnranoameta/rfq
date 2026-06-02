@@ -1,12 +1,25 @@
+import fs from "fs";
 import path from "path";
+
+function defaultEngineRoot(): string {
+  const candidates = [
+    path.join(process.cwd(), "word-extract"),
+    path.join(process.cwd(), "..", "word-extract"),
+  ];
+  for (const root of candidates) {
+    if (fs.existsSync(path.join(root, "extract_rfq.py"))) {
+      return root;
+    }
+  }
+  return candidates[0];
+}
 
 /**
  * Python Word-package engine root.
- * Set RFQ_ENGINE_ROOT on the server (e.g. path to RFQ_EXTRACTION checkout).
+ * Set RFQ_ENGINE_ROOT on the server when not using the bundled word-extract folder.
  */
 export const ENGINE_ROOT = path.resolve(
-  process.env.RFQ_ENGINE_ROOT?.trim() ||
-    path.join(process.cwd(), "..", "word-extract"),
+  process.env.RFQ_ENGINE_ROOT?.trim() || defaultEngineRoot(),
 );
 
 export const ENGINE_OUTPUT_DIR = path.resolve(
