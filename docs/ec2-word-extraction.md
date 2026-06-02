@@ -1,12 +1,6 @@
-# Running Word RFQ extraction on AWS EC2
+# Running Word RFQ extraction on AWS EC2 (Windows Server)
 
-## Amazon Linux (same server) — default for Linux EC2
-
-See **[ec2-linux-extraction.md](./ec2-linux-extraction.md)** — LibreOffice + python-docx on the same instance.
-
-## Windows Server EC2 — full Word COM fidelity
-
-GM-style RFQ packages (legacy `.doc` with embedded PDF/Excel/Word) use **Microsoft Word and Excel COM** (`pywin32` / `pythoncom`) on Windows only.
+GM-style RFQ packages (legacy `.doc` with embedded PDF/Excel/Word) use **Microsoft Word and Excel COM** (`pywin32` / `pythoncom`). Use a **Windows Server** EC2 instance — Amazon Linux cannot run this extractor.
 
 ## Supported production layout
 
@@ -79,11 +73,6 @@ If you must keep a **Linux** EC2 for the public website:
 - Windows EC2 (private subnet): runs `extract_rfq.py` only; share `word-extract/output` and `uploads` via EFS/S3 or an internal HTTP job API.
 
 That still means extraction runs on **Windows EC2**, not on Linux.
-
-## Not supported on Linux EC2
-
-- `pip install pywin32` on Amazon Linux
-- LibreOffice-only drop-in for full GM `.doc` embed parity (would be a separate project; lower fidelity)
 
 ## Troubleshooting
 

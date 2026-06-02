@@ -7,9 +7,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-import sys
-
 import olefile
+import pythoncom
+from win32com.storagecon import STGM_CREATE, STGM_READWRITE, STGM_SHARE_EXCLUSIVE
 
 # Stream name -> file extension for repacked OLE containers
 _WORD_STREAMS = frozenset(
@@ -33,16 +33,6 @@ def _pool_prog_hint(ole: olefile.OleFileIO, pool_id: str) -> str:
 
 
 def _repack_streams_to_file(streams: dict[str, bytes], out_path: Path) -> None:
-    if sys.platform != "win32":
-        raise OSError(
-            "OLE repack for embedded Word/Excel requires Windows COM "
-            "(use Linux LibreOffice path for main document text)"
-        )
-    import gc
-
-    import pythoncom
-    from win32com.storagecon import STGM_CREATE, STGM_READWRITE, STGM_SHARE_EXCLUSIVE
-
     if out_path.exists():
         out_path.unlink()
     stg = pythoncom.StgCreateDocfile(
@@ -178,24 +168,15 @@ def extract_object_pool(
                 label = _next_label(label_queues, "excel", pool_id)
                 out_name = unique_name(label, ".xls")
                 out_path = output_dir / out_name
-                try:
-                    _repack_streams_to_file(streams, out_path)
-                    record.update(
-                        {
-                            "type": "excel",
-                            "filename": out_name,
-                            "path": str(out_path),
-                            "size_bytes": out_path.stat().st_size,
-                        }
-                    )
-                except OSError as exc:
-                    record.update(
-                        {
-                            "type": "excel_skipped",
-                            "filename": out_name,
-                            "export_skipped": str(exc),
-                        }
-                    )
+                _repack_streams_to_file(streams, out_path)
+                record.update(
+                    {
+                        "type": "excel",
+                        "filename": out_name,
+                        "path": str(out_path),
+                        "size_bytes": out_path.stat().st_size,
+                    }
+                )
                 results.append(record)
                 continue
 
@@ -204,24 +185,15 @@ def extract_object_pool(
                 label = _next_label(label_queues, "word", pool_id)
                 out_name = unique_name(label, ".doc")
                 out_path = output_dir / out_name
-                try:
-                    _repack_streams_to_file(streams, out_path)
-                    record.update(
-                        {
-                            "type": "word",
-                            "filename": out_name,
-                            "path": str(out_path),
-                            "size_bytes": out_path.stat().st_size,
-                        }
-                    )
-                except OSError as exc:
-                    record.update(
-                        {
-                            "type": "word_skipped",
-                            "filename": out_name,
-                            "export_skipped": str(exc),
-                        }
-                    )
+                _repack_streams_to_file(streams, out_path)
+                record.update(
+                    {
+                        "type": "word",
+                        "filename": out_name,
+                        "path": str(out_path),
+                        "size_bytes": out_path.stat().st_size,
+                    }
+                )
                 results.append(record)
                 continue
 

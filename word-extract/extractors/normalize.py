@@ -93,8 +93,7 @@ def _collect_pool_attachments(
 
     for item in record.get("object_pool_files") or []:
         path = item.get("path")
-        item_type = item.get("type") or ""
-        if not path or item_type in ("unknown", "excel_skipped", "word_skipped"):
+        if not path or item.get("type") == "unknown":
             continue
         p = Path(path)
         digest = _sha256(p)
