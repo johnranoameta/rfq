@@ -14,12 +14,11 @@ Windows still uses **Word COM** (full GM embed fidelity). Linux is a **best-effo
 cd /home/ec2-user/files/rfq/rfq-ui
 git pull origin main
 
-# Installs LibreOffice and writes RFQ_SOFFICE into .env.local
+# Amazon Linux 2023 has NO libreoffice in dnf — script downloads official RPMs (~300MB)
 bash scripts/ec2-install-libreoffice.sh .env.local
 
-# Or manually:
-# sudo dnf install -y libreoffice-headless libreoffice-writer
-# echo 'RFQ_SOFFICE=/usr/lib/libreoffice/program/soffice' >> .env.local
+# Manual docs: https://docs.aws.amazon.com/linux/al2023/ug/al2023-libreoffice.html
+# After RPM install, soffice is usually: /opt/libreoffice25.2/program/soffice
 
 # Python deps (no pywin32 on Linux)
 python3 -m pip install -r word-extract/requirements-linux.txt
@@ -57,6 +56,7 @@ For **full** GM package parity, run extraction on a Windows machine and sync `wo
 
 | Error | Fix |
 |-------|-----|
-| `LibreOffice not found` | `sudo dnf install libreoffice-headless`; set `RFQ_SOFFICE` |
+| `LibreOffice not found` | Run `bash scripts/ec2-install-libreoffice.sh` (RPM install on AL2023) |
+| `No match for argument: libreoffice` | Normal on AL2023 — use the install script, not raw `dnf install libreoffice` |
 | `No module named 'docx'` | `pip install -r word-extract/requirements-linux.txt` |
 | `export_skipped` in JSON | Expected on Linux for some OLE embeds; PDFs still extract |

@@ -22,6 +22,12 @@ _SOFFICE_ABSOLUTE = (
     "/usr/lib64/libreoffice/program/soffice",
 )
 
+# Amazon Linux 2023: RPM installs to /opt/libreoffice<ver>/program/soffice
+_OPT_SOFFICE_GLOBS = (
+    "/opt/libreoffice*/program/soffice",
+    "/opt/libreoffice*/program/soffice.bin",
+)
+
 
 def _is_executable(path: str) -> bool:
     p = Path(path)
@@ -75,6 +81,7 @@ def _discover_soffice_paths() -> list[str]:
     for pattern in (
         "/usr/lib/libreoffice*/program/soffice",
         "/usr/lib64/libreoffice*/program/soffice",
+        *_OPT_SOFFICE_GLOBS,
     ):
         for match in sorted(glob.glob(pattern)):
             add(match)

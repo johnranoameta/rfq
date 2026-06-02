@@ -1,5 +1,5 @@
 import { spawn } from "child_process";
-import { existsSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 
 import { ENGINE_ROOT } from "@/lib/extraction/enginePaths";
@@ -25,6 +25,8 @@ export function runPythonEngine(
   const env = mergeEnvLocal(process.env, appRoot);
   if (process.platform !== "win32") {
     const pathParts = [
+      "/opt/libreoffice25.2/program",
+      "/opt/libreoffice24.8/program",
       "/usr/lib/libreoffice/program",
       "/usr/lib64/libreoffice/program",
       "/usr/bin",
@@ -33,12 +35,23 @@ export function runPythonEngine(
     ].filter(Boolean);
     env.PATH = [...new Set(pathParts.join(":").split(":"))].join(":");
     if (!env.RFQ_SOFFICE) {
-      for (const candidate of [
+      const optCandidates: string[] = [];
+      try {
+        for (const dir of readdirSync("/opt")) {
+          if (!dir.startsWith("libreoffice")) continue;
+          optCandidates.push(`/opt/${dir}/program/soffice`);
+        }
+      } catch {
+        /* /opt missing */
+      }
+      const staticCandidates = [
+        ...optCandidates,
         "/usr/lib/libreoffice/program/soffice",
         "/usr/lib64/libreoffice/program/soffice",
         "/usr/bin/soffice",
         "/usr/bin/libreoffice",
-      ]) {
+      ];
+      for (const candidate of staticCandidates) {
         if (existsSync(candidate)) {
           env.RFQ_SOFFICE = candidate;
           break;

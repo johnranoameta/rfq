@@ -1,4 +1,4 @@
-import { existsSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import { NextResponse } from "next/server";
 import path from "path";
 
@@ -7,12 +7,24 @@ import { runPythonEngine } from "@/lib/extraction/runPythonEngine";
 
 export const runtime = "nodejs";
 
-const SOFFICE_CANDIDATES = [
-  "/usr/lib/libreoffice/program/soffice",
-  "/usr/lib64/libreoffice/program/soffice",
-  "/usr/bin/soffice",
-  "/usr/bin/libreoffice",
-];
+function sofficeCandidates(): string[] {
+  const list = [
+    "/usr/lib/libreoffice/program/soffice",
+    "/usr/lib64/libreoffice/program/soffice",
+    "/usr/bin/soffice",
+    "/usr/bin/libreoffice",
+  ];
+  try {
+    for (const dir of readdirSync("/opt")) {
+      if (!dir.startsWith("libreoffice")) continue;
+      const p = `/opt/${dir}/program/soffice`;
+      if (existsSync(p)) list.unshift(p);
+    }
+  } catch {
+    /* ignore */
+  }
+  return list;
+}
 
 export async function GET() {
   const env = mergeEnvLocal(process.env);
@@ -21,7 +33,7 @@ export async function GET() {
     cwd: process.cwd(),
     rfq_python: env.RFQ_PYTHON ?? null,
     rfq_soffice_env: env.RFQ_SOFFICE ?? null,
-    soffice_candidates: SOFFICE_CANDIDATES.map((p) => ({
+    soffice_candidates: sofficeCandidates().map((p) => ({
       path: p,
       exists: existsSync(p),
     })),
