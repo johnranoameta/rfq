@@ -12,7 +12,9 @@ export function runPythonEngine(
   scriptArgs: string[],
   timeoutMs = 45 * 60 * 1000,
 ): Promise<PythonRunResult> {
-  const python = process.env.RFQ_PYTHON?.trim() || "py";
+  const python =
+    process.env.RFQ_PYTHON?.trim() ||
+    (process.platform === "win32" ? "py" : "python3");
   const script = scriptArgs[0];
   const args = scriptArgs.slice(1);
 

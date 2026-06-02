@@ -321,6 +321,14 @@ def main(argv: list[str] | None = None) -> int:
         log.error("No .doc or .docx files found in %s", input_path)
         return 1
 
+    if sys.platform != "win32":
+        log.error(
+            "Word COM extraction requires Windows with Microsoft Word and Excel installed. "
+            "Linux hosts (including Amazon Linux EC2) are not supported. "
+            "Deploy on Windows Server EC2 — see rfq-ui/docs/ec2-word-extraction.md."
+        )
+        return 2
+
     from extractors.com_sessions import ExcelSession, WordSession
 
     manifest: list[dict] = []
