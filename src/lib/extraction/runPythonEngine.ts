@@ -1,7 +1,9 @@
 import { spawn } from "child_process";
 import { existsSync } from "fs";
+import path from "path";
 
 import { ENGINE_ROOT } from "@/lib/extraction/enginePaths";
+import { mergeEnvLocal } from "@/lib/extraction/loadEnvLocal";
 
 export type PythonRunResult = {
   code: number | null;
@@ -19,7 +21,8 @@ export function runPythonEngine(
   const script = scriptArgs[0];
   const args = scriptArgs.slice(1);
 
-  const env = { ...process.env };
+  const appRoot = path.resolve(ENGINE_ROOT, "..");
+  const env = mergeEnvLocal(process.env, appRoot);
   if (process.platform !== "win32") {
     const pathParts = [
       "/usr/lib/libreoffice/program",

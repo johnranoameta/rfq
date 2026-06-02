@@ -28,7 +28,28 @@ def _is_executable(path: str) -> bool:
     return p.is_file() and os.access(p, os.X_OK)
 
 
+def _load_env_local() -> None:
+    """Load rfq-ui/.env.local so RFQ_SOFFICE is set when Node/PM2 did not export it."""
+    here = Path(__file__).resolve()
+    for base in (here.parents[2], here.parents[1], Path.cwd(), Path.cwd().parent):
+        env_file = base / ".env.local"
+        if not env_file.is_file():
+            continue
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip("'\"")
+            if key and key not in os.environ:
+                os.environ[key] = value
+        log.info("Loaded env from %s", env_file)
+        return
+
+
 def _discover_soffice_paths() -> list[str]:
+    _load_env_local()
     found: list[str] = []
     seen: set[str] = set()
 

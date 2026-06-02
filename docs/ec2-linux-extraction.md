@@ -32,12 +32,15 @@ npm run build
 pm2 restart rfq-ui
 ```
 
-Verify as the same user PM2 uses:
+Verify on the **remote server** (SSH):
 
 ```bash
 /usr/lib/libreoffice/program/soffice --version
-grep RFQ_SOFFICE .env.local
+grep RFQ_ /home/ec2-user/files/rfq/rfq-ui/.env.local
+curl -s http://127.0.0.1:3000/api/extraction/preflight | python3 -m json.tool
 ```
+
+`preflight` should show `"ready": true` and `python_find_soffice.stdout` with the soffice path.
 
 ## Limits on Linux (same server)
 
