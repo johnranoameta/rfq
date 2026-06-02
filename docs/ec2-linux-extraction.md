@@ -11,30 +11,33 @@ Windows still uses **Word COM** (full GM embed fidelity). Linux is a **best-effo
 ## One-time server setup
 
 ```bash
-# LibreOffice (required)
-sudo dnf install -y libreoffice-headless libreoffice-writer
-
-# Verify
-which soffice || which libreoffice
-soffice --version
-
 cd /home/ec2-user/files/rfq/rfq-ui
 git pull origin main
+
+# Installs LibreOffice and writes RFQ_SOFFICE into .env.local
+bash scripts/ec2-install-libreoffice.sh .env.local
+
+# Or manually:
+# sudo dnf install -y libreoffice-headless libreoffice-writer
+# echo 'RFQ_SOFFICE=/usr/lib/libreoffice/program/soffice' >> .env.local
 
 # Python deps (no pywin32 on Linux)
 python3 -m pip install -r word-extract/requirements-linux.txt
 
-# App env
-cat >> .env.local << 'EOF'
-RFQ_PYTHON=python3
-EOF
+# App env (if not already set)
+grep -q '^RFQ_PYTHON=' .env.local 2>/dev/null || echo 'RFQ_PYTHON=python3' >> .env.local
 
 npm ci
 npm run build
 pm2 restart rfq-ui
 ```
 
-Optional: `RFQ_SOFFICE=/usr/bin/soffice` if not on PATH for the Node process.
+Verify as the same user PM2 uses:
+
+```bash
+/usr/lib/libreoffice/program/soffice --version
+grep RFQ_SOFFICE .env.local
+```
 
 ## Limits on Linux (same server)
 

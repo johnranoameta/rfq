@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import { existsSync } from "fs";
 
 import { ENGINE_ROOT } from "@/lib/extraction/enginePaths";
 
@@ -18,9 +19,35 @@ export function runPythonEngine(
   const script = scriptArgs[0];
   const args = scriptArgs.slice(1);
 
+  const env = { ...process.env };
+  if (process.platform !== "win32") {
+    const pathParts = [
+      "/usr/lib/libreoffice/program",
+      "/usr/lib64/libreoffice/program",
+      "/usr/bin",
+      "/usr/local/bin",
+      env.PATH,
+    ].filter(Boolean);
+    env.PATH = [...new Set(pathParts.join(":").split(":"))].join(":");
+    if (!env.RFQ_SOFFICE) {
+      for (const candidate of [
+        "/usr/lib/libreoffice/program/soffice",
+        "/usr/lib64/libreoffice/program/soffice",
+        "/usr/bin/soffice",
+        "/usr/bin/libreoffice",
+      ]) {
+        if (existsSync(candidate)) {
+          env.RFQ_SOFFICE = candidate;
+          break;
+        }
+      }
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const child = spawn(python, [script, ...args], {
       cwd: ENGINE_ROOT,
+      env,
       shell: process.platform === "win32",
       windowsHide: true,
     });

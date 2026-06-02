@@ -2,36 +2,78 @@
 
 from __future__ import annotations
 
+import glob
 import logging
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 log = logging.getLogger("extract_rfq")
 
-_SOFFICE_CANDIDATES = (
-    "soffice",
-    "libreoffice",
-    "lowriter",
-    "/usr/bin/libreoffice",
+_SOFFICE_NAMES = ("soffice", "libreoffice", "lowriter")
+
+# PM2/Node often has a minimal PATH; check common install locations directly.
+_SOFFICE_ABSOLUTE = (
     "/usr/bin/soffice",
+    "/usr/bin/libreoffice",
+    "/usr/local/bin/soffice",
+    "/usr/lib/libreoffice/program/soffice",
+    "/usr/lib64/libreoffice/program/soffice",
 )
 
 
-def find_soffice() -> str:
+def _is_executable(path: str) -> bool:
+    p = Path(path)
+    return p.is_file() and os.access(p, os.X_OK)
+
+
+def _discover_soffice_paths() -> list[str]:
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def add(path: str | None) -> None:
+        if not path:
+            return
+        resolved = str(Path(path).resolve())
+        if resolved in seen or not _is_executable(resolved):
+            return
+        seen.add(resolved)
+        found.append(resolved)
+
     explicit = os.environ.get("RFQ_SOFFICE", "").strip()
     if explicit:
-        return explicit
-    for name in _SOFFICE_CANDIDATES:
-        found = shutil.which(name)
-        if found:
-            return found
+        add(explicit)
+
+    for name in _SOFFICE_NAMES:
+        add(shutil.which(name))
+
+    for path in _SOFFICE_ABSOLUTE:
+        add(path)
+
+    for pattern in (
+        "/usr/lib/libreoffice*/program/soffice",
+        "/usr/lib64/libreoffice*/program/soffice",
+    ):
+        for match in sorted(glob.glob(pattern)):
+            add(match)
+
+    return found
+
+
+def find_soffice() -> str:
+    candidates = _discover_soffice_paths()
+    if candidates:
+        chosen = candidates[0]
+        log.info("Using LibreOffice: %s", chosen)
+        return chosen
+
     raise RuntimeError(
-        "LibreOffice not found (need soffice on PATH). "
-        "On Amazon Linux: sudo dnf install -y libreoffice-headless. "
-        "Or set RFQ_SOFFICE to the full path."
+        "LibreOffice not found (need soffice). "
+        "On Amazon Linux: sudo dnf install -y libreoffice-headless libreoffice-writer. "
+        "Then: which soffice && soffice --version. "
+        "If installed but the app cannot see it, add to rfq-ui/.env.local: "
+        "RFQ_SOFFICE=/usr/lib/libreoffice/program/soffice"
     )
 
 
