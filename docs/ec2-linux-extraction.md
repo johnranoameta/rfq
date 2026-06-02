@@ -14,7 +14,8 @@ Windows still uses **Word COM** (full GM embed fidelity). Linux is a **best-effo
 cd /home/ec2-user/files/rfq/rfq-ui
 git pull origin main
 
-# Amazon Linux 2023 has NO libreoffice in dnf — script downloads official RPMs (~300MB)
+# Amazon Linux 2023 has NO libreoffice in dnf — script downloads official RPMs (~230MB)
+# Tries 25.8.7, 25.2.5, 24.8.x, then 7.6.7.2 archive (25.2.2 is NOT published)
 bash scripts/ec2-install-libreoffice.sh .env.local
 
 # Manual docs: https://docs.aws.amazon.com/linux/al2023/ug/al2023-libreoffice.html

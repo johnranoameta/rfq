@@ -6,11 +6,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-LO_VERSION="${LIBREOFFICE_VERSION:-25.2.2}"
 ARCH="${LIBREOFFICE_ARCH:-x86_64}"
-TMPDIR="${TMPDIR:-/tmp}/rfq-lo-install-$$"
-mkdir -p "$TMPDIR"
-trap 'rm -rf "$TMPDIR"' EXIT
+WORKDIR="${WORKDIR:-/tmp}/rfq-lo-install-$$"
+mkdir -p "$WORKDIR"
 
 install_from_dnf() {
   if ! command -v dnf >/dev/null 2>&1; then
@@ -28,40 +26,88 @@ install_from_dnf() {
   return 1
 }
 
+download_file() {
+  local url="$1"
+  local dest="$2"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fL --retry 3 --retry-delay 5 --connect-timeout 30 -o "$dest" "$url" && return 0
+  fi
+  if command -v wget >/dev/null 2>&1; then
+    wget -q --show-progress --tries=3 --timeout=60 -O "$dest" "$url" && return 0
+  fi
+  return 1
+}
+
+# Stable versions that exist on download.documentfoundation.org (25.2.2 does NOT).
+DEFAULT_VERSIONS=(
+  "25.8.7"
+  "25.2.5"
+  "24.8.6"
+  "24.8.4"
+  "7.6.7.2"
+)
+
+build_urls() {
+  local version="$1"
+  local tarball="LibreOffice_${version}_Linux_x86-64_rpm.tar.gz"
+  if [[ "$version" == 7.* ]]; then
+    echo "https://downloadarchive.documentfoundation.org/libreoffice/old/${version}/rpm/${ARCH}/${tarball}"
+  else
+    echo "https://download.documentfoundation.org/libreoffice/stable/${version}/rpm/${ARCH}/${tarball}"
+    echo "https://ftp.osuosl.org/pub/libreoffice/libreoffice/stable/${version}/rpm/${ARCH}/${tarball}"
+  fi
+}
+
 install_from_documentfoundation_rpm() {
   echo "==> Amazon Linux 2023: installing LibreOffice from Document Foundation RPMs..."
-  echo "    Version: $LO_VERSION ($ARCH)"
 
   if command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y wget tar gzip libXinerama cups-libs dbus-libs cairo nss \
-      2>/dev/null || sudo dnf install -y wget tar gzip libXinerama cups-libs
+    sudo dnf install -y wget tar gzip curl libXinerama cups-libs dbus-libs cairo nss \
+      2>/dev/null || sudo dnf install -y wget tar gzip curl libXinerama cups-libs
   fi
 
-  TARBALL="LibreOffice_${LO_VERSION}_Linux_x86-64_rpm.tar.gz"
-  URL="https://download.documentfoundation.org/libreoffice/stable/${LO_VERSION}/rpm/${ARCH}/${TARBALL}"
-
-  cd "$TMPDIR"
-  if [[ ! -f "$TARBALL" ]]; then
-    echo "==> Downloading $URL"
-    wget -q --show-progress -O "$TARBALL" "$URL" || {
-      echo "Download failed. Try another version: LIBREOFFICE_VERSION=24.8.7 bash $0" >&2
-      exit 1
-    }
+  local versions=()
+  if [[ -n "${LIBREOFFICE_VERSION:-}" ]]; then
+    versions+=("$LIBREOFFICE_VERSION")
+  else
+    versions=("${DEFAULT_VERSIONS[@]}")
   fi
 
-  tar -xzf "$TARBALL"
-  RPM_DIR="$(echo LibreOffice_"${LO_VERSION}"*_Linux_x86-64_rpm)"
-  if [[ ! -d "$RPM_DIR" ]]; then
-    RPM_DIR="$(ls -d LibreOffice_*_Linux_x86-64_rpm 2>/dev/null | head -1)"
-  fi
-  if [[ ! -d "$RPM_DIR" ]]; then
-    echo "ERROR: extracted RPM directory not found under $TMPDIR" >&2
-    ls -la "$TMPDIR" >&2
+  cd "$WORKDIR"
+  local tarball="" url="" version="" ok=0
+
+  for version in "${versions[@]}"; do
+    tarball="LibreOffice_${version}_Linux_x86-64_rpm.tar.gz"
+    echo "==> Trying version $version ..."
+    while IFS= read -r url; do
+      [[ -z "$url" ]] && continue
+      echo "    $url"
+      rm -f "$tarball"
+      if download_file "$url" "$tarball" && [[ -s "$tarball" ]]; then
+        ok=1
+        break 2
+      fi
+    done < <(build_urls "$version")
+  done
+
+  if [[ "$ok" -ne 1 ]]; then
+    echo "ERROR: Could not download LibreOffice RPM tarball." >&2
+    echo "Set an explicit version, e.g.: LIBREOFFICE_VERSION=25.8.7 bash $0" >&2
     exit 1
   fi
 
-  echo "==> Installing RPMs from $RPM_DIR/RPMS/"
-  sudo dnf install -y "$RPM_DIR"/RPMS/*.rpm || sudo rpm -Uvh "$RPM_DIR"/RPMS/*.rpm
+  echo "==> Downloaded $(du -h "$tarball" | awk '{print $1}') — extracting..."
+  tar -xzf "$tarball"
+  local rpm_dir
+  rpm_dir="$(ls -d LibreOffice_*_Linux_x86-64_rpm 2>/dev/null | head -1)"
+  if [[ -z "$rpm_dir" || ! -d "$rpm_dir" ]]; then
+    echo "ERROR: extracted RPM directory not found." >&2
+    ls -la "$WORKDIR" >&2
+    exit 1
+  fi
+
+  echo "==> Installing RPMs from $rpm_dir/RPMS/ (this may take a few minutes)..."
+  sudo dnf install -y "$rpm_dir"/RPMS/*.rpm || sudo rpm -Uvh "$rpm_dir"/RPMS/*.rpm
 }
 
 find_soffice_binary() {
