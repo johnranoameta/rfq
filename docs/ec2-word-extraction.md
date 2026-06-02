@@ -1,8 +1,12 @@
 # Running Word RFQ extraction on AWS EC2
 
-GM-style RFQ packages (legacy `.doc` with embedded PDF/Excel/Word) are extracted via **Microsoft Word and Excel COM** (`pywin32` / `pythoncom`). That stack only runs on **Windows**.
+## Amazon Linux (same server) — default for Linux EC2
 
-**Amazon Linux EC2 cannot run this extractor**, even with `python3` and `pip install pywin32`. You will see errors such as `No module named 'pythoncom'`.
+See **[ec2-linux-extraction.md](./ec2-linux-extraction.md)** — LibreOffice + python-docx on the same instance.
+
+## Windows Server EC2 — full Word COM fidelity
+
+GM-style RFQ packages (legacy `.doc` with embedded PDF/Excel/Word) use **Microsoft Word and Excel COM** (`pywin32` / `pythoncom`) on Windows only.
 
 ## Supported production layout
 

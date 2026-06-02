@@ -162,7 +162,7 @@ export default function WordPackageExtractionPanel() {
     }
     setBusy(true);
     setError(null);
-    setMessage("Extracting… this may take several minutes (Word COM on Windows).");
+    setMessage("Extracting… this may take several minutes.");
     try {
       const res = await fetch("/api/extraction/run", {
         method: "POST",

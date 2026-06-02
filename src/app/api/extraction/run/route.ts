@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { clearEngineOutput } from "@/lib/extraction/clearOutput";
 import { ENGINE_OUTPUT_DIR } from "@/lib/extraction/enginePaths";
 import { readExtractionManifest, summarizePackage } from "@/lib/extraction/loadManifest";
-import { isWindowsExtractionHost, windowsExtractionErrorResponse } from "@/lib/extraction/requireWindowsHost";
 import { runPythonEngine } from "@/lib/extraction/runPythonEngine";
 import { resolveUploadedWordPath } from "@/lib/extraction/uploadPaths";
 
@@ -11,9 +10,6 @@ export const runtime = "nodejs";
 export const maxDuration = 600;
 
 export async function POST(request: Request) {
-  if (!isWindowsExtractionHost()) {
-    return NextResponse.json(windowsExtractionErrorResponse(), { status: 503 });
-  }
   let body: {
     storedName?: string;
     clearFirst?: boolean;

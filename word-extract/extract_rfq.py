@@ -10,8 +10,8 @@ Outputs:
   - excel_data/      — per-XLS cell grid JSON
   - nested/          — recursive extractions of child documents
 
-Requires Windows + Microsoft Word for .doc files.
-Excel COM is used for embedded spreadsheet cell data (xlrd fallback on failure).
+Windows: Microsoft Word/Excel COM for legacy .doc (full embed fidelity).
+Linux: LibreOffice headless + python-docx + olefile (see requirements-linux.txt).
 """
 
 from __future__ import annotations
@@ -152,23 +152,30 @@ def extract_document(
 
         record.update(extract_docx(doc_path, output_dir))
     elif suffix == ".doc":
-        from extractors.ole_binary import extract_object_pool
-        from extractors.word_com import extract_with_word
+        import sys
 
-        record.update(
-            extract_with_word(
-                doc_path,
-                output_dir,
-                word_app=word_app,
-                save_embedded=save_embedded,
+        if sys.platform == "win32":
+            from extractors.ole_binary import extract_object_pool
+            from extractors.word_com import extract_with_word
+
+            record.update(
+                extract_with_word(
+                    doc_path,
+                    output_dir,
+                    word_app=word_app,
+                    save_embedded=save_embedded,
+                )
             )
-        )
-        pool_dir = output_dir / "embedded"
-        record["object_pool_files"] = extract_object_pool(
-            doc_path,
-            pool_dir,
-            inline_shapes=record.get("inline_shapes"),
-        )
+            pool_dir = output_dir / "embedded"
+            record["object_pool_files"] = extract_object_pool(
+                doc_path,
+                pool_dir,
+                inline_shapes=record.get("inline_shapes"),
+            )
+        else:
+            from extractors.linux_legacy_doc import extract_legacy_doc
+
+            record.update(extract_legacy_doc(doc_path, output_dir))
     elif suffix in (".xls", ".xlsx") and extract_excel_cells:
         record.update(_extract_excel_item(doc_path, output_dir, xl_app))
         return record
@@ -321,18 +328,34 @@ def main(argv: list[str] | None = None) -> int:
         log.error("No .doc or .docx files found in %s", input_path)
         return 1
 
-    if sys.platform != "win32":
-        log.error(
-            "Word COM extraction requires Windows with Microsoft Word and Excel installed. "
-            "Linux hosts (including Amazon Linux EC2) are not supported. "
-            "Deploy on Windows Server EC2 — see rfq-ui/docs/ec2-word-extraction.md."
-        )
-        return 2
-
-    from extractors.com_sessions import ExcelSession, WordSession
-
     manifest: list[dict] = []
-    with WordSession() as word_session, ExcelSession() as xl_session:
+
+    if sys.platform == "win32":
+        from extractors.com_sessions import ExcelSession, WordSession
+
+        with WordSession() as word_session, ExcelSession() as xl_session:
+            for src in sources:
+                doc_out = output_root / src.stem
+                try:
+                    manifest.append(
+                        extract_document(
+                            src,
+                            doc_out,
+                            max_depth=args.max_depth,
+                            extract_excel_cells=not args.no_excel_cells,
+                            extract_pdf_text=not args.no_pdf_text,
+                            word_app=word_session.app,
+                            xl_app=xl_session.app,
+                        )
+                    )
+                except Exception as exc:
+                    log.exception("Failed on %s", src.name)
+                    manifest.append({"source": str(src), "error": str(exc)})
+    else:
+        log.info(
+            "Linux extraction: LibreOffice + python-docx (no Word COM). "
+            "Install libreoffice-headless on the server."
+        )
         for src in sources:
             doc_out = output_root / src.stem
             try:
@@ -343,8 +366,8 @@ def main(argv: list[str] | None = None) -> int:
                         max_depth=args.max_depth,
                         extract_excel_cells=not args.no_excel_cells,
                         extract_pdf_text=not args.no_pdf_text,
-                        word_app=word_session.app,
-                        xl_app=xl_session.app,
+                        word_app=None,
+                        xl_app=None,
                     )
                 )
             except Exception as exc:
