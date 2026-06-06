@@ -940,3 +940,122 @@
   background: var(--ra-amber-bg);
   color: var(--ra-amber);
 }
+
+.ra-nav-submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 6px 10px;
+  padding-left: 10px;
+  border-left: 2px solid var(--ra-border);
+}
+
+.ra-nav-subitem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--ra-radius);
+  cursor: pointer;
+  color: var(--ra-mid);
+  font-size: 12.5px;
+  transition: background 0.12s, color 0.12s;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  font: inherit;
+}
+
+.ra-nav-subitem:hover {
+  background: var(--ra-bg);
+  color: var(--ra-text);
+}
+
+.ra-nav-subitem.active {
+  background: var(--ra-accent-bg);
+  color: var(--ra-accent);
+  font-weight: 500;
+}
+
+.rfq-assistant.collapsed .ra-nav-submenu {
+  display: none;
+}
+
+.ra-kb-inquiry {
+  background: var(--ra-card);
+}
+
+.ra-kb-inquiry-scroll {
+  background: var(--ra-bg);
+}
+
+.ra-kb-inquiry-empty {
+  max-width: 42rem;
+}
+
+.ra-kb-inquiry-starter {
+  font-size: 12px;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: var(--ra-radius);
+  border: 1px solid var(--ra-border);
+  background: var(--ra-card);
+  color: var(--ra-mid);
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.ra-kb-inquiry-starter:hover:not(:disabled) {
+  border-color: var(--ra-accent);
+  color: var(--ra-accent);
+}
+
+.ra-kb-inquiry-starter:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.ra-kb-inquiry-msg {
+  max-width: 42rem;
+  padding: 10px 12px;
+  border-radius: var(--ra-radius);
+  border: 1px solid var(--ra-border);
+  background: var(--ra-card);
+}
+
+.ra-kb-inquiry-msg-user {
+  margin-left: auto;
+  border-color: var(--ra-accent);
+  background: var(--ra-accent-bg);
+}
+
+.ra-kb-inquiry-msg-role {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ra-muted);
+  margin-bottom: 4px;
+}
+
+.ra-kb-inquiry-msg-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ra-text);
+}
+
+.ra-kb-inquiry-input {
+  width: 100%;
+  background: var(--ra-card);
+  border: 1px solid var(--ra-border);
+  border-radius: var(--ra-radius);
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--ra-text);
+  outline: none;
+}
+
+.ra-kb-inquiry-input:focus {
+  border-color: var(--ra-accent);
+}

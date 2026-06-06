@@ -7,16 +7,17 @@ const toc = [
   { id: "layout", label: "3. Screen layout" },
   { id: "workspace", label: "4. Workspace modes" },
   { id: "knowledge-base", label: "5. Knowledge Base" },
-  { id: "new-rfq", label: "6. New RFQs (active analysis)" },
-  { id: "workbook-format", label: "7. Excel workbook format" },
-  { id: "pipeline", label: "8. Analysis pipeline" },
-  { id: "matching", label: "9. Matching & historical reference" },
-  { id: "gaps-quotes", label: "10. Gaps, documents, and quote views" },
-  { id: "saved-portfolio", label: "11. Saved analyses & Portfolio" },
-  { id: "data-storage", label: "12. Where data lives" },
-  { id: "kb-assignment", label: "13. Knowledge Base categories (assignment)" },
-  { id: "settings", label: "14. Settings" },
-  { id: "glossary", label: "15. Glossary" },
+  { id: "kb-training", label: "6. Knowledge Base — Training (uploads)" },
+  { id: "kb-inquiry", label: "7. Knowledge Base — Inquiry (chat)" },
+  { id: "workbook-format", label: "8. Excel workbook format" },
+  { id: "pipeline", label: "9. Analysis pipeline" },
+  { id: "matching", label: "10. Matching & historical reference" },
+  { id: "gaps-quotes", label: "11. Gaps, documents, and quote views" },
+  { id: "saved-portfolio", label: "12. Saved analyses & Portfolio" },
+  { id: "data-storage", label: "13. Where data lives" },
+  { id: "kb-assignment", label: "14. Knowledge Base categories (assignment)" },
+  { id: "settings", label: "15. Settings" },
+  { id: "glossary", label: "16. Glossary" },
 ] as const;
 
 function Section({
@@ -65,18 +66,17 @@ export function HelpManual() {
             <strong>Historical RFQs</strong> to read how that class is defined and which RFQs sit in the bucket.
           </li>
           <li>
-            <strong>Start a new RFQ</strong> — Click <strong>New RFQs</strong> in the sidebar (or{" "}
-            <strong>+ New RFQ</strong> in the top bar). If no file is open, you will see an upload card.
+            <strong>Upload / extract an RFQ</strong> — Under <strong>Knowledge Base → Training</strong> (or{" "}
+            <strong>+ Word RFQ</strong> in the top bar), upload a <strong>Word package</strong> (.doc / .docx) and click{" "}
+            <strong>Run extraction</strong>. Keep <strong>Normalize</strong> checked so Inquiry can read field tables.
           </li>
           <li>
-            <strong>Upload a workbook</strong> — Use a <strong>four-sheet Excel</strong> file (Header, Line_Items,
-            Technical_Specs, Supplier_Responses). After upload, wait until analysis finishes (sidebar shows status such
-            as <em>done</em> or <em>analyzing</em>).
+            <strong>Review extraction</strong> — Pick the package in the Training sidebar. The main area shows{" "}
+            <strong>Section fields</strong> (normalized field/value tables), raw section text, and attachment overview.
           </li>
           <li>
-            <strong>Open the RFQ</strong> — Click the file name in the sidebar under New RFQs. The main area fills with
-            tabs: start with <strong>Parsed Summary</strong> to confirm the extract, then <strong>Matching</strong> for
-            historical peers and <strong>Coverage</strong> for how many match dimensions fired.
+            <strong>Query extracted data</strong> — Open <strong>Inquiry</strong> and ask about section fields, missing
+            attachments, commercial terms, or technical specs. Answers use the selected package&apos;s normalized output.
           </li>
           <li>
             <strong>Review gaps</strong> — Open <strong>Gaps &amp; Conflicts</strong> (or the gaps tab) for risk score,
@@ -134,9 +134,9 @@ export function HelpManual() {
             lock a quote strategy.
           </p>
           <p>
-            The app has two big themes: a <strong>Knowledge Base</strong> of past RFQs (and uploads treated as
-            historical), and <strong>New RFQs</strong> where you open one package at a time and run structured
-            analysis tabs (summary, matching, coverage, gaps, etc.).
+            The app centers on a <strong>Knowledge Base</strong>: browse historical RFQs by class, use{" "}
+            <strong>Training</strong> to upload and analyze workbooks, and <strong>Inquiry</strong> to ask an OpenAI
+            agent about RFQ fields and stored analyses.
           </p>
         </Section>
 
@@ -151,12 +151,13 @@ export function HelpManual() {
         <Section id="layout" title="3. Screen layout">
           <ul>
             <li>
-              <strong>Top bar</strong>: product name, high-level counts (KB classes, historical RFQs, new RFQs),
+              <strong>Top bar</strong>: product name, high-level counts (KB classes, historical RFQs, training uploads),
               workspace shortcuts, settings, theme, and <strong>Help</strong> (this manual).
             </li>
             <li>
-              <strong>Left sidebar</strong>: switches workspace mode and (in Knowledge Base) lists procurement{" "}
-              <strong>classes</strong> with counts; in New RFQs it lists uploaded files and status.
+              <strong>Left sidebar</strong>: workspace modes; under Knowledge Base, submenu entries{" "}
+              <strong>Training</strong> (uploads) and <strong>Inquiry</strong> (chat); browse mode lists procurement{" "}
+              <strong>classes</strong> with counts.
             </li>
             <li>
               <strong>Main canvas</strong>: content for the current workspace and selection.
@@ -165,16 +166,12 @@ export function HelpManual() {
         </Section>
 
         <Section id="workspace" title="4. Workspace modes">
-          <p>The sidebar <strong>Workspace</strong> section has four entries:</p>
+          <p>The sidebar <strong>Workspace</strong> section has three top-level entries plus a Knowledge Base submenu:</p>
           <ul>
             <li>
-              <strong>Knowledge Base</strong> — Browse RFQs grouped by <strong>KB class</strong> (procurement
-              category). Pick a class to see summary text, matching documentation, and the list of RFQs in that
-              bucket.
-            </li>
-            <li>
-              <strong>New RFQs</strong> — Pick an uploaded workbook (or upload one), then work the analysis tabs for
-              that single RFQ.
+              <strong>Knowledge Base</strong> — Default view browses RFQs grouped by <strong>KB class</strong>. Submenu:{" "}
+              <strong>Training</strong> (upload workbooks, list uploads, run analysis tabs) and{" "}
+              <strong>Inquiry</strong> (OpenAI chat about RFQ fields and stored data).
             </li>
             <li>
               <strong>Saved analyses</strong> — Workspace-wide library of persisted analyses (SQLite rows per upload),
@@ -222,25 +219,33 @@ export function HelpManual() {
           </ul>
         </Section>
 
-        <Section id="new-rfq" title="6. New RFQs (active analysis)">
+        <Section id="kb-training" title="6. Knowledge Base — Training (Word extraction)">
           <p>
-            When you select <strong>New RFQs</strong> and open a file from the sidebar, the main area shows the{" "}
-            <strong>workflow strip</strong> (Upload → Parse → …) and a set of <strong>tabs</strong> driven by that
-            RFQ’s persisted analysis.
+            <strong>Training</strong> is the primary RFQ intake path. Upload a GM-style <strong>Word RFQ package</strong>{" "}
+            (.doc or .docx with embedded PDFs, Excel, and drawings). The Python engine (Word COM on Windows) extracts
+            sections, attachment text, and builds <span className="font-mono text-xs">normalized.json</span> field tables.
           </p>
           <p>
-            <strong>Header subtitle</strong> may include <code className="text-xs bg-muted px-1 rounded">KB class:</code>{" "}
-            after analysis—this is the resolved procurement class for that <em>whole</em> upload, not the part title
-            (the large title is still the primary part / program title from the parse).
-          </p>
-          <p>
-            Typical tabs include <strong>Parsed Summary</strong>, <strong>Matching</strong>, <strong>Coverage</strong>,{" "}
-            <strong>Gaps</strong>, reuse / documents / quote style panels—each reads from the same stored parse, gap,
-            and historical payload for that session.
+            Pick an extracted package from the sidebar to view <strong>Section fields</strong>, raw section bodies, and
+            attachment overview. Legacy four-sheet Excel analysis remains under <strong>Saved analyses</strong> if present.
           </p>
         </Section>
 
-        <Section id="workbook-format" title="7. Excel workbook format">
+        <Section id="kb-inquiry" title="7. Knowledge Base — Inquiry (chat)">
+          <p>
+            <strong>Inquiry</strong> is an OpenAI-powered chat agent that answers questions about{" "}
+            <strong>Word-extracted</strong> RFQ fields—section_slots, field/value tables, attachment presence, and
+            knowledge base classes. Select a package under <strong>Training</strong> first so answers target that
+            extraction.
+          </p>
+          <p>
+            Requires <code className="text-xs bg-muted px-1 rounded">OPENAI_API_KEY</code> in{" "}
+            <code className="text-xs bg-muted px-1 rounded">.env.local</code> on the server (same key as workbook gap
+            analysis).
+          </p>
+        </Section>
+
+        <Section id="workbook-format" title="8. Excel workbook format">
           <p>
             The first-class RFQ package for automated parsing is a <strong>four-sheet Excel workbook</strong> with
             these sheets (names may use common aliases; the parser normalizes them):
@@ -269,7 +274,7 @@ export function HelpManual() {
           </p>
         </Section>
 
-        <Section id="pipeline" title="8. Analysis pipeline">
+        <Section id="pipeline" title="9. Analysis pipeline">
           <p>For a supported workbook upload, the server roughly does:</p>
           <ol>
             <li>
@@ -303,7 +308,7 @@ export function HelpManual() {
           </p>
         </Section>
 
-        <Section id="matching" title="9. Matching & historical reference">
+        <Section id="matching" title="10. Matching & historical reference">
           <p>
             <strong>Matching</strong> compares your RFQ’s extracted fields (customer, program, material, process, part
             names/numbers, optional thickness and volume, spec text, etc.) to a <strong>candidate pool</strong> of
@@ -321,7 +326,7 @@ export function HelpManual() {
           </p>
         </Section>
 
-        <Section id="gaps-quotes" title="10. Gaps, documents, and quote views">
+        <Section id="gaps-quotes" title="11. Gaps, documents, and quote views">
           <p>
             <strong>Gaps</strong> are structured findings (severity, category, recommended action). Some may reference
             document slots; supplying a missing file updates the reconstructed case where implemented.
@@ -336,7 +341,7 @@ export function HelpManual() {
           </p>
         </Section>
 
-        <Section id="saved-portfolio" title="11. Saved analyses & Portfolio">
+        <Section id="saved-portfolio" title="12. Saved analyses & Portfolio">
           <p>
             <strong>Saved analyses</strong> is the operational archive: every successful analysis session appears here
             with metadata; you can open detail, delete a session row, or import additional historical records when
@@ -348,7 +353,7 @@ export function HelpManual() {
           </p>
         </Section>
 
-        <Section id="data-storage" title="12. Where data lives">
+        <Section id="data-storage" title="13. Where data lives">
           <ul>
             <li>
               <strong>SQLite</strong> (<code className="text-xs bg-muted px-1 rounded">data/rfq.sqlite</code> by default,
@@ -366,7 +371,7 @@ export function HelpManual() {
           </ul>
         </Section>
 
-        <Section id="kb-assignment" title="13. Knowledge Base categories (assignment)">
+        <Section id="kb-assignment" title="14. Knowledge Base categories (assignment)">
           <ul>
             <li>
               <strong>Canonical classes</strong> are seeded (electronics, machining, stamping, injection, assembly,
@@ -385,14 +390,14 @@ export function HelpManual() {
           </ul>
         </Section>
 
-        <Section id="settings" title="14. Settings">
+        <Section id="settings" title="15. Settings">
           <p>
             The gear menu exposes editor preferences (theme, font) and <strong>Match scoring</strong> JSON for the
             global weights API. Changes there affect all future match ranking until changed again.
           </p>
         </Section>
 
-        <Section id="glossary" title="15. Glossary">
+        <Section id="glossary" title="16. Glossary">
           <dl className="space-y-3 [&_dt]:font-medium [&_dt]:text-foreground [&_dd]:mt-0.5">
             <div>
               <dt>RFQ</dt>
