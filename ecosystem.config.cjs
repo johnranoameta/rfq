@@ -7,13 +7,18 @@
  *   npx pm2 logs rfq-ui
  *   npx pm2 stop rfq-ui
  */
+const path = require("path");
+
+const nextBin = path.join(__dirname, "node_modules", "next", "dist", "bin", "next");
+
 module.exports = {
   apps: [
     {
       name: "rfq-ui",
       cwd: __dirname,
-      script: "npm",
-      args: "run start",
+      script: nextBin,
+      interpreter: "node",
+      args: "start -p 3000",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
