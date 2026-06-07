@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { applySuppliedPackageDoc } from "@/lib/rfq/applySuppliedPackageDoc";
 import { gapFindingUploadSlot } from "@/lib/rfq/reconcileGapsWithDocuments";
 import { buildCaseDataFromPersisted } from "@/lib/rfq/caseFromPersisted";
@@ -38,6 +38,7 @@ import {
   type AnalysisSelection,
   type AnalysisSubMode,
 } from "@/components/rfq/RfqAnalysisShell";
+import { RfqAnalysisRfqSwitcher } from "@/components/rfq/RfqAnalysisRfqSwitcher";
 import { RfqWorkbookGapsPanel } from "@/components/rfq/RfqWorkbookGapsPanel";
 import {
   RfqPackageUpload,
@@ -51,6 +52,11 @@ import { partitionKbBuckets, type KbBucket } from "@/lib/rfq/kbBucketPartition";
 import type { KbCategoryRow } from "@/lib/rfq/sqlite/kbCategories";
 import type { RfqParseSessionRow } from "@/lib/rfq/sqlite/parseSessions";
 import type { SeedRfqProjectRow } from "@/lib/rfq/sqlite/seedRfqs";
+import {
+  DEFAULT_DEMO_UPLOAD,
+  getDefaultDemoSession,
+  isPreloadedDemoUpload,
+} from "@/data/sampleRfqPipeline";
 type WorkspaceMode = "kb" | "inquiry" | "analysis" | "library" | "portfolio";
 type KbSubMode = "browse" | "training";
 type NewWorkspaceTab = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "documents" | "quote";
@@ -221,7 +227,7 @@ export default function RFQAgentDashboard() {
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("kb");
   const [kbSubMode, setKbSubMode] = useState<KbSubMode>("browse");
-  const [analysisSubMode, setAnalysisSubMode] = useState<AnalysisSubMode>("matching");
+  const [analysisSubMode, setAnalysisSubMode] = useState<AnalysisSubMode>("summary");
   const [analysisSelection, setAnalysisSelection] = useState<AnalysisSelection | null>(null);
   const [extractPackages, setExtractPackages] = useState<ExtractPackageSummary[]>([]);
   const [selectedExtractKey, setSelectedExtractKey] = useState<string | null>(null);
@@ -242,6 +248,68 @@ export default function RFQAgentDashboard() {
   const [analysisStatus, setAnalysisStatus] = useState<
     Record<string, { status: AnalysisStatusKind; message?: string }>
   >({});
+  const demoSeededRef = useRef(false);
+
+  const selectAnalysisWord = useCallback(
+    (key: string) => {
+      const pkg = extractPackages.find((p) => p.key === key);
+      if (!pkg) return;
+      setWorkspaceMode("analysis");
+      setSelectedExtractKey(key);
+      setAnalysisSelection({ kind: "word", packageKey: key, label: pkg.filename });
+    },
+    [extractPackages],
+  );
+
+  const selectAnalysisWorkbook = useCallback(
+    (id: string) => {
+      const u = uploadedRfqs.find((x) => x.id === id);
+      if (!u) return;
+      setWorkspaceMode("analysis");
+      setAnalysisSelection({ kind: "workbook", fileId: id, label: u.originalName });
+      void activateRfqFromSidebar(u);
+    },
+    [uploadedRfqs],
+  );
+
+  const analysisWordOptions = useMemo(
+    () =>
+      extractPackages.map((p) => ({
+        key: p.key,
+        label: p.filename,
+        detail: `${p.section_count} sections`,
+      })),
+    [extractPackages],
+  );
+
+  const analysisWorkbookOptions = useMemo(
+    () =>
+      uploadedRfqs.map((u) => ({
+        id: u.id,
+        label: u.originalName,
+        isDemo: isPreloadedDemoUpload(u),
+      })),
+    [uploadedRfqs],
+  );
+
+  const openDemoWorkbookAnalysis = useCallback((subMode: AnalysisSubMode = "summary") => {
+    setWorkspaceMode("analysis");
+    setAnalysisSubMode(subMode);
+    setAnalysisSelection({
+      kind: "workbook",
+      fileId: DEFAULT_DEMO_UPLOAD.id,
+      label: DEFAULT_DEMO_UPLOAD.originalName,
+    });
+    setUploadedRfqs((prev) => {
+      if (prev.some((x) => x.id === DEFAULT_DEMO_UPLOAD.id)) return prev;
+      return [DEFAULT_DEMO_UPLOAD, ...prev];
+    });
+    setSession(getDefaultDemoSession());
+    setSessionNotice(null);
+    setPipelineBusy(false);
+    setGapFilter("all");
+    setExpandedRule({});
+  }, []);
 
   const handleAnalysisStatus = useCallback((event: AnalysisStatusEvent) => {
     setAnalysisStatus((prev) => ({
@@ -343,10 +411,23 @@ export default function RFQAgentDashboard() {
     saveSidebarListCache(uploadedRfqs);
   }, [uploadedRfqs, sidebarHydrated]);
 
+  /** Preload bundled workbook demo when no real analyses exist (restores pre–workbook-first UX). */
+  useEffect(() => {
+    if (!sidebarHydrated || demoSeededRef.current) return;
+    const hasRealWorkbooks = uploadedRfqs.some((u) => !isPreloadedDemoUpload(u));
+    if (hasRealWorkbooks) return;
+    demoSeededRef.current = true;
+    openDemoWorkbookAnalysis("summary");
+  }, [sidebarHydrated, uploadedRfqs, openDemoWorkbookAnalysis]);
+
   const c = session?.caseData ?? null;
 
   async function activateRfqFromSidebar(u: UploadedPackageFile) {
     if (pipelineBusy || sidebarLoadBusy) return;
+    if (isPreloadedDemoUpload(u)) {
+      openDemoWorkbookAnalysis(analysisSubMode);
+      return;
+    }
     setSidebarLoadBusy(true);
     setSessionNotice(null);
     try {
@@ -379,16 +460,21 @@ export default function RFQAgentDashboard() {
   }
 
   async function removeRfqFromSidebar(u: UploadedPackageFile) {
-    const msg = `Remove “${u.originalName}” from this list and delete its saved analysis from the database?`;
+    const isDemo = isPreloadedDemoUpload(u);
+    const msg = isDemo
+      ? `Remove the preloaded demo (“${u.originalName}”) from this list?`
+      : `Remove “${u.originalName}” from this list and delete its saved analysis from the database?`;
     if (!window.confirm(msg)) return;
 
-    setSidebarLoadBusy(true);
-    try {
-      await fetch(`/api/rfq/database/sessions/${encodeURIComponent(u.id)}`, { method: "DELETE" });
-    } catch {
-      /* still drop from sidebar */
-    } finally {
-      setSidebarLoadBusy(false);
+    if (!isDemo) {
+      setSidebarLoadBusy(true);
+      try {
+        await fetch(`/api/rfq/database/sessions/${encodeURIComponent(u.id)}`, { method: "DELETE" });
+      } catch {
+        /* still drop from sidebar */
+      } finally {
+        setSidebarLoadBusy(false);
+      }
     }
 
     const nextList = uploadedRfqs.filter((x) => x.id !== u.id);
@@ -418,8 +504,11 @@ export default function RFQAgentDashboard() {
       if (prev.some((u) => u.id === file.id)) return prev;
       return [file, ...prev];
     });
-    setSessionNotice(null);
-    setSessionNotice(`Stored “${file.originalName}”. Analysis runs only for the 4-sheet workbook format.`);
+    if (workspaceMode !== "analysis") {
+      setSessionNotice(`Stored “${file.originalName}”. Analysis runs only for the 4-sheet workbook format.`);
+    } else {
+      setSessionNotice(null);
+    }
   }
 
   async function handleAnalyzed(file: UploadedPackageFile) {
@@ -433,13 +522,13 @@ export default function RFQAgentDashboard() {
      * so the user's first opened/active RFQ isn't yanked away by a later finisher.
      */
     const hasActiveSession = session !== null;
-    if (!hasActiveSession) {
+    const inAnalysisWorkspace = workspaceMode === "analysis";
+    if (!hasActiveSession || inAnalysisWorkspace) {
       setSessionNotice(null);
       setWorkspaceMode("analysis");
-      setAnalysisSubMode("matching");
+      setAnalysisSubMode("summary");
       setAnalysisSelection({ kind: "workbook", fileId: file.id, label: file.originalName });
       await activateRfqFromSidebar(file);
-      setNewWsTab("matching");
     } else if (session.file.id !== file.id) {
       setSessionNotice(
         `Analyzed “${file.originalName}”. Open it from the sidebar when ready.`,
@@ -850,6 +939,16 @@ export default function RFQAgentDashboard() {
               <div className="ra-nav-submenu" role="group" aria-label="Analysis sections">
                 <button
                   type="button"
+                  className={["ra-nav-subitem", analysisSubMode === "summary" ? "active" : ""].join(" ")}
+                  onClick={() => {
+                    setWorkspaceMode("analysis");
+                    setAnalysisSubMode("summary");
+                  }}
+                >
+                  <span className="ra-nav-text">Overview</span>
+                </button>
+                <button
+                  type="button"
                   className={["ra-nav-subitem", analysisSubMode === "matching" ? "active" : ""].join(" ")}
                   onClick={() => {
                     setWorkspaceMode("analysis");
@@ -877,6 +976,26 @@ export default function RFQAgentDashboard() {
                   }}
                 >
                   <span className="ra-nav-text">Gap analysis</span>
+                </button>
+                <button
+                  type="button"
+                  className={["ra-nav-subitem", analysisSubMode === "reuse" ? "active" : ""].join(" ")}
+                  onClick={() => {
+                    setWorkspaceMode("analysis");
+                    setAnalysisSubMode("reuse");
+                  }}
+                >
+                  <span className="ra-nav-text">Reuse guidance</span>
+                </button>
+                <button
+                  type="button"
+                  className={["ra-nav-subitem", analysisSubMode === "quote" ? "active" : ""].join(" ")}
+                  onClick={() => {
+                    setWorkspaceMode("analysis");
+                    setAnalysisSubMode("quote");
+                  }}
+                >
+                  <span className="ra-nav-text">Quote &amp; history</span>
                 </button>
               </div>
             ) : null}
@@ -906,7 +1025,7 @@ export default function RFQAgentDashboard() {
             <input
               value={sidebarQuery}
               onChange={(e) => setSidebarQuery(e.target.value)}
-              placeholder="Search…"
+              placeholder={workspaceMode === "analysis" ? "Filter RFQs…" : "Search…"}
               aria-label="Filter sidebar"
             />
           </div>
@@ -1050,6 +1169,22 @@ export default function RFQAgentDashboard() {
               </div>
             ) : workspaceMode === "analysis" ? (
               <>
+                {sidebarOpen ? (
+                  <div className="px-0 pb-2 space-y-2 shrink-0">
+                    <p className="text-[11px] text-[var(--ra-muted)] leading-snug px-0.5">
+                      <strong className="text-[var(--ra-text)] font-semibold">Switch RFQ</strong> — click a row below
+                      or use <strong className="text-[var(--ra-text)]">Active RFQ</strong> in the main panel.
+                    </p>
+                    <RfqAnalysisRfqSwitcher
+                      compact
+                      selection={analysisSelectionResolved}
+                      wordPackages={analysisWordOptions}
+                      workbooks={analysisWorkbookOptions}
+                      onSelectWord={selectAnalysisWord}
+                      onSelectWorkbook={selectAnalysisWorkbook}
+                    />
+                  </div>
+                ) : null}
                 {extractPackages.length === 0 && uploadedRfqs.length === 0 ? (
                   <div className="text-[12px] text-[var(--ra-muted)] px-2 py-3 leading-snug">
                     {sidebarOpen
@@ -1080,11 +1215,7 @@ export default function RFQAgentDashboard() {
                         key={`word-${p.key}`}
                         type="button"
                         className={["rfq-item w-full text-left", active ? "active" : ""].join(" ")}
-                        onClick={() => {
-                          setWorkspaceMode("analysis");
-                          setSelectedExtractKey(p.key);
-                          setAnalysisSelection({ kind: "word", packageKey: p.key, label: p.filename });
-                        }}
+                        onClick={() => selectAnalysisWord(p.key)}
                       >
                         <div
                           className="ra-kb-icon shrink-0"
@@ -1128,22 +1259,19 @@ export default function RFQAgentDashboard() {
                         key={`wb-${u.id}`}
                         type="button"
                         className={["rfq-item w-full text-left", active ? "active" : ""].join(" ")}
-                        onClick={() => {
-                          setWorkspaceMode("analysis");
-                          setAnalysisSelection({
-                            kind: "workbook",
-                            fileId: u.id,
-                            label: u.originalName,
-                          });
-                          void activateRfqFromSidebar(u);
-                        }}
+                        onClick={() => selectAnalysisWorkbook(u.id)}
                       >
                         <span className={`rfq-dot ${rfqSidebarStatusDot(u)}`} aria-hidden />
                         {sidebarOpen ? (
                           <div className="min-w-0 flex-1">
                             <div className="rfq-item-name truncate">{u.originalName}</div>
                             <div className="rfq-item-meta flex items-center gap-2 flex-wrap">
-                              Workbook
+                              {isPreloadedDemoUpload(u) ? "Demo workbook" : "Workbook"}
+                              {isPreloadedDemoUpload(u) ? (
+                                <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                                  Demo
+                                </span>
+                              ) : null}
                               {status ? (
                                 <SidebarStatusPill status={status.status} message={status.message} />
                               ) : null}
@@ -1254,8 +1382,21 @@ export default function RFQAgentDashboard() {
               sessionNotice={sessionNotice}
               loading={sidebarLoadBusy}
               gapsPanel={workbookGapsPanel}
+              isDemoWorkbook={
+                analysisSelectionResolved?.kind === "workbook" &&
+                isPreloadedDemoUpload(
+                  uploadedRfqs.find((u) => u.id === analysisSelectionResolved.fileId) ?? DEFAULT_DEMO_UPLOAD,
+                )
+              }
+              onLoadDemo={() => openDemoWorkbookAnalysis("summary")}
+              onNavigateSubMode={setAnalysisSubMode}
+              wordPackages={analysisWordOptions}
+              workbooks={analysisWorkbookOptions}
+              onSelectWord={selectAnalysisWord}
+              onSelectWorkbook={selectAnalysisWorkbook}
               workbookUploadSlot={
                 <RfqPackageUpload
+                  embedded
                   onUploaded={handleUploaded}
                   onAnalyzed={handleAnalyzed}
                   onAnalysisStatusChange={handleAnalysisStatus}

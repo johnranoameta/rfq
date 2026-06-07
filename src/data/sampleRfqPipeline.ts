@@ -1,5 +1,13 @@
 import type { UploadedPackageFile } from "@/components/rfq/RfqPackageUpload";
-import type { CaseData, DocEntry, DocType, GapFinding, HistoricalEntry, Quote } from "@/data/rfqTypes";
+import type {
+  CaseData,
+  DocEntry,
+  DocType,
+  GapFinding,
+  HistoricalEntry,
+  ItemHistoricalComparison,
+  Quote,
+} from "@/data/rfqTypes";
 import { reconcileCaseGapsWithDocuments } from "@/lib/rfq/reconcileGapsWithDocuments";
 
 /** Primary demo file name (text) for copy and preloaded session. */
@@ -145,6 +153,93 @@ export const DEMO_MULTI_ITEM_GAP_OUTPUT = {
     "Run commercial gate checklist (incoterms, payment, tooling amortization, quote validity) per COMMERCIAL TERMS section.",
   ],
 } as const;
+
+function demoHistoricalMatch(
+  projectId: string,
+  partNumber: string,
+  partName: string,
+  score: number,
+  exactPn: boolean,
+  reasons: string[],
+  quotedPrice: number,
+): ItemHistoricalComparison["matches"][number] {
+  return {
+    project_id: projectId,
+    score,
+    similarity_0_1: score / 100,
+    exact_part_number: exactPn,
+    reasons,
+    record: {
+      rfq: {
+        part_name: partName,
+        part_number: partNumber,
+        material: "SPHC",
+        process: "stamping",
+      },
+      quote_result: {
+        quoted_piece_price_usd: quotedPrice,
+      },
+    },
+  };
+}
+
+/** Per-line historical reference rows (same shape as workbook `rankHistoricalMatches` output). */
+const DEMO_ITEM_HISTORICAL_COMPARISON: ItemHistoricalComparison[] = [
+  {
+    item_index: 0,
+    item_label: "Line 1 — NB-RF-2388",
+    part_name: "Rear Floor Mounting Bracket",
+    matches: [
+      demoHistoricalMatch("H003", "NB-RF-1204", "Rear Floor Mounting Bracket", 91, false, [
+        "material match",
+        "program match",
+        "process match",
+        "customer overlap",
+        "high part-name similarity",
+        "similar annual volume",
+        "thickness close",
+      ], 4.42),
+      demoHistoricalMatch("H004", "NB-RF-1229", "Rear Floor Mounting Bracket", 88, false, [
+        "material match",
+        "program match",
+        "process match",
+        "customer overlap",
+        "high part-name similarity",
+        "related volume band",
+        "thickness close",
+      ], 4.35),
+      demoHistoricalMatch("H005", "NB-SI-2071", "Seat Side Reinforcement", 64, false, [
+        "material match",
+        "process match",
+        "customer overlap",
+        "moderate part-name similarity",
+      ], 5.12),
+    ],
+  },
+];
+
+const DEMO_MULTI_ITEM_HISTORICAL_COMPARISON: ItemHistoricalComparison[] = [
+  ...DEMO_ITEM_HISTORICAL_COMPARISON,
+  {
+    item_index: 1,
+    item_label: "Line 2 — NB-RF-3101",
+    part_name: "Rear floor bracket assy RH",
+    matches: [
+      demoHistoricalMatch("H003", "NB-RF-1204", "Rear Floor Mounting Bracket", 78, false, [
+        "material match",
+        "process match",
+        "customer overlap",
+        "moderate part-name similarity",
+        "related volume band",
+      ], 4.42),
+      demoHistoricalMatch("H011", "NB-TR-1011", "Tunnel Reinforcement Bracket", 61, false, [
+        "process match",
+        "customer overlap",
+        "partial spec similarity",
+      ], 3.98),
+    ],
+  },
+];
 
 const DEMO_HISTORICAL: HistoricalEntry[] = [
   {
@@ -531,6 +626,11 @@ export function buildCaseDataFromDemoPipeline(file: UploadedPackageFile): CaseDa
       ? { ...DEMO_MULTI_ITEM_QUOTE, risk_score: g.risk_score }
       : { ...DEMO_QUOTE, risk_score: g.risk_score },
     historical_benchmark: DEMO_HISTORICAL,
+    item_historical_comparison: multi
+      ? DEMO_MULTI_ITEM_HISTORICAL_COMPARISON
+      : DEMO_ITEM_HISTORICAL_COMPARISON,
+    kb_category_label: "Stamping & brackets",
+    kb_category_slug: "stamping",
   };
 
   const reconciled = reconcileCaseGapsWithDocuments(partial);

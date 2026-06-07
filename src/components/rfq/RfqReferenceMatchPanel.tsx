@@ -295,52 +295,54 @@ export function RfqReferenceMatchPanel({ caseData }: RfqReferenceMatchPanelProps
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search items by label, part, project ID"
-              className="h-8 flex-1 min-w-[220px] rounded-md border border-border bg-background px-2 text-[12px]"
+              className="h-8 w-full lg:max-w-sm rounded-md border border-border bg-background px-2 text-[12px]"
             />
-            <FilterChip active={bandFilter === "all"} onClick={() => setBandFilter("all")}>
-              All ({summary.totalItems})
-            </FilterChip>
-            {summary.itemsHigh > 0 ? (
-              <FilterChip
-                active={bandFilter === "high"}
-                onClick={() => setBandFilter("high")}
-                tone="good"
-              >
-                High ({summary.itemsHigh})
+            <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+              <FilterChip active={bandFilter === "all"} onClick={() => setBandFilter("all")}>
+                All ({summary.totalItems})
               </FilterChip>
-            ) : null}
-            {summary.itemsMedium > 0 ? (
-              <FilterChip
-                active={bandFilter === "medium"}
-                onClick={() => setBandFilter("medium")}
-                tone="warn"
-              >
-                Medium ({summary.itemsMedium})
-              </FilterChip>
-            ) : null}
-            {summary.itemsLow > 0 ? (
-              <FilterChip
-                active={bandFilter === "low"}
-                onClick={() => setBandFilter("low")}
-                tone="bad"
-              >
-                Low ({summary.itemsLow})
-              </FilterChip>
-            ) : null}
-            {summary.itemsNoMatch > 0 ? (
-              <FilterChip
-                active={bandFilter === "none"}
-                onClick={() => setBandFilter("none")}
-              >
-                No match ({summary.itemsNoMatch})
-              </FilterChip>
-            ) : null}
+              {summary.itemsHigh > 0 ? (
+                <FilterChip
+                  active={bandFilter === "high"}
+                  onClick={() => setBandFilter("high")}
+                  tone="good"
+                >
+                  High ({summary.itemsHigh})
+                </FilterChip>
+              ) : null}
+              {summary.itemsMedium > 0 ? (
+                <FilterChip
+                  active={bandFilter === "medium"}
+                  onClick={() => setBandFilter("medium")}
+                  tone="warn"
+                >
+                  Medium ({summary.itemsMedium})
+                </FilterChip>
+              ) : null}
+              {summary.itemsLow > 0 ? (
+                <FilterChip
+                  active={bandFilter === "low"}
+                  onClick={() => setBandFilter("low")}
+                  tone="bad"
+                >
+                  Low ({summary.itemsLow})
+                </FilterChip>
+              ) : null}
+              {summary.itemsNoMatch > 0 ? (
+                <FilterChip
+                  active={bandFilter === "none"}
+                  onClick={() => setBandFilter("none")}
+                >
+                  No match ({summary.itemsNoMatch})
+                </FilterChip>
+              ) : null}
+            </div>
           </div>
         </CardContent>
       </Card>

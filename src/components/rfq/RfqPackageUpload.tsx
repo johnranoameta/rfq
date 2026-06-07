@@ -112,13 +112,28 @@ export type AnalysisStatusEvent = {
   message?: string;
 };
 
+const DEMO_SAMPLE_WORKBOOKS = [
+  { file: "RFQ-STMP-CLP-001.xlsx", label: "Stamping clip" },
+  { file: "RFQ-MACH-BRK-001.xlsx", label: "Machining bracket" },
+  { file: "RFQ-SEAT-NEW-002.xlsx", label: "Seat assembly" },
+  { file: "RFQ-ELEC-PCB-001.xlsx", label: "Electronics PCB" },
+  { file: "RFQ-INJ-HOU-001.xlsx", label: "Injection housing" },
+] as const;
+
 type RfqPackageUploadProps = {
+  /** Compact card for Analysis canvas — hides inline result dumps (use Overview / Matching tabs). */
+  embedded?: boolean;
   onUploaded?: (file: UploadedPackageFile) => void;
   onAnalyzed?: (file: UploadedPackageFile, analysis: FullAnalyzeOk) => void | Promise<void>;
   onAnalysisStatusChange?: (event: AnalysisStatusEvent) => void;
 };
 
-export function RfqPackageUpload({ onUploaded, onAnalyzed, onAnalysisStatusChange }: RfqPackageUploadProps) {
+export function RfqPackageUpload({
+  embedded = false,
+  onUploaded,
+  onAnalyzed,
+  onAnalysisStatusChange,
+}: RfqPackageUploadProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<UploadedPackageFile[]>([]);
@@ -240,25 +255,57 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed, onAnalysisStatusChang
   );
 
   return (
-    <Card className="bg-card/45 border-border border-dashed">
-      <CardHeader className="p-5 pb-3">
+    <Card
+      className={[
+        "bg-card/45 border-border",
+        embedded ? "border-[var(--ra-border)] shadow-sm" : "border-dashed",
+      ].join(" ")}
+    >
+      <CardHeader className={embedded ? "p-4 pb-2" : "p-5 pb-3"}>
         <CardTitle className="text-[12px] tracking-wide font-semibold text-muted-foreground uppercase flex items-center gap-2">
           <Upload className="size-3.5 opacity-80" aria-hidden />
-          Upload package file
+          {embedded ? "Upload workbook for analysis" : "Upload package file"}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-5 pt-0 space-y-3">
+      <CardContent className={embedded ? "p-4 pt-0 space-y-3" : "p-5 pt-0 space-y-3"}>
         <p className="text-[12px] text-muted-foreground leading-relaxed">
-          <span className="font-semibold text-foreground/90">4-sheet workbook (.xlsx/.xls):</span> after upload, the app runs{" "}
-          <span className="font-mono text-[11px]">parse</span> +{" "}
-          <span className="font-mono text-[11px]">historical match</span> +{" "}
-          <span className="font-mono text-[11px]">model-assisted gap analysis</span> (requires a configured server API key
-          per README; optional model env vars; and{" "}
-          <span className="font-mono">project_files/.../historical_data</span>
-          ). Workbooks need sheets <span className="font-mono">Header</span>, <span className="font-mono">Line_Items</span>,{" "}
-          <span className="font-mono">Technical_Specs</span>, <span className="font-mono">Supplier_Responses</span> (multiple rows per
-          supplier supported).
+          {embedded ? (
+            <>
+              Drop a <span className="font-semibold text-foreground/90">4-sheet Excel workbook</span> (.xlsx/.xls) to
+              run parse, historical matching against the <span className="font-semibold text-foreground/90">62 RFQ</span>{" "}
+              knowledge base, and gap analysis. Results appear in the tabs above and in the{" "}
+              <span className="font-semibold text-foreground/90">Active RFQ</span> switcher.
+            </>
+          ) : (
+            <>
+              <span className="font-semibold text-foreground/90">4-sheet workbook (.xlsx/.xls):</span> after upload, the
+              app runs <span className="font-mono text-[11px]">parse</span> +{" "}
+              <span className="font-mono text-[11px]">historical match</span> +{" "}
+              <span className="font-mono text-[11px]">model-assisted gap analysis</span> (requires a configured server API
+              key per README). Sheets: <span className="font-mono">Header</span>,{" "}
+              <span className="font-mono">Line_Items</span>, <span className="font-mono">Technical_Specs</span>,{" "}
+              <span className="font-mono">Supplier_Responses</span>.
+            </>
+          )}
         </p>
+
+        {embedded ? (
+          <div className="text-[11px] text-muted-foreground">
+            <span className="font-semibold text-foreground/80">Demo samples:</span>{" "}
+            {DEMO_SAMPLE_WORKBOOKS.map((s, i) => (
+              <span key={s.file}>
+                {i > 0 ? " · " : null}
+                <a
+                  href={`/samples/workbooks/${s.file}`}
+                  download
+                  className="text-accent hover:underline underline-offset-2"
+                >
+                  {s.label}
+                </a>
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -281,7 +328,7 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed, onAnalysisStatusChang
             disabled={busy}
             onClick={() => inputRef.current?.click()}
           >
-            {busy ? "Uploading…" : "Choose files"}
+            {busy ? "Uploading…" : embedded ? "Choose workbook" : "Choose files"}
           </Button>
         </div>
 
@@ -336,6 +383,12 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed, onAnalysisStatusChang
                   ) : null}
 
                   {analyzable && ps.status === "ok" ? (
+                    embedded ? (
+                      <div className="text-[11px] text-emerald-700 dark:text-emerald-300 border border-emerald-400/30 rounded-md px-3 py-2 bg-emerald-400/10">
+                        Analysis complete for <strong>{f.originalName}</strong> — use{" "}
+                        <strong>Active RFQ</strong> to open it, then Overview / Matching / Gap analysis.
+                      </div>
+                    ) : (
                     <div className="space-y-3">
                       <div className="text-[10px] font-mono text-muted-foreground">
                         {ps.data.parse.mode} · {ps.data.parse.model}
@@ -715,6 +768,7 @@ export function RfqPackageUpload({ onUploaded, onAnalyzed, onAnalysisStatusChang
                         </pre>
                       </details>
                     </div>
+                    )
                   ) : null}
                 </li>
               );

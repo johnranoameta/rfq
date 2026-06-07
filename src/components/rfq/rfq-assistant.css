@@ -1,5 +1,6 @@
 /* Scoped RFQ Assistant shell (matches procurement mock: navy header, light canvas). */
 .rfq-assistant {
+  height: 100%;
   --ra-navy: #0f2340;
   --ra-accent: #1a6fc4;
   --ra-accent-h: #1460aa;
@@ -46,11 +47,16 @@
   display: grid;
   grid-template-rows: var(--ra-header-h) 1fr;
   height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
 }
 
 .rfq-assistant-body {
   display: flex;
+  flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 /* Header */
@@ -181,6 +187,8 @@
   width: var(--ra-sidebar-w);
   min-width: var(--ra-sidebar-w);
   flex-shrink: 0;
+  min-height: 0;
+  height: 100%;
   background: var(--ra-card);
   border-right: 1px solid var(--ra-border);
   display: flex;
@@ -346,7 +354,9 @@
 
 .ra-sidebar-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
@@ -491,9 +501,11 @@
 .ra-canvas {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--ra-bg);
 }
 
 .ra-workflow-bar {
@@ -632,11 +644,72 @@
 
 .ra-canvas-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px 24px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Analysis workspace: scrollable body + pinned upload footer */
+.ra-analysis-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--ra-bg);
+}
+
+.ra-analysis-page-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.ra-analysis-page-inner {
+  padding: 16px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1680px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.ra-analysis-page-upload {
+  flex-shrink: 0;
+  border-top: 1px solid var(--ra-border);
+  background: var(--ra-card);
+  padding: 10px 24px 14px;
+  box-shadow: 0 -2px 8px rgba(15, 35, 64, 0.05);
+}
+
+.ra-analysis-upload-details > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ra-mid);
+  list-style: none;
+  user-select: none;
+}
+
+.ra-analysis-upload-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ra-analysis-upload-details[open] > summary {
+  margin-bottom: 10px;
+  color: var(--ra-accent);
+}
+
+.ra-analysis-page-inner .ra-canvas-top {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* Cards & KPIs */
