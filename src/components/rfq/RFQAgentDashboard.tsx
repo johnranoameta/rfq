@@ -57,6 +57,9 @@ import {
   getDefaultDemoSession,
   isPreloadedDemoUpload,
 } from "@/data/sampleRfqPipeline";
+import { isWorkspaceModuleEnabled } from "@/lib/rfq/workspaceModules";
+
+const showPortfolio = isWorkspaceModuleEnabled("portfolio");
 type WorkspaceMode = "kb" | "inquiry" | "analysis" | "library" | "portfolio";
 type KbSubMode = "browse" | "training";
 type NewWorkspaceTab = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "documents" | "quote";
@@ -249,6 +252,12 @@ export default function RFQAgentDashboard() {
     Record<string, { status: AnalysisStatusKind; message?: string }>
   >({});
   const demoSeededRef = useRef(false);
+
+  useEffect(() => {
+    if (!showPortfolio && workspaceMode === "portfolio") {
+      setWorkspaceMode("library");
+    }
+  }, [workspaceMode]);
 
   const selectAnalysisWord = useCallback(
     (key: string) => {
@@ -1007,13 +1016,15 @@ export default function RFQAgentDashboard() {
               <span className="ra-nav-text">Saved analyses</span>
               <span className="ra-nav-badge">{headerSavedAnalysesCount}</span>
             </button>
-            <button
-              type="button"
-              className={["ra-nav-item ra-nav-item-btn", workspaceMode === "portfolio" ? "active" : ""].join(" ")}
-              onClick={() => setWorkspaceMode("portfolio")}
-            >
-              <span className="ra-nav-text">Portfolio</span>
-            </button>
+            {showPortfolio ? (
+              <button
+                type="button"
+                className={["ra-nav-item ra-nav-item-btn", workspaceMode === "portfolio" ? "active" : ""].join(" ")}
+                onClick={() => setWorkspaceMode("portfolio")}
+              >
+                <span className="ra-nav-text">Portfolio</span>
+              </button>
+            ) : null}
           </div>
 
           <div className="ra-divider" />
@@ -1290,7 +1301,9 @@ export default function RFQAgentDashboard() {
                 ].join(" ")}
               >
                 {sidebarOpen
-                  ? "Saved analyses and Portfolio apply to your whole workspace. Open Knowledge Base or Analysis from the menu above."
+                  ? showPortfolio
+                    ? "Saved analyses and Portfolio apply to your whole workspace. Open Knowledge Base or Analysis from the menu above."
+                    : "Saved analyses apply to your whole workspace. Open Knowledge Base or Analysis from the menu above."
                   : "…"}
               </div>
             )}
@@ -1353,7 +1366,7 @@ export default function RFQAgentDashboard() {
             <div className="ra-canvas-content min-h-0 flex flex-col">
               <AllRfqsLibrary />
             </div>
-          ) : workspaceMode === "portfolio" ? (
+          ) : showPortfolio && workspaceMode === "portfolio" ? (
             <div className="ra-canvas-content min-h-0 flex flex-col">
               <RfqPortfolioPanel
                 onOpenRfq={() => {
