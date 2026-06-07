@@ -330,19 +330,17 @@ export function RfqWordExtractWorkspace({
         <Card className="border-[var(--ra-border)] bg-[var(--ra-card)] shadow-[var(--ra-shadow)]">
           <CardHeader className="p-5 pb-2 flex flex-row items-center justify-between gap-3 space-y-0">
             <CardTitle className="text-base font-semibold text-[var(--ra-text)]">Extracted packages</CardTitle>
-            {selectedKey ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={busy}
-                className="shrink-0 text-red-700 border-red-300 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/30"
-                onClick={() => void deleteSelectedPackage()}
-              >
-                <Trash2 className="size-3.5 mr-1" aria-hidden />
-                Delete
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy || !selectedKey}
+              className="shrink-0 text-red-700 border-red-400 bg-red-50 hover:bg-red-100 dark:text-red-300 dark:bg-red-950/20 dark:hover:bg-red-950/40"
+              onClick={() => void deleteSelectedPackage()}
+            >
+              <Trash2 className="size-3.5 mr-1" aria-hidden />
+              Delete RFQ
+            </Button>
           </CardHeader>
           <CardContent className="p-5 pt-0 space-y-4">
             {!embedded && packages.length > 1 ? (

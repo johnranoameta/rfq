@@ -879,10 +879,7 @@ export default function RFQAgentDashboard() {
                 .map((p) => {
                   const active = selectedExtractKey === p.key;
                   return (
-                    <div
-                      key={p.key}
-                      className="flex border border-[var(--ra-border)] rounded-[var(--ra-radius)] overflow-hidden"
-                    >
+                    <div key={p.key} className="ra-sidebar-row">
                       <button
                         type="button"
                         className={["ra-kb-item flex-1 min-w-0 border-0 bg-transparent text-left", active ? "active" : ""].join(" ")}
@@ -911,20 +908,19 @@ export default function RFQAgentDashboard() {
                           </div>
                         ) : null}
                       </button>
-                      {sidebarOpen ? (
-                        <button
-                          type="button"
-                          className="ra-sidebar-delete-btn shrink-0"
-                          aria-label={`Delete ${p.filename}`}
-                          title={`Delete ${p.filename}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void removeExtractPackage(p);
-                          }}
-                        >
-                          <Trash2 className="size-4" aria-hidden />
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        className="ra-sidebar-delete-btn shrink-0"
+                        aria-label={`Delete ${p.filename}`}
+                        title={`Delete ${p.filename}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void removeExtractPackage(p);
+                        }}
+                      >
+                        <Trash2 className="size-4" aria-hidden />
+                        {sidebarOpen ? <span className="sr-only">Delete</span> : null}
+                      </button>
                     </div>
                   );
                 })
