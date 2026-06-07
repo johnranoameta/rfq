@@ -374,6 +374,26 @@
   border-color: rgba(26, 111, 196, 0.2);
 }
 
+.ra-sidebar-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-width: 36px;
+  align-self: stretch;
+  border: none;
+  border-left: 1px solid var(--ra-border);
+  background: transparent;
+  color: var(--ra-red);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.ra-sidebar-delete-btn:hover {
+  background: var(--ra-red-bg);
+  color: var(--ra-red);
+}
+
 .ra-kb-icon {
   width: 28px;
   height: 28px;

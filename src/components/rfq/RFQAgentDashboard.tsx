@@ -503,6 +503,27 @@ export default function RFQAgentDashboard() {
     void loadExtractPackages();
   }, [loadExtractPackages]);
 
+  async function removeExtractPackage(p: ExtractPackageSummary) {
+    const msg = `Remove “${p.filename}” and delete its extracted data?`;
+    if (!window.confirm(msg)) return;
+
+    try {
+      const res = await fetch(`/api/extraction/package?package=${encodeURIComponent(p.key)}`, {
+        method: "DELETE",
+      });
+      const data = (await res.json()) as { error?: string; packages?: ExtractPackageSummary[] };
+      if (!res.ok) throw new Error(data.error || `Delete failed (${res.status})`);
+      const list = data.packages ?? [];
+      setExtractPackages(list);
+      setSelectedExtractKey((prev) => {
+        if (prev && list.some((x) => x.key === prev)) return prev;
+        return list[0]?.key ?? null;
+      });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Delete failed");
+    }
+  }
+
   const selectedExtractPackage = useMemo(
     () => extractPackages.find((p) => p.key === selectedExtractKey) ?? null,
     [extractPackages, selectedExtractKey],
@@ -833,6 +854,18 @@ export default function RFQAgentDashboard() {
                   );
                 })
             ) : workspaceMode === "kb" && kbSubMode === "training" ? (
+              extractPackages.length === 0 ? (
+                <div
+                  className={[
+                    "text-[12px] text-[var(--ra-muted)] leading-snug",
+                    sidebarOpen ? "px-2 py-3" : "px-1 py-2 text-center",
+                  ].join(" ")}
+                >
+                  {sidebarOpen
+                    ? "No extracted RFQs yet. Upload a Word package in the main panel."
+                    : "…"}
+                </div>
+              ) : (
               extractPackages
                 .filter((p) => {
                   const q = sidebarQuery.trim().toLowerCase();
@@ -846,37 +879,56 @@ export default function RFQAgentDashboard() {
                 .map((p) => {
                   const active = selectedExtractKey === p.key;
                   return (
-                    <button
+                    <div
                       key={p.key}
-                      type="button"
-                      className={["ra-kb-item ra-nav-item-btn", active ? "active" : ""].join(" ")}
-                      onClick={() => {
-                        setWorkspaceMode("kb");
-                        setKbSubMode("training");
-                        setSelectedExtractKey(p.key);
-                      }}
+                      className="flex border border-[var(--ra-border)] rounded-[var(--ra-radius)] overflow-hidden"
                     >
-                      <div
-                        className="ra-kb-icon"
-                        style={{
-                          background: p.has_error ? "var(--ra-red-bg)" : "var(--ra-accent-bg)",
-                          color: p.has_error ? "var(--ra-red)" : "var(--ra-accent)",
+                      <button
+                        type="button"
+                        className={["ra-kb-item flex-1 min-w-0 border-0 bg-transparent text-left", active ? "active" : ""].join(" ")}
+                        onClick={() => {
+                          setWorkspaceMode("kb");
+                          setKbSubMode("training");
+                          setSelectedExtractKey(p.key);
                         }}
                       >
-                        W
-                      </div>
-                      {sidebarOpen ? (
-                        <div className="min-w-0 flex-1 text-left">
-                          <div className="ra-kb-name truncate">{p.filename}</div>
-                          <div className="ra-kb-count">
-                            {p.rfq_number ? `#${p.rfq_number} · ` : ""}
-                            {p.section_count} sections · {p.attachment_count} files
-                          </div>
+                        <div
+                          className="ra-kb-icon"
+                          style={{
+                            background: p.has_error ? "var(--ra-red-bg)" : "var(--ra-accent-bg)",
+                            color: p.has_error ? "var(--ra-red)" : "var(--ra-accent)",
+                          }}
+                        >
+                          W
                         </div>
+                        {sidebarOpen ? (
+                          <div className="min-w-0 flex-1 text-left">
+                            <div className="ra-kb-name truncate">{p.filename}</div>
+                            <div className="ra-kb-count">
+                              {p.rfq_number ? `#${p.rfq_number} · ` : ""}
+                              {p.section_count} sections · {p.attachment_count} files
+                            </div>
+                          </div>
+                        ) : null}
+                      </button>
+                      {sidebarOpen ? (
+                        <button
+                          type="button"
+                          className="ra-sidebar-delete-btn shrink-0"
+                          aria-label={`Delete ${p.filename}`}
+                          title={`Delete ${p.filename}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void removeExtractPackage(p);
+                          }}
+                        >
+                          <Trash2 className="size-4" aria-hidden />
+                        </button>
                       ) : null}
-                    </button>
+                    </div>
                   );
                 })
+              )
             ) : workspaceMode === "kb" && kbSubMode === "inquiry" ? (
               <div
                 className={[
@@ -980,6 +1032,7 @@ export default function RFQAgentDashboard() {
                 if (key) setSelectedExtractKey(key);
                 void loadExtractPackages();
               }}
+              onPackageDeleted={() => void loadExtractPackages()}
             />
           ) : !c ? (
               <div className="ra-canvas-content text-[var(--ra-muted)] text-sm px-4">

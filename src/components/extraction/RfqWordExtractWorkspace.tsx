@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { RefreshCw, Upload } from "lucide-react";
+import { RefreshCw, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -64,6 +64,7 @@ export type RfqWordExtractWorkspaceProps = {
   onSelectedKeyChange?: (key: string | null) => void;
   onPackagesChange?: (packages: ExtractPackageSummary[]) => void;
   onExtractionComplete?: (key: string | null) => void;
+  onPackageDeleted?: () => void;
 };
 
 function formatBytes(n: number) {
@@ -78,6 +79,7 @@ export function RfqWordExtractWorkspace({
   onSelectedKeyChange,
   onPackagesChange,
   onExtractionComplete,
+  onPackageDeleted,
 }: RfqWordExtractWorkspaceProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -171,6 +173,34 @@ export function RfqWordExtractWorkspace({
     }
   }
 
+  async function deleteSelectedPackage() {
+    if (!selectedKey) return;
+    const pkg = packages.find((p) => p.key === selectedKey);
+    const label = pkg?.filename ?? selectedKey;
+    if (!window.confirm(`Remove “${label}” and delete its extracted data?`)) return;
+
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/extraction/package?package=${encodeURIComponent(selectedKey)}`, {
+        method: "DELETE",
+      });
+      const data = (await res.json()) as { error?: string; packages?: ExtractPackageSummary[] };
+      if (!res.ok) throw new Error(data.error || `Delete failed (${res.status})`);
+      const list = data.packages ?? [];
+      setPackages(list);
+      onPackagesChange?.(list);
+      const nextKey = list[0]?.key ?? null;
+      setSelectedKey(nextKey);
+      setMessage(list.length ? "Package removed." : "All packages removed.");
+      onPackageDeleted?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function runExtraction() {
     if (!pending) {
       setError("Choose a Word RFQ package (.doc or .docx) first");
@@ -192,10 +222,13 @@ export function RfqWordExtractWorkspace({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? data.detail ?? "Extraction failed");
-      setMessage(`Extraction complete: ${data.summary?.filename ?? pending.originalName}`);
+      const summary = data.summary as ExtractPackageSummary | undefined;
+      setMessage(
+        `Extraction complete: ${summary?.filename ?? pending.originalName}. You can upload another RFQ.`,
+      );
+      setPending(null);
       const list = await loadPackageList();
-      const lastPkg = (data.packages as ExtractPackageSummary[] | undefined)?.slice(-1)[0];
-      const key = lastPkg?.key ?? list[0]?.key ?? null;
+      const key = summary?.key ?? list[0]?.key ?? null;
       if (key) setSelectedKey(key);
       onExtractionComplete?.(key);
     } catch (e) {
@@ -219,8 +252,8 @@ export function RfqWordExtractWorkspace({
         <CardContent className="p-5 pt-0 space-y-4 text-sm text-[var(--ra-mid)]">
           <p>
             Upload a GM-style Word RFQ (<strong>.doc</strong> or <strong>.docx</strong>) with embedded drawings,
-            specs, and attachments. The engine extracts sections, attachment text, and normalized field tables for
-            inquiry and comparison.
+            specs, and attachments. Each extraction is kept in the sidebar — upload additional RFQs anytime without
+            clearing prior results. Use the trash icon in the sidebar to remove a package.
           </p>
           <input
             ref={inputRef}
@@ -266,9 +299,9 @@ export function RfqWordExtractWorkspace({
             </p>
           ) : null}
           <div className="flex flex-wrap gap-4 text-xs">
-            <label className="flex items-center gap-2">
+            <label className="flex items-center gap-2" title="Wipe all extracted RFQs before this run">
               <input type="checkbox" checked={clearFirst} onChange={(e) => setClearFirst(e.target.checked)} />
-              Clear output before extract
+              Replace all existing RFQs (clear output first)
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={loadDb} onChange={(e) => setLoadDb(e.target.checked)} />
@@ -295,8 +328,21 @@ export function RfqWordExtractWorkspace({
 
       {packages.length > 0 ? (
         <Card className="border-[var(--ra-border)] bg-[var(--ra-card)] shadow-[var(--ra-shadow)]">
-          <CardHeader className="p-5 pb-2">
+          <CardHeader className="p-5 pb-2 flex flex-row items-center justify-between gap-3 space-y-0">
             <CardTitle className="text-base font-semibold text-[var(--ra-text)]">Extracted packages</CardTitle>
+            {selectedKey ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                className="shrink-0 text-red-700 border-red-300 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/30"
+                onClick={() => void deleteSelectedPackage()}
+              >
+                <Trash2 className="size-3.5 mr-1" aria-hidden />
+                Delete
+              </Button>
+            ) : null}
           </CardHeader>
           <CardContent className="p-5 pt-0 space-y-4">
             {!embedded && packages.length > 1 ? (

@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 
 import { clearEngineOutput } from "@/lib/extraction/clearOutput";
 import { ENGINE_OUTPUT_DIR } from "@/lib/extraction/enginePaths";
-import { readExtractionManifest, summarizePackage } from "@/lib/extraction/loadManifest";
+import { packageKey, readExtractionManifest, summarizePackage } from "@/lib/extraction/loadManifest";
+import {
+  mergeStagingManifest,
+  rebuildDerivedOutputs,
+  stagingOutputDir,
+} from "@/lib/extraction/packageOutput";
+import { mkdir, readFile, rm } from "fs/promises";
+import path from "path";
 import { isWindowsExtractionHost, windowsExtractionErrorResponse } from "@/lib/extraction/requireWindowsHost";
 import { runPythonEngine } from "@/lib/extraction/runPythonEngine";
 import { resolveUploadedWordPath } from "@/lib/extraction/uploadPaths";
@@ -37,26 +44,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid or unknown Word file" }, { status: 400 });
   }
 
-  const clearFirst = body.clearFirst !== false;
+  const clearFirst = body.clearFirst === true;
   const loadDb = body.loadDb !== false;
   const normalize = body.normalize !== false;
   const maxDepth = typeof body.maxDepth === "number" ? body.maxDepth : 3;
 
+  const stagingDir = clearFirst ? ENGINE_OUTPUT_DIR : stagingOutputDir();
+
   try {
     if (clearFirst) {
       await clearEngineOutput();
+    } else {
+      await mkdir(stagingDir, { recursive: true });
     }
 
     const args = [
       "extract_rfq.py",
       diskPath,
       "-o",
-      ENGINE_OUTPUT_DIR,
+      stagingDir,
       "--max-depth",
       String(maxDepth),
     ];
-    if (loadDb) args.push("--load-db");
-    if (normalize) args.push("--normalize");
+    if (clearFirst) {
+      if (loadDb) args.push("--load-db");
+      if (normalize) args.push("--normalize");
+    }
 
     const result = await runPythonEngine(args);
     if (result.code !== 0) {
@@ -71,12 +84,48 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!clearFirst) {
+      const stagingManifest = path.join(stagingDir, "extraction.json");
+      const stagingRaw = await readFile(stagingManifest, "utf-8");
+      const stagingParsed = JSON.parse(stagingRaw) as unknown;
+      const stagingRecords = (
+        Array.isArray(stagingParsed) ? stagingParsed : [stagingParsed]
+      ) as Array<Record<string, unknown>>;
+      const stagingError = stagingRecords.find((r) => r.error);
+      if (stagingError) {
+        try {
+          await rm(stagingDir, { recursive: true, force: true });
+        } catch {
+          /* ignore */
+        }
+        return NextResponse.json(
+          { error: String(stagingError.error) },
+          { status: 422 },
+        );
+      }
+
+      try {
+        await mergeStagingManifest(stagingDir);
+        if (loadDb || normalize) {
+          await rebuildDerivedOutputs({ loadDb, normalize });
+        }
+      } finally {
+        try {
+          await rm(stagingDir, { recursive: true, force: true });
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
     const records = await readExtractionManifest();
     if (records.length === 0) {
       return NextResponse.json({ error: "extraction.json was not created" }, { status: 500 });
     }
 
-    const last = records[records.length - 1];
+    const lastKey = packageKey(records[records.length - 1]!);
+    const last =
+      records.find((r) => packageKey(r) === lastKey && !r.error) ?? records[records.length - 1]!;
     if (last.error) {
       return NextResponse.json(
         { error: String(last.error), packages: records.map(summarizePackage) },
@@ -87,8 +136,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       stdout: result.stdout.slice(-4000),
-      packages: records.map(summarizePackage),
-      summary: summarizePackage(last),
+      packages: records.map((r) => ({ key: packageKey(r), ...summarizePackage(r) })),
+      summary: { key: packageKey(last), ...summarizePackage(last) },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Extraction failed";
