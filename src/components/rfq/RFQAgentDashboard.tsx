@@ -711,17 +711,6 @@ export default function RFQAgentDashboard() {
           >
             Knowledge base
           </button>
-          <button
-            type="button"
-            className="ra-hbtn ra-hbtn-primary"
-            onClick={() => {
-              setWorkspaceMode("kb");
-              setKbSubMode("training");
-              setNewWsTab("summary");
-            }}
-          >
-            + Word RFQ
-          </button>
           <SettingsMenu />
         </div>
       </header>

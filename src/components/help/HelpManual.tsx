@@ -66,8 +66,8 @@ export function HelpManual() {
             <strong>Historical RFQs</strong> to read how that class is defined and which RFQs sit in the bucket.
           </li>
           <li>
-            <strong>Upload / extract an RFQ</strong> — Under <strong>Knowledge Base → Training</strong> (or{" "}
-            <strong>+ Word RFQ</strong> in the top bar), upload a <strong>Word package</strong> (.doc / .docx) and click{" "}
+            <strong>Upload / extract an RFQ</strong> — Under <strong>Knowledge Base → Training</strong>, upload a{" "}
+            <strong>Word package</strong> (.doc / .docx) and click{" "}
             <strong>Run extraction</strong>. Keep <strong>Normalize</strong> checked so Inquiry can read field tables.
           </li>
           <li>
