@@ -14,10 +14,10 @@ export type RfqKbInquiryPanelProps = {
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const STARTERS = [
-  "Summarize the extracted RFQ sections and their field values.",
-  "Which attachments are missing or incomplete in this package?",
-  "What commercial terms appear in section 1.0?",
-  "List technical specs and material requirements from the extraction.",
+  "Compare RFQ1 vs RFQ2 — what is different in the Supplier Request Form (section 1.3)?",
+  "List field-by-field differences between all extracted RFQs.",
+  "Which attachments are missing or incomplete?",
+  "Summarize commercial and supplier form fields for RFQ1.",
 ];
 
 export function RfqKbInquiryPanel({
@@ -82,19 +82,16 @@ export function RfqKbInquiryPanel({
             Inquiry
           </div>
           <div className="ra-canvas-sub">
-            Ask about Word-extracted RFQ fields, sections, attachments, and knowledge base data
+            Compare and query Word-extracted RFQs (RFQ1, RFQ2, …) — supplier forms, section fields,
+            attachments
             {packageLabel ? (
               <>
                 {" "}
-                · Package: <span className="font-medium text-[var(--ra-text)]">{packageLabel}</span>
-              </>
-            ) : sessionLabel ? (
-              <>
-                {" "}
-                · Workbook: <span className="font-medium text-[var(--ra-text)]">{sessionLabel}</span>
+                · Focus: <span className="font-medium text-[var(--ra-text)]">{packageLabel}</span> (all
+                packages included for comparisons)
               </>
             ) : (
-              " · Select an extracted package in Training for focused answers"
+              " · All extracted packages are included when you ask to compare"
             )}
           </div>
         </div>
@@ -105,7 +102,8 @@ export function RfqKbInquiryPanel({
           {messages.length === 0 ? (
             <div className="ra-kb-inquiry-empty">
               <p className="text-sm text-[var(--ra-mid)] mb-3">
-                Query Word extraction output — section field tables, attachment status, and procurement context.
+                Ask for RFQ1 vs RFQ2 diffs (e.g. Supplier Name blank vs TEST), missing attachments, or any
+                section field.
               </p>
               <div className="flex flex-wrap gap-2">
                 {STARTERS.map((q) => (
