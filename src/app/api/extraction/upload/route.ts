@@ -4,6 +4,7 @@ import path from "path";
 import { NextResponse } from "next/server";
 
 import { SUPPORTED_DOC_EXT } from "@/lib/extraction/enginePaths";
+import { recordUploadOriginalName } from "@/lib/extraction/packageDisplayNames";
 import { WORD_UPLOAD_DIR } from "@/lib/extraction/uploadPaths";
 
 export const runtime = "nodejs";
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
   await mkdir(WORD_UPLOAD_DIR, { recursive: true });
   const diskPath = path.join(WORD_UPLOAD_DIR, storedName);
   await writeFile(diskPath, buffer);
+  await recordUploadOriginalName(storedName, file.name);
 
   return NextResponse.json({
     id,

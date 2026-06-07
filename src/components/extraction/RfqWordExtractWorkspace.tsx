@@ -215,6 +215,7 @@ export function RfqWordExtractWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           storedName: pending.storedName,
+          originalName: pending.originalName,
           clearFirst,
           loadDb,
           normalize: doNormalize,

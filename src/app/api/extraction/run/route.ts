@@ -12,6 +12,7 @@ import { mkdir, readFile, rm } from "fs/promises";
 import path from "path";
 import { isWindowsExtractionHost, windowsExtractionErrorResponse } from "@/lib/extraction/requireWindowsHost";
 import { runPythonEngine } from "@/lib/extraction/runPythonEngine";
+import { stampPackageDisplayName } from "@/lib/extraction/packageDisplayNames";
 import { resolveUploadedWordPath } from "@/lib/extraction/uploadPaths";
 
 export const runtime = "nodejs";
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
   }
   let body: {
     storedName?: string;
+    originalName?: string;
     clearFirst?: boolean;
     loadDb?: boolean;
     normalize?: boolean;
@@ -133,11 +135,25 @@ export async function POST(request: Request) {
       );
     }
 
+    const packageId = path.basename(storedName, path.extname(storedName));
+    const originalName =
+      typeof body.originalName === "string" && body.originalName.trim()
+        ? body.originalName.trim()
+        : storedName;
+    await stampPackageDisplayName(packageId, originalName);
+
+    const recordsAfterLabel = await readExtractionManifest();
+
     return NextResponse.json({
       ok: true,
       stdout: result.stdout.slice(-4000),
-      packages: records.map((r) => ({ key: packageKey(r), ...summarizePackage(r) })),
-      summary: { key: packageKey(last), ...summarizePackage(last) },
+      packages: recordsAfterLabel.map((r) => ({ key: packageKey(r), ...summarizePackage(r) })),
+      summary: {
+        key: packageKey(last),
+        ...summarizePackage(
+          recordsAfterLabel.find((r) => packageKey(r) === packageId) ?? last,
+        ),
+      },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Extraction failed";

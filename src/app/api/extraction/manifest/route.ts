@@ -5,6 +5,7 @@ import {
   readExtractionManifest,
   summarizePackage,
 } from "@/lib/extraction/loadManifest";
+import { hydratePackageDisplayNames } from "@/lib/extraction/packageDisplayNames";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const key = url.searchParams.get("package")?.trim();
 
+  await hydratePackageDisplayNames();
   const records = await readExtractionManifest();
   if (!key) {
     return NextResponse.json({

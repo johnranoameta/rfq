@@ -8,6 +8,19 @@ import {
   EXTRACTION_MANIFEST,
 } from "@/lib/extraction/enginePaths";
 import { packageKey, readExtractionManifest, type ExtractionRecord } from "@/lib/extraction/loadManifest";
+
+const UPLOAD_INDEX_PATH = path.join(ENGINE_UPLOADS_DIR, "index.json");
+
+async function originalNameForPackageId(packageId: string): Promise<string | null> {
+  try {
+    const raw = await readFile(UPLOAD_INDEX_PATH, "utf-8");
+    const index = JSON.parse(raw) as Record<string, { originalName?: string }>;
+    const name = index[packageId]?.originalName?.trim();
+    return name || null;
+  } catch {
+    return null;
+  }
+}
 import { runPythonEngine } from "@/lib/extraction/runPythonEngine";
 
 async function writeManifest(records: ExtractionRecord[]): Promise<void> {
@@ -62,7 +75,8 @@ export async function mergeStagingManifest(stagingDir: string): Promise<Extracti
     }
 
     if (!rec.error) {
-      byKey.set(key, rec);
+      const original = await originalNameForPackageId(key);
+      byKey.set(key, original ? { ...rec, original_filename: original } : rec);
     }
   }
 

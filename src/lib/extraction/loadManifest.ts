@@ -1,10 +1,14 @@
 import { readFile } from "fs/promises";
 
 import { EXTRACTION_MANIFEST } from "@/lib/extraction/enginePaths";
+import { displayFilenameFromRecord } from "@/lib/extraction/packageDisplayNames";
 
 export type ExtractionPackageSummary = {
   source: string;
+  /** Human-readable name (original upload filename when available). */
   filename: string;
+  /** On-disk stored upload name (UUID.doc). */
+  stored_filename: string;
   rfq_number: string | null;
   title: string | null;
   has_error: boolean;
@@ -31,9 +35,11 @@ export async function readExtractionManifest(): Promise<ExtractionRecord[]> {
 export function summarizePackage(record: ExtractionRecord): ExtractionPackageSummary {
   const source = String(record.source ?? "");
   const props = (record.properties as { built_in?: Record<string, unknown> } | undefined)?.built_in;
+  const stored_filename = source ? source.replace(/^.*[\\/]/, "") : "unknown";
   return {
     source,
-    filename: source ? source.replace(/^.*[\\/]/, "") : "unknown",
+    filename: displayFilenameFromRecord(record),
+    stored_filename,
     rfq_number: (record.rfq_number as string | undefined) ?? null,
     title: (props?.Title as string | undefined) ?? null,
     has_error: Boolean(record.error),
