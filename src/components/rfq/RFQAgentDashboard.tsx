@@ -879,10 +879,16 @@ export default function RFQAgentDashboard() {
                 .map((p) => {
                   const active = selectedExtractKey === p.key;
                   return (
-                    <div key={p.key} className="ra-sidebar-row">
+                    <div
+                      key={p.key}
+                      className="ra-sidebar-package-row flex w-full min-w-0 items-stretch overflow-hidden rounded-[var(--ra-radius)] border border-[var(--ra-border)]"
+                    >
                       <button
                         type="button"
-                        className={["ra-kb-item flex-1 min-w-0 border-0 bg-transparent text-left", active ? "active" : ""].join(" ")}
+                        className={[
+                          "rfq-item min-w-0 flex-1 border-0 bg-transparent text-left flex items-center gap-2",
+                          active ? "active" : "",
+                        ].join(" ")}
                         onClick={() => {
                           setWorkspaceMode("kb");
                           setKbSubMode("training");
@@ -890,7 +896,7 @@ export default function RFQAgentDashboard() {
                         }}
                       >
                         <div
-                          className="ra-kb-icon"
+                          className="ra-kb-icon shrink-0"
                           style={{
                             background: p.has_error ? "var(--ra-red-bg)" : "var(--ra-accent-bg)",
                             color: p.has_error ? "var(--ra-red)" : "var(--ra-accent)",
@@ -899,9 +905,9 @@ export default function RFQAgentDashboard() {
                           W
                         </div>
                         {sidebarOpen ? (
-                          <div className="min-w-0 flex-1 text-left">
-                            <div className="ra-kb-name truncate">{p.filename}</div>
-                            <div className="ra-kb-count">
+                          <div className="min-w-0 flex-1">
+                            <div className="rfq-item-name truncate">{p.filename}</div>
+                            <div className="rfq-item-meta">
                               {p.rfq_number ? `#${p.rfq_number} · ` : ""}
                               {p.section_count} sections · {p.attachment_count} files
                             </div>
@@ -910,7 +916,7 @@ export default function RFQAgentDashboard() {
                       </button>
                       <button
                         type="button"
-                        className="ra-sidebar-delete-btn shrink-0"
+                        className="ra-sidebar-delete-btn"
                         aria-label={`Delete ${p.filename}`}
                         title={`Delete ${p.filename}`}
                         onClick={(e) => {
@@ -918,8 +924,7 @@ export default function RFQAgentDashboard() {
                           void removeExtractPackage(p);
                         }}
                       >
-                        <Trash2 className="size-4" aria-hidden />
-                        {sidebarOpen ? <span className="sr-only">Delete</span> : null}
+                        <Trash2 className="size-4 shrink-0" aria-hidden />
                       </button>
                     </div>
                   );
