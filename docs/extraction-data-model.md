@@ -322,6 +322,7 @@ Environment variables: `RFQ_ENGINE_ROOT`, `RFQ_OUTPUT_DIR`, `RFQ_UPLOADS_DIR` (s
 | Training → **Raw by section** | `extraction.json` / browse API |
 | Inquiry chat | `normalized.json` (comparison digests when multiple packages) |
 | **Baseline object** | `rfq_objects.json` / `rfq_baseline.db` |
+| **Analysis → Matching** (Word) | `GET /api/extraction/historical-match?package=…` — peers in `normalized.json` only (no CSV/seed) |
 | Header stats (sections, files) | `extraction.json` manifest |
 
 ---

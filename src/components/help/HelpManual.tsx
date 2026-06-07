@@ -75,13 +75,13 @@ export function HelpManual() {
             <strong>Section fields</strong> (normalized field/value tables), raw section text, and attachment overview.
           </li>
           <li>
-            <strong>Query extracted data</strong> — Open <strong>Inquiry</strong> and ask about section fields, missing
-            attachments, commercial terms, or technical specs. Answers use the selected package&apos;s normalized output.
+            <strong>Query extracted data</strong> — Click <strong>Inquiry (Chat)</strong> in the sidebar (or{" "}
+            <strong>Chat</strong> in the top bar) and ask about section fields, RFQ1 vs RFQ2 diffs, or attachments.
           </li>
           <li>
-            <strong>Review gaps</strong> — Open <strong>Gaps &amp; Conflicts</strong> (or the gaps tab) for risk score,
-            missing items, and suggested actions. Use <strong>Documents</strong> if you are resolving missing-package
-            slots.
+            <strong>Matching &amp; gaps</strong> — Open workspace <strong>Analysis</strong>, pick a Word package or
+            workbook from the sidebar, then use <strong>Matching</strong>, <strong>Coverage</strong>, or{" "}
+            <strong>Gap analysis</strong> in the submenu.
           </li>
           <li>
             <strong>Check KB class on the RFQ</strong> — Under the large title, the subtitle may show{" "}
@@ -166,12 +166,19 @@ export function HelpManual() {
         </Section>
 
         <Section id="workspace" title="4. Workspace modes">
-          <p>The sidebar <strong>Workspace</strong> section has three top-level entries plus a Knowledge Base submenu:</p>
+          <p>The sidebar <strong>Workspace</strong> section has five top-level modules:</p>
           <ul>
             <li>
-              <strong>Knowledge Base</strong> — Default view browses RFQs grouped by <strong>KB class</strong>. Submenu:{" "}
-              <strong>Training</strong> (upload workbooks, list uploads, run analysis tabs) and{" "}
-              <strong>Inquiry</strong> (OpenAI chat about RFQ fields and stored data).
+              <strong>Knowledge Base</strong> — Browse RFQs by <strong>KB class</strong>. Submenu:{" "}
+              <strong>Training</strong> (Word upload &amp; extraction).
+            </li>
+            <li>
+              <strong>Inquiry (Chat)</strong> — OpenAI chat about extracted Word RFQs (also via top-bar{" "}
+              <strong>Chat</strong> button).
+            </li>
+            <li>
+              <strong>Analysis</strong> — Matching, coverage, and gap analysis for Word packages and workbook sessions.
+              Submenu: <strong>Matching</strong>, <strong>Coverage</strong>, <strong>Gap analysis</strong>.
             </li>
             <li>
               <strong>Saved analyses</strong> — Workspace-wide library of persisted analyses (SQLite rows per upload),

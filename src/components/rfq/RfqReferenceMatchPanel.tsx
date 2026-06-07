@@ -496,19 +496,19 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
             />
             <CompareLine
               label="Part number"
-              currentValue={caseData.part_number}
+              currentValue={caseData.part_number ?? "—"}
               referenceValue={top.record.rfq.part_number}
               mono
             />
             <CompareLine
               label="Material"
-              currentValue={caseData.material}
+              currentValue={caseData.material ?? "—"}
               referenceValue={top.record.rfq.material}
               mono
             />
             <CompareLine
               label="Process"
-              currentValue={caseData.process[0] ?? "—"}
+              currentValue={caseData.process?.[0] ?? "—"}
               referenceValue={top.record.rfq.process}
             />
           </div>
