@@ -62,6 +62,72 @@ export function RfqWorkbookReusePanel({
 
   return (
     <div className="flex flex-col gap-4 min-w-0">
+      <details
+        className="rounded-xl border border-[var(--ra-border)] bg-[var(--ra-card)]/80 text-[12px] text-[var(--ra-muted)] leading-relaxed group"
+      >
+        <summary className="cursor-pointer select-none px-4 py-3 font-semibold text-[var(--ra-text)] text-[13px] list-none flex items-center justify-between gap-2">
+          <span>How to use Reuse guidance</span>
+          <span className="text-[10px] font-mono font-normal uppercase tracking-wider text-[var(--ra-muted)] group-open:hidden">
+            Show steps
+          </span>
+        </summary>
+        <div className="px-4 pb-4 space-y-3 border-t border-[var(--ra-border)]/60 pt-3">
+          <p>
+            This step turns <strong className="text-[var(--ra-text)]">historical matches</strong> and{" "}
+            <strong className="text-[var(--ra-text)]">open gaps</strong> into actionable reuse advice before you
+            release a quote or reply to the buyer.
+          </p>
+          <ol className="list-decimal pl-5 space-y-2">
+            <li>
+              Review the <strong className="text-[var(--ra-text)]">Top Historical Reference</strong> card — the score
+              (HIGH / MEDIUM / LOW) tells you how safely you can reuse past pricing and tooling.
+            </li>
+            <li>
+              Check <strong className="text-[var(--ra-text)]">Open actions</strong> on the right — resolve or accept
+              gaps in <strong className="text-[var(--ra-text)]">Gap analysis</strong> before reusing numbers
+              blindly.
+            </li>
+            <li>
+              Choose <strong className="text-[var(--ra-text)]">Apply guidance to</strong> below — control whether drafts
+              reference only this workbook, the whole KB class, or all historical RFQs.
+            </li>
+            <li>
+              Use <strong className="text-[var(--ra-text)]">Generate Draft Response</strong> or{" "}
+              <strong className="text-[var(--ra-text)]">Generate Customer Questions</strong>
+              {showQuoteHistory ? (
+                <>
+                  , then open <strong className="text-[var(--ra-text)]">Quote &amp; history</strong> to validate cost
+                  bands
+                </>
+              ) : (
+                <> to prepare your buyer reply</>
+              )}
+              .
+            </li>
+          </ol>
+          <p className="text-[11px]">
+            Need more detail on matches? Use{" "}
+            <button
+              type="button"
+              className="text-accent hover:underline font-medium"
+              onClick={() => onOpenMatches?.()}
+            >
+              Matching
+            </button>
+            {showQuoteHistory && onOpenQuote ? (
+              <>
+                {" "}
+                or{" "}
+                <button type="button" className="text-accent hover:underline font-medium" onClick={() => onOpenQuote()}>
+                  Quote &amp; history
+                </button>
+              </>
+            ) : null}
+            .
+          </p>
+        </div>
+      </details>
+
       <div className="rounded-xl border border-[var(--ra-border)] bg-background/20 px-4 py-3 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
