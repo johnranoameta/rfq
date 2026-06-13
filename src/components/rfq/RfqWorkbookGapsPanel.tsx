@@ -10,7 +10,6 @@ import {
   gapFindingUploadSlot,
   isGapOpenInCase,
 } from "@/lib/rfq/reconcileGapsWithDocuments";
-import { GAP_DEMO_SAMPLE_FILES } from "@/lib/rfq/gapDocumentSupply";
 import { gapSlotHasSessionUpload } from "@/lib/rfq/applySuppliedPackageDoc";
 
 type GapFilterKey =
@@ -157,7 +156,6 @@ export type RfqWorkbookGapsPanelProps = {
   onFinalizeGapDoc: (slotName: string, rule: string) => void;
   onWorkflowChange: (rule: string, status: GapWorkflowStatus) => void;
   onOpenDocuments?: () => void;
-  isDemoGapSession?: boolean;
 };
 
 export function RfqWorkbookGapsPanel({
@@ -174,7 +172,6 @@ export function RfqWorkbookGapsPanel({
   onFinalizeGapDoc,
   onWorkflowChange,
   onOpenDocuments,
-  isDemoGapSession = false,
 }: RfqWorkbookGapsPanelProps) {
   const supplyInputBaseId = useId();
   const openGapCount = caseData.gap_findings.filter((f) => isGapOpenInCase(caseData, f)).length;
@@ -191,42 +188,6 @@ export function RfqWorkbookGapsPanel({
     <div className="space-y-4">
       <Card className="bg-card/50 border-border">
         <CardContent className="p-5 space-y-4">
-            {isDemoGapSession ? (
-              <div className="text-xs text-[var(--ra-muted)] border border-[var(--ra-border)] rounded-md px-3 py-3 max-w-4xl space-y-3 leading-relaxed">
-                <p>
-                  <strong className="text-[var(--ra-text)]">Demo gap workflow</strong> — upload on the row that matches the{" "}
-                  <strong className="text-[var(--ra-text)]">document slot</strong> (shown on each gap). Confidence depends on
-                  filename match; wrong files on the wrong row stay partial (~46–58%).
-                </p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[11px] font-mono border-collapse">
-                    <thead>
-                      <tr className="text-left text-[var(--ra-muted)] border-b border-[var(--ra-border)]">
-                        <th className="py-1.5 pr-3 font-semibold">Sample file</th>
-                        <th className="py-1.5 pr-3 font-semibold">Resolves</th>
-                        <th className="py-1.5 pr-3 font-semibold">Upload on row</th>
-                        <th className="py-1.5 font-semibold">Result</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {GAP_DEMO_SAMPLE_FILES.map((s) => (
-                        <tr key={s.filename} className="border-b border-[var(--ra-border)]/60">
-                          <td className="py-1.5 pr-3">
-                            <a href={s.href} download className="text-accent hover:underline font-semibold">
-                              {s.filename}
-                            </a>
-                          </td>
-                          <td className="py-1.5 pr-3">{s.resolvesRule}</td>
-                          <td className="py-1.5 pr-3">{s.docSlot}</td>
-                          <td className="py-1.5">{s.expectedOnMatch}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : null}
-
             {supplyDocError ? (
               <div
                 role="alert"
@@ -250,7 +211,6 @@ export function RfqWorkbookGapsPanel({
               <div className="flex items-center gap-2 flex-wrap">
                 <div
                   className={["rounded-lg border px-2.5 py-1 text-[11px] font-mono font-semibold", riskCls].join(" ")}
-                  title="Risk score from gap and document completeness"
                 >
                   Risk {caseData.risk_score}
                   {caseData.risk_score < 35 ? " · Good" : caseData.risk_score < 55 ? " · Improving" : " · Review"}
@@ -348,7 +308,7 @@ export function RfqWorkbookGapsPanel({
                         : supplySlotDoc?.status === "ok"
                           ? "Replace"
                           : supplySlot
-                            ? "Upload"
+                            ? "Response"
                             : null;
                   const sessionUpload = supplySlot != null && gapSlotHasSessionUpload(caseData, supplySlot);
 
@@ -463,7 +423,7 @@ export function RfqWorkbookGapsPanel({
                                     el?.click();
                                   }}
                                 >
-                                  {supplyDocBusySlot === supplySlot ? "Uploading…" : supplyLabel}
+                                  {supplyDocBusySlot === supplySlot ? "Responding…" : supplyLabel}
                                 </Button>
                                 {sessionUpload ? (
                                   <>
@@ -502,7 +462,6 @@ export function RfqWorkbookGapsPanel({
                             {supplySlotDoc && supplySlotDoc.conf != null && supplySlotDoc.conf < DOC_GAP_CONF_THRESHOLD ? (
                               <span
                                 className="text-[10px] font-mono text-amber-800 dark:text-amber-200 px-2"
-                                title="Upload again with the controlled filename to clear this gap"
                               >
                                 Conf {(supplySlotDoc.conf * 100).toFixed(0)}%
                               </span>

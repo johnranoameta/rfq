@@ -230,10 +230,6 @@ export function RfqReferenceMatchPanel({ caseData }: RfqReferenceMatchPanelProps
               <CardTitle className="text-[12px] tracking-wide font-semibold text-muted-foreground uppercase">
                 Historical Reference Match — {summary.totalItems} items
               </CardTitle>
-              <p className="mt-2 text-[12px] text-muted-foreground max-w-xl">
-                Top historical RFQs ranked per line item. Reuse strong matches to accelerate
-                pricing and engineering decisions.
-              </p>
             </div>
 
             <div className="flex items-center gap-2">

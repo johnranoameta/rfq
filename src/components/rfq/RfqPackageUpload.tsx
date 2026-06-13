@@ -268,27 +268,6 @@ export function RfqPackageUpload({
         </CardTitle>
       </CardHeader>
       <CardContent className={embedded ? "p-4 pt-0 space-y-3" : "p-5 pt-0 space-y-3"}>
-        <p className="text-[12px] text-muted-foreground leading-relaxed">
-          {embedded ? (
-            <>
-              Drop a <span className="font-semibold text-foreground/90">4-sheet Excel workbook</span> (.xlsx/.xls) to
-              run parse, historical matching against the <span className="font-semibold text-foreground/90">62 RFQ</span>{" "}
-              knowledge base, and gap analysis. Results appear in the tabs above and in the{" "}
-              <span className="font-semibold text-foreground/90">Active RFQ</span> switcher.
-            </>
-          ) : (
-            <>
-              <span className="font-semibold text-foreground/90">4-sheet workbook (.xlsx/.xls):</span> after upload, the
-              app runs <span className="font-mono text-[11px]">parse</span> +{" "}
-              <span className="font-mono text-[11px]">historical match</span> +{" "}
-              <span className="font-mono text-[11px]">model-assisted gap analysis</span> (requires a configured server API
-              key per README). Sheets: <span className="font-mono">Header</span>,{" "}
-              <span className="font-mono">Line_Items</span>, <span className="font-mono">Technical_Specs</span>,{" "}
-              <span className="font-mono">Supplier_Responses</span>.
-            </>
-          )}
-        </p>
-
         {embedded ? (
           <div className="text-[11px] text-muted-foreground">
             <span className="font-semibold text-foreground/80">Demo samples:</span>{" "}

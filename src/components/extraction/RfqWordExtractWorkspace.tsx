@@ -251,11 +251,6 @@ export function RfqWordExtractWorkspace({
           </CardTitle>
         </CardHeader>
         <CardContent className="p-5 pt-0 space-y-4 text-sm text-[var(--ra-mid)]">
-          <p>
-            Upload a GM-style Word RFQ (<strong>.doc</strong> or <strong>.docx</strong>) with embedded drawings,
-            specs, and attachments. Each extraction is kept in the sidebar — upload additional RFQs anytime without
-            clearing prior results. Use the trash icon in the sidebar to remove a package.
-          </p>
           <input
             ref={inputRef}
             id={inputId}

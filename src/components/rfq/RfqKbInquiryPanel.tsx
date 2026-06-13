@@ -101,10 +101,6 @@ export function RfqKbInquiryPanel({
         <div ref={scrollRef} className="ra-kb-inquiry-scroll flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
           {messages.length === 0 ? (
             <div className="ra-kb-inquiry-empty">
-              <p className="text-sm text-[var(--ra-mid)] mb-3">
-                Ask for RFQ1 vs RFQ2 diffs (e.g. Supplier Name blank vs TEST), missing attachments, or any
-                section field.
-              </p>
               <div className="flex flex-wrap gap-2">
                 {STARTERS.map((q) => (
                   <button

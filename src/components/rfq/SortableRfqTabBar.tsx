@@ -121,7 +121,6 @@ function SortableTab({ tabKey, active, onSelect, pill, label }: SortableTabProps
         ].join(" ")}
         {...listeners}
         aria-label={`Reorder: ${label}`}
-        title="Drag to reorder"
       >
         <GripVertical className={["size-3.5 shrink-0 opacity-50", active ? "text-accent" : ""].join(" ")} />
       </button>

@@ -13,11 +13,6 @@ import {
 import { RfqWorkbookQuotePanel } from "@/components/rfq/RfqWorkbookQuotePanel";
 import { RfqWorkbookReusePanel } from "@/components/rfq/RfqWorkbookReusePanel";
 import { RfqWorkbookSummaryPanel } from "@/components/rfq/RfqWorkbookSummaryPanel";
-import {
-  RfqAnalysisRfqSwitcher,
-  type AnalysisRfqWordOption,
-  type AnalysisRfqWorkbookOption,
-} from "@/components/rfq/RfqAnalysisRfqSwitcher";
 import { isAnalysisSubModuleEnabled } from "@/lib/rfq/workspaceModules";
 
 const showQuoteHistory = isAnalysisSubModuleEnabled("quoteHistory");
@@ -38,10 +33,6 @@ type RfqAnalysisShellProps = {
   isDemoWorkbook?: boolean;
   onLoadDemo?: () => void;
   onNavigateSubMode?: (mode: AnalysisSubMode) => void;
-  wordPackages?: AnalysisRfqWordOption[];
-  workbooks?: AnalysisRfqWorkbookOption[];
-  onSelectWord?: (key: string) => void;
-  onSelectWorkbook?: (id: string) => void;
   workbookUploadSlot?: ReactNode;
 };
 
@@ -72,28 +63,6 @@ function AnalysisPageLayout({
         </div>
       ) : null}
     </div>
-  );
-}
-
-function AnalysisSwitcherBar({
-  selection,
-  wordPackages = [],
-  workbooks = [],
-  onSelectWord,
-  onSelectWorkbook,
-}: Pick<
-  RfqAnalysisShellProps,
-  "selection" | "wordPackages" | "workbooks" | "onSelectWord" | "onSelectWorkbook"
->) {
-  if (!onSelectWord || !onSelectWorkbook) return null;
-  return (
-    <RfqAnalysisRfqSwitcher
-      selection={selection}
-      wordPackages={wordPackages}
-      workbooks={workbooks}
-      onSelectWord={onSelectWord}
-      onSelectWorkbook={onSelectWorkbook}
-    />
   );
 }
 
@@ -130,31 +99,11 @@ export function RfqAnalysisShell({
   isDemoWorkbook = false,
   onLoadDemo,
   onNavigateSubMode,
-  wordPackages = [],
-  workbooks = [],
-  onSelectWord,
-  onSelectWorkbook,
   workbookUploadSlot,
 }: RfqAnalysisShellProps) {
-  const switcher = (
-    <AnalysisSwitcherBar
-      selection={selection}
-      wordPackages={wordPackages}
-      workbooks={workbooks}
-      onSelectWord={onSelectWord}
-      onSelectWorkbook={onSelectWorkbook}
-    />
-  );
-
   if (!selection) {
     return (
       <AnalysisPageLayout uploadSlot={workbookUploadSlot} expandUpload>
-        {switcher}
-        <p className="text-sm text-[var(--ra-muted)] max-w-xl">
-          Pick an RFQ in the <strong className="text-[var(--ra-text)]">Active RFQ</strong> dropdown above, or click a
-          row under <strong className="text-[var(--ra-text)]">Word packages</strong> /{" "}
-          <strong className="text-[var(--ra-text)]">Workbook analyses</strong> in the sidebar.
-        </p>
         {onLoadDemo ? (
           <Button type="button" variant="secondary" size="sm" onClick={onLoadDemo}>
             Load demo workbook (gap analysis)
@@ -168,7 +117,6 @@ export function RfqAnalysisShell({
     if (subMode === "matching") {
       return (
         <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-          {switcher}
           <p className="text-xs text-muted-foreground max-w-2xl">
             Word matching compares this upload to <strong className="text-foreground">other Word packages</strong> in
             Training — not the CSV/seed historical knowledge base.
@@ -180,7 +128,6 @@ export function RfqAnalysisShell({
     if (subMode === "coverage" || subMode === "reuse" || (showQuoteHistory && subMode === "quote")) {
       return (
         <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-          {switcher}
           <p className="text-sm text-[var(--ra-muted)]">
             {subMode === "coverage"
               ? "Coverage matrix applies to multi-line workbook analyses."
@@ -196,7 +143,6 @@ export function RfqAnalysisShell({
     if (subMode === "summary") {
       return (
         <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-          {switcher}
           <p className="text-sm text-[var(--ra-muted)]">
             Overview cards apply to analyzed <strong className="text-[var(--ra-text)]">workbooks</strong>. Select the
             demo workbook or upload a 4-sheet Excel file below.
@@ -206,7 +152,6 @@ export function RfqAnalysisShell({
     }
     return (
       <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-        {switcher}
         <p className="text-sm text-[var(--ra-muted)] max-w-xl">
           Automated <strong className="text-[var(--ra-text)]">gap analysis</strong> is available for analyzed{" "}
           <strong className="text-[var(--ra-text)]">4-sheet workbooks</strong> today.
@@ -230,7 +175,6 @@ export function RfqAnalysisShell({
   if (sessionNotice && !caseData) {
     return (
       <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-        {switcher}
         <p className="text-sm text-amber-800 dark:text-amber-200 border border-amber-500/30 rounded-md px-3 py-2">
           {sessionNotice}
         </p>
@@ -241,7 +185,6 @@ export function RfqAnalysisShell({
   if (!caseData) {
     return (
       <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-        {switcher}
         <p className="text-sm text-[var(--ra-muted)]">No analysis data for this workbook yet.</p>
       </AnalysisPageLayout>
     );
@@ -250,7 +193,6 @@ export function RfqAnalysisShell({
   if (subMode === "summary") {
     return (
       <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-        {switcher}
         {isDemoWorkbook ? <DemoWorkbookBanner /> : null}
         <WorkbookHeader caseData={caseData} />
         <RfqWorkbookSummaryPanel
@@ -265,7 +207,6 @@ export function RfqAnalysisShell({
   if (subMode === "matching") {
     return (
       <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-        {switcher}
         {isDemoWorkbook ? <DemoWorkbookBanner /> : null}
         <WorkbookHeader caseData={caseData} />
         <OverviewTopReferenceCard caseData={caseData} onOpenMatches={() => onNavigateSubMode?.("matching")} />
@@ -277,7 +218,6 @@ export function RfqAnalysisShell({
   if (subMode === "coverage") {
     return (
       <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-        {switcher}
         {isDemoWorkbook ? <DemoWorkbookBanner /> : null}
         <div className="ra-canvas-top !pt-0 !pb-2">
           <div className="ra-canvas-title truncate">{caseData.title}</div>
@@ -291,7 +231,6 @@ export function RfqAnalysisShell({
   if (subMode === "reuse") {
     return (
       <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-        {switcher}
         {isDemoWorkbook ? <DemoWorkbookBanner /> : null}
         <div className="ra-canvas-top !pt-0 !pb-2">
           <div className="ra-canvas-title truncate">Reuse guidance</div>
@@ -309,7 +248,6 @@ export function RfqAnalysisShell({
   if (showQuoteHistory && subMode === "quote") {
     return (
       <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-        {switcher}
         {isDemoWorkbook ? <DemoWorkbookBanner /> : null}
         <div className="ra-canvas-top !pt-0 !pb-2">
           <div className="ra-canvas-title truncate">Quote &amp; history</div>
@@ -322,7 +260,6 @@ export function RfqAnalysisShell({
 
   return (
     <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-      {switcher}
       {isDemoWorkbook ? <DemoWorkbookBanner /> : null}
       <div className="ra-canvas-top !pt-0 !pb-2">
         <div className="min-w-0">

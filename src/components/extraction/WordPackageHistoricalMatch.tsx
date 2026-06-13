@@ -93,18 +93,6 @@ export default function WordPackageHistoricalMatch({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="text-xs text-muted-foreground max-w-2xl">
-          Compares this Word package to <strong>other uploaded Word RFQs only</strong> (not CSV/seed historical
-          data). Pool: <strong>{meta?.candidatePool ?? 0}</strong> peer package
-          {(meta?.candidatePool ?? 0) === 1 ? "" : "s"}. Tune weights in{" "}
-          <span className="font-mono">Settings → Match scoring</span>.
-          {packageLabel ? (
-            <>
-              {" "}
-              Package: <span className="font-medium text-foreground">{packageLabel}</span>
-            </>
-          ) : null}
-        </p>
         <Button type="button" variant="outline" size="sm" disabled={loading} onClick={() => void load()}>
           <RefreshCw className={`size-3.5 mr-1 ${loading ? "animate-spin" : ""}`} aria-hidden />
           Refresh match
