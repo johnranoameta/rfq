@@ -417,7 +417,7 @@ export function RfqWorkbookGapsPanel({
                         </div>
                       </div>
 
-                      <div className="p-4 grid grid-cols-[120px_1fr] gap-4 items-start">
+                      <div className="p-4 grid gap-4 items-start" style={{ gridTemplateColumns: "120px 1fr" }}>
 
                         {/* LEFT: slot + attached file info */}
                         <div className="flex flex-col gap-2 border-r border-border/50 pr-4">
