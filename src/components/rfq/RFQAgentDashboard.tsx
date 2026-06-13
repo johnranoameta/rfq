@@ -1126,7 +1126,7 @@ export default function RFQAgentDashboard() {
                     setKbSubMode("training");
                   }}
                 >
-                  <span className="ra-nav-text">In Progress</span>
+                  <span className="ra-nav-text">Processing</span>
                   <span className="ra-nav-badge ra-nav-badge-warn">{headerNewCount}</span>
                 </button>
                 <button
@@ -1146,7 +1146,7 @@ export default function RFQAgentDashboard() {
                 setAnalysisSubMode("matching");
               }}
             >
-              <span className="ra-nav-text">Analysis</span>
+              <span className="ra-nav-text">Processing</span>
               <span className="ra-nav-badge">{extractPackages.length + uploadedRfqs.length}</span>
             </button>
             {workspaceMode === "analysis" && sidebarOpen ? (
@@ -1441,7 +1441,7 @@ export default function RFQAgentDashboard() {
                 {sidebarOpen
                   ? selectedExtractPackage
                     ? `Chat uses all extracted packages; focus: “${selectedExtractPackage.filename}”.`
-                    : "Chat compares Word RFQs (RFQ1 vs RFQ2). Upload under In Progress, then ask in the main panel."
+                    : "Chat compares Word RFQs (RFQ1 vs RFQ2). Upload under Processing, then ask in the main panel."
                   : "…"}
               </div>
             ) : workspaceMode === "analysis" && analysisSubMode === "gaps" ? (
@@ -1512,7 +1512,7 @@ export default function RFQAgentDashboard() {
                 {extractPackages.length === 0 && userWorkbookUploads.length === 0 ? (
                   <div className="text-[12px] text-[var(--ra-muted)] px-2 py-3 leading-snug">
                     {sidebarOpen
-                      ? "No other RFQs yet. Open the demo workbook below, or upload under Knowledge Base → In Progress."
+                      ? "No other RFQs yet. Open the demo workbook below, or upload under Knowledge Base → Processing."
                       : "…"}
                   </div>
                 ) : null}
@@ -1752,9 +1752,9 @@ export default function RFQAgentDashboard() {
             </div>
           ) : (
               <div className="ra-canvas-content text-[var(--ra-muted)] text-sm px-4">
-                Select <span className="font-semibold text-[var(--ra-text)]">Knowledge Base → In Progress</span> to upload a
+                Select <span className="font-semibold text-[var(--ra-text)]">Knowledge Base → Processing</span> to upload a
                 Word RFQ package, <span className="font-semibold text-[var(--ra-text)]">Inquiry (Chat)</span> to ask
-                questions, or <span className="font-semibold text-[var(--ra-text)]">Analysis</span> for matching and gaps.
+                questions, or <span className="font-semibold text-[var(--ra-text)]">Processing</span> for matching and gaps.
               </div>
             )}
         </main>
