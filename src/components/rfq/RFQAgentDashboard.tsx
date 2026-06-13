@@ -250,7 +250,6 @@ export default function RFQAgentDashboard() {
   const [catalog, setCatalog] = useState<CatalogPayload | null>(null);
   const [gapFilter, setGapFilter] = useState<GapFilterKey>("all");
   /** KB class filter in Analysis → Gap analysis (sidebar); stays in Analysis, does not open Knowledge Base. */
-  const [expandedRule, setExpandedRule] = useState<Record<string, boolean>>({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarLoadBusy, setSidebarLoadBusy] = useState(false);
   /** After first catalog/cache merge; avoids writing an empty cache before hydration runs. */
@@ -318,7 +317,6 @@ export default function RFQAgentDashboard() {
     setSidebarLoadBusy(false);
     setPipelineBusy(false);
     setGapFilter("all");
-    setExpandedRule({});
   }, []);
 
   const selectAnalysisWorkbook = useCallback(
@@ -579,7 +577,6 @@ export default function RFQAgentDashboard() {
         });
         setPipelineBusy(false);
         setGapFilter("all");
-        setExpandedRule({});
         return;
       }
       setSessionNotice(
@@ -930,10 +927,6 @@ export default function RFQAgentDashboard() {
   const rulesTriggered = c?.triggered_rules.length ?? 0;
   const rulesTriggeredPct = Math.round((rulesTriggered / 28) * 100);
 
-  function toggleExpanded(rule: string) {
-    setExpandedRule((prev) => ({ ...prev, [rule]: !prev[rule] }));
-  }
-
   function showRaToast(msg: string) {
     const el = document.createElement("div");
     el.className =
@@ -954,8 +947,6 @@ export default function RFQAgentDashboard() {
         caseData={c}
         gapFilter={gapFilter}
         setGapFilter={setGapFilter}
-        expandedRule={expandedRule}
-        toggleExpanded={toggleExpanded}
         gapFindingsFiltered={gapFindingsFiltered}
         supplyDocError={supplyDocError}
         supplyDocBusySlot={supplyDocBusySlot}
@@ -991,7 +982,6 @@ export default function RFQAgentDashboard() {
     c,
     analysisSelectionResolved,
     gapFilter,
-    expandedRule,
     gapFindingsFiltered,
     supplyDocError,
     supplyDocBusySlot,

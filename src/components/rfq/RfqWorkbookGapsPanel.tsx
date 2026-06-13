@@ -127,6 +127,18 @@ function SeverityPill({
   );
 }
 
+function catDeptLabel(cat: string): string {
+  switch (cat) {
+    case "commercial": return "Commercial";
+    case "technical": return "Engineering";
+    case "completeness": return "Documentation";
+    case "quality": return "Quality";
+    case "logistics": return "Logistics";
+    case "quote": return "Quoting";
+    default: return cat;
+  }
+}
+
 function MiniStat({ label, value, tone }: { label: string; value: string; tone: "good" | "warn" | "neutral" }) {
   const cls =
     tone === "good"
@@ -146,8 +158,6 @@ export type RfqWorkbookGapsPanelProps = {
   caseData: CaseData;
   gapFilter: GapFilterKey;
   setGapFilter: (value: GapFilterKey) => void;
-  expandedRule: Record<string, boolean>;
-  toggleExpanded: (rule: string) => void;
   gapFindingsFiltered: GapFinding[];
   supplyDocError: string | null;
   supplyDocBusySlot: string | null;
@@ -162,8 +172,6 @@ export function RfqWorkbookGapsPanel({
   caseData,
   gapFilter,
   setGapFilter,
-  expandedRule,
-  toggleExpanded,
   gapFindingsFiltered,
   supplyDocError,
   supplyDocBusySlot,
@@ -284,12 +292,11 @@ export function RfqWorkbookGapsPanel({
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
               {gapFindingsFiltered.length === 0 ? (
                 <div className="text-muted-foreground text-[12px]">No findings match this filter.</div>
               ) : (
                 gapFindingsFiltered.map((f) => {
-                  const expanded = !!expandedRule[f.rule];
                   const wf = caseData.gap_workflow?.[f.rule] ?? "open";
                   const docStatus = gapDocumentStatus(f, caseData.docs);
                   const linkedDoc = f.doc_slot ? caseData.docs.find((d) => d.name === f.doc_slot) : undefined;
@@ -334,97 +341,57 @@ export function RfqWorkbookGapsPanel({
                     <div
                       key={f.rule}
                       className={[
-                        "rounded-xl border border-border/70 bg-card/25 transition-all shadow-sm",
-                        expanded ? "ring-1 ring-accent/60" : "hover:bg-card/35 hover:border-accent/30",
+                        "rounded-xl border border-border/70 bg-card/25 shadow-sm",
                         closed ? "opacity-75 border-emerald-500/20 bg-emerald-500/[0.03]" : "",
                       ].join(" ")}
                     >
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(f.rule)}
-                        className="w-full text-left focus-visible:outline-none"
-                      >
-                        <div className="p-4 grid grid-cols-1 sm:grid-cols-[minmax(0,180px)_1fr_minmax(0,320px)] items-start gap-3">
-                          <div className="flex items-start gap-3">
-                            <div className={["mt-2 w-2.5 h-2.5 rounded-full shadow-sm", sevColor].join(" ")} />
-                            <div className="font-mono text-[10px] text-muted-foreground border border-border bg-background/20 rounded-md px-2 py-0.5 whitespace-nowrap">
-                              {f.rule}
-                            </div>
-                            {f.doc_slot ? (
-                              <div
-                                className="font-mono text-[9px] text-muted-foreground/80 mt-1 max-w-[160px] truncate"
-                                title={f.doc_slot}
-                              >
-                                Slot: {f.doc_slot}
-                              </div>
-                            ) : null}
-                          </div>
+                      {/* Card header: department + rule */}
+                      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 rounded-t-xl bg-background/20">
+                        <div className="flex items-center gap-2">
+                          <div className={["w-2 h-2 rounded-full shrink-0", sevColor].join(" ")} />
+                          <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                            {catDeptLabel(f.cat)}
+                          </span>
+                        </div>
+                        <div className="font-mono text-[10px] text-muted-foreground border border-border bg-background/20 rounded px-2 py-0.5">
+                          {f.rule}
+                        </div>
+                      </div>
 
-                          <div className="min-w-0">
-                            <div className="font-semibold text-[13px] truncate" title={f.title}>
-                              {f.title}
-                            </div>
+                      <div className="p-4 grid grid-cols-[140px_1fr] gap-4 items-start">
+
+                        {/* LEFT: slot + controls */}
+                        <div className="flex flex-col gap-2 border-r border-border/50 pr-4">
+                          {f.doc_slot ? (
                             <div
-                              className="mt-1 text-[11px] font-mono text-muted-foreground truncate"
-                              title={f.impact}
+                              className="font-mono text-[9px] text-muted-foreground/60 truncate"
+                              title={f.doc_slot}
                             >
-                              <span
-                                className={[
-                                  "inline-flex items-center rounded-md border px-2 py-0.5",
-                                  "text-[11px] font-mono",
-                                  "bg-background/20 dark:bg-background/15",
-                                  "border-border/70",
-                                  "text-muted-foreground",
-                                ].join(" ")}
-                              >
-                                {f.impact}
-                              </span>
+                              {f.doc_slot}
                             </div>
-                            {docStatus !== "none" ? (
-                              <div
-                                className={[
-                                  "mt-2 inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-mono font-semibold",
-                                  documentStatusPillCls(docStatus),
-                                ].join(" ")}
-                                title={linkedDoc?.note ?? undefined}
-                              >
-                                {gapDocumentStatusLabel(docStatus, linkedDoc)}
-                              </div>
-                            ) : null}
-                          </div>
-
-                          <div className="flex flex-wrap items-center justify-end gap-2">
+                          ) : null}
+                          <div className="flex items-center gap-2 flex-wrap">
                             <div
                               className={[
-                                "rounded-lg border px-2 py-1 text-[11px] font-mono",
-                                "leading-none h-8 flex items-center",
+                                "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-mono font-semibold h-7",
                                 sevPill,
                               ].join(" ")}
                             >
                               {f.sev.toUpperCase()}
                             </div>
                             <select
-                              className="h-8 rounded-lg border border-border bg-background/25 px-2 text-[11px] font-mono text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background max-w-[140px]"
+                              className="h-7 rounded-lg border border-border bg-background/25 px-2 text-[11px] font-mono text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                               value={wf}
-                              onClick={(e) => e.stopPropagation()}
                               onChange={(e) => {
-                                e.stopPropagation();
                                 const v = e.target.value as GapWorkflowStatus;
                                 onWorkflowChange(f.rule, v);
                               }}
                             >
-                              <option value="open">Open</option>
+                              <option value="open">Pending</option>
                               <option value="in_review">In Review</option>
                               <option value="resolved">Resolved</option>
                               <option value="accepted_risk">Accepted Risk</option>
                             </select>
-                            {supplySlotDoc && supplySlotDoc.conf != null && supplySlotDoc.conf < DOC_GAP_CONF_THRESHOLD ? (
-                              <span
-                                className="text-[10px] font-mono text-amber-800 dark:text-amber-200 px-2"
-                              >
-                                Conf {(supplySlotDoc.conf * 100).toFixed(0)}%
-                              </span>
-                            ) : null}
                             {supplySlot && supplyLabel ? (
                               <>
                                 <input
@@ -433,7 +400,6 @@ export function RfqWorkbookGapsPanel({
                                   className="sr-only"
                                   accept={supplyAcceptForDoc(supplySlotDoc)}
                                   disabled={supplyDocBusySlot !== null}
-                                  onClick={(e) => e.stopPropagation()}
                                   onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     e.target.value = "";
@@ -444,10 +410,9 @@ export function RfqWorkbookGapsPanel({
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  className="h-8 text-[11px]"
+                                  className="h-7 text-[11px]"
                                   disabled={supplyDocBusySlot !== null}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
+                                  onClick={() => {
                                     const el = document.getElementById(
                                       `${supplyInputBaseId}-gap-${f.rule.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
                                     ) as HTMLInputElement | null;
@@ -463,12 +428,9 @@ export function RfqWorkbookGapsPanel({
                                         type="button"
                                         variant="default"
                                         size="sm"
-                                        className="h-8 text-[11px]"
+                                        className="h-7 text-[11px]"
                                         disabled={supplyDocBusySlot !== null}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          onFinalizeGapDoc(supplySlot, f.rule);
-                                        }}
+                                        onClick={() => onFinalizeGapDoc(supplySlot, f.rule)}
                                       >
                                         Finalize
                                       </Button>
@@ -477,59 +439,71 @@ export function RfqWorkbookGapsPanel({
                                       type="button"
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      className="h-7 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
                                       disabled={supplyDocBusySlot !== null}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onRemoveSuppliedDoc(supplySlot, f.rule);
-                                      }}
+                                      onClick={() => onRemoveSuppliedDoc(supplySlot, f.rule)}
                                     >
                                       Remove
                                     </Button>
                                   </>
                                 ) : null}
+                                {supplySlotDoc && supplySlotDoc.conf != null && supplySlotDoc.conf < DOC_GAP_CONF_THRESHOLD ? (
+                                  <span className="text-[10px] font-mono text-amber-800 dark:text-amber-200">
+                                    Conf {(supplySlotDoc.conf * 100).toFixed(0)}%
+                                  </span>
+                                ) : null}
                               </>
                             ) : null}
                           </div>
                         </div>
-                      </button>
 
-                      {expanded ? (
-                        <div className="px-5 pb-5 pt-2">
+                        {/* RIGHT: Title + doc status + detail + evidence + action */}
+                        <div className="min-w-0 space-y-2">
+                          <div className="font-semibold text-[13px]" title={f.title}>{f.title}</div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-mono bg-background/20 dark:bg-background/15 border-border/70 text-muted-foreground">
+                              {f.impact}
+                            </span>
+                            {docStatus !== "none" ? (
+                              <div
+                                className={[
+                                  "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-mono font-semibold",
+                                  documentStatusPillCls(docStatus),
+                                ].join(" ")}
+                                title={linkedDoc?.note ?? undefined}
+                              >
+                                {gapDocumentStatusLabel(docStatus, linkedDoc)}
+                              </div>
+                            ) : null}
+                          </div>
                           {supplySlotDoc?.supplied_label ? (
-                            <div className="mb-3 rounded-lg border border-border/70 bg-background/20 px-3 py-2 text-[11px] font-mono text-muted-foreground">
-                              Attached file:{" "}
+                            <div className="rounded-lg border border-border/70 bg-background/20 px-3 py-2 text-[11px] font-mono text-muted-foreground">
+                              Attached:{" "}
                               <span className="text-foreground font-semibold">{supplySlotDoc.supplied_label}</span>
                               {supplySlotDoc.finalized ? (
-                                <span className="ml-2 text-violet-600 dark:text-violet-300">· Finalized for this RFQ</span>
+                                <span className="ml-2 text-violet-600 dark:text-violet-300">· Finalized</span>
                               ) : (
-                                <span className="ml-2 text-amber-700 dark:text-amber-300">
-                                  · Not finalized — use Finalize to lock this response
-                                </span>
+                                <span className="ml-2 text-amber-700 dark:text-amber-300">· Not finalized</span>
                               )}
                             </div>
                           ) : null}
-                          <div className="rounded-xl border border-border bg-background/20 p-4">
-                            <div className="text-[13px] text-muted-foreground leading-relaxed">{f.detail}</div>
-                          </div>
-
-                          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="rounded-xl border border-border bg-background/25 p-4">
-                              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono mb-2">
+                          <div className="text-[12px] text-muted-foreground leading-relaxed">{f.detail}</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                            <div className="rounded-xl border border-border bg-background/20 p-3">
+                              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono mb-1.5">
                                 Evidence
                               </div>
                               <div className="text-[12px] text-muted-foreground leading-relaxed">{f.evidence}</div>
                             </div>
-                            <div className="rounded-xl border border-border bg-background/25 p-4">
-                              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono mb-2">
+                            <div className="rounded-xl border border-border bg-background/20 p-3">
+                              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono mb-1.5">
                                 Recommended Action
                               </div>
                               <div className="text-[12px] text-muted-foreground leading-relaxed">{f.action}</div>
                             </div>
                           </div>
-
                           {f.hist ? (
-                            <div className="mt-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+                            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
                               <div className="text-[10px] font-semibold uppercase tracking-[0.12em] dark:text-blue-200 text-blue-700 font-mono mb-2">
                                 Historical Benchmark
                               </div>
@@ -544,7 +518,7 @@ export function RfqWorkbookGapsPanel({
                             </div>
                           ) : null}
                         </div>
-                      ) : null}
+                      </div>
                     </div>
                   );
                 })
