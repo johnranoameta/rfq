@@ -374,45 +374,45 @@ export function RfqWorkbookGapsPanel({
                       ].join(" ")}
                     >
                       {/* Card header: department · severity · status · rule */}
-                      <div className="flex items-center gap-4 px-4 py-2 border-b border-border/50 rounded-t-xl bg-background/20">
-                        {/* dept */}
-                        <div className="flex items-center gap-2 mr-auto">
-                          <div className={["w-2 h-2 rounded-full shrink-0", sevColor].join(" ")} />
-                          <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                            {catDeptLabel(f.cat)}
-                          </span>
-                        </div>
-                        {/* severity with label */}
-                        <div className="flex items-center gap-1.5">
-                          <span style={{ fontSize: "7px" }} className="font-mono font-medium uppercase tracking-widest text-muted-foreground/40">Severity</span>
-                          <div
-                            className={[
-                              "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-mono font-semibold h-6",
-                              sevPill,
-                            ].join(" ")}
-                          >
-                            {f.sev.toUpperCase()}
+                      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 rounded-t-xl bg-background/20">
+                        {/* left group: dept + severity + status */}
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <div className={["w-2 h-2 rounded-full shrink-0", sevColor].join(" ")} />
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                              {catDeptLabel(f.cat)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span style={{ fontSize: "7px" }} className="font-mono font-medium uppercase tracking-widest text-muted-foreground/40">Severity</span>
+                            <div
+                              className={[
+                                "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-mono font-semibold h-6",
+                                sevPill,
+                              ].join(" ")}
+                            >
+                              {f.sev.toUpperCase()}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span style={{ fontSize: "7px" }} className="font-mono font-medium uppercase tracking-widest text-muted-foreground/40">Status</span>
+                            <select
+                              className="h-6 rounded-md border border-border bg-background/25 px-2 text-[10px] font-mono text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                              value={wf}
+                              onChange={(e) => {
+                                const v = e.target.value as GapWorkflowStatus;
+                                onWorkflowChange(f.rule, v);
+                              }}
+                            >
+                              <option value="open">Pending</option>
+                              <option value="in_review">In Review</option>
+                              <option value="resolved">Resolved</option>
+                              <option value="accepted_risk">Accepted Risk</option>
+                            </select>
                           </div>
                         </div>
-                        {/* status with label */}
-                        <div className="flex items-center gap-1.5">
-                          <span style={{ fontSize: "7px" }} className="font-mono font-medium uppercase tracking-widest text-muted-foreground/40">Status</span>
-                          <select
-                            className="h-6 rounded-md border border-border bg-background/25 px-2 text-[10px] font-mono text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-                            value={wf}
-                            onChange={(e) => {
-                              const v = e.target.value as GapWorkflowStatus;
-                              onWorkflowChange(f.rule, v);
-                            }}
-                          >
-                            <option value="open">Pending</option>
-                            <option value="in_review">In Review</option>
-                            <option value="resolved">Resolved</option>
-                            <option value="accepted_risk">Accepted Risk</option>
-                          </select>
-                        </div>
-                        {/* rule badge — right-aligned */}
-                        <div className="font-mono text-[10px] text-muted-foreground border border-border bg-background/20 rounded px-2 py-0.5 ml-auto">
+                        {/* rule badge — right */}
+                        <div className="font-mono text-[10px] text-muted-foreground border border-border bg-background/20 rounded px-2 py-0.5">
                           {f.rule}
                         </div>
                       </div>
