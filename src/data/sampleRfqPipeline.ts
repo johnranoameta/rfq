@@ -320,12 +320,12 @@ const DEMO_GAP_FINDINGS: GapFinding[] = [
     cat: "completeness",
     title: "Customer spec reference NB-QA-118 unresolved",
     detail:
-      "NB-QA-118 is referenced for DV/PV requirements; the matching package file DV_PV_Test_Standard.pdf is not yet satisfied. Track as a formal clarification item.",
+      "NB-QA-118 is referenced for DV/PV requirements; the customer spec acknowledgment file is not yet in the package. Track as a formal clarification item.",
     impact: "Compliance and tracking risk",
-    evidence: "RFQ body quality requirement reference; same document slot as DV/PV test file",
+    evidence: "RFQ body quality requirement reference; NB-QA-118_Customer_Spec.pdf missing",
     action:
       "Create clarification tracker item and assign an owner to follow up with the buyer contact.",
-    doc_slot: "DV_PV_Test_Standard.pdf",
+    doc_slot: "NB-QA-118_Customer_Spec.pdf",
   },
 ];
 
@@ -374,8 +374,8 @@ const DEMO_MULTI_ITEM_GAP_FINDINGS: GapFinding[] = [
     detail: "Test scope is defined by NB-QA-118; document not yet in package.",
     impact: "Compliance tracking risk",
     evidence: "RFQ body + checklist reference NB-QA-118",
-    action: "Track as formal clarification until file is received.",
-    doc_slot: "DV_PV_Test_NB-QA-118.pdf",
+    action: "Track as formal clarification until customer spec file is received.",
+    doc_slot: "NB-QA-118_Customer_Spec.pdf",
   },
   {
     rule: "RULE_UX_TECH_MQU",
@@ -388,6 +388,7 @@ const DEMO_MULTI_ITEM_GAP_FINDINGS: GapFinding[] = [
     evidence: "RFQ sections: Line schedule + TECHNICAL REQUIREMENTS (Category: Technical)",
     action:
       "Engineering review: drawing Rev, heat treat / finish stack-up, inspection sampling vs. buyer CTQs; document assumptions.",
+    doc_slot: "NB-MAT-SPEC-MQU-TS-014.pdf",
   },
   {
     rule: "RULE_UX_COMM_GATE",
@@ -408,6 +409,14 @@ const APPEARANCE_DEMO_DOC: DocEntry = {
   status: "pend",
   conf: null,
   note: "RFQ requires appearance sample approval prior to PPAP — awaiting customer schedule or sign-off (demo).",
+};
+
+const NB_QA118_DEMO_DOC: DocEntry = {
+  name: "NB-QA-118_Customer_Spec.pdf",
+  type: "test",
+  status: "miss",
+  conf: null,
+  note: "Customer spec NB-QA-118 referenced in RFQ; compliance acknowledgment not in package (demo).",
 };
 
 const DEMO_QUOTE: Quote = {
@@ -552,6 +561,13 @@ function buildMultiItemDemoDocs(): DocEntry[] {
       conf: null,
       note: "Requested / to follow under separate cover (demo)",
     },
+    {
+      name: "NB-QA-118_Customer_Spec.pdf",
+      type: "test",
+      status: "miss",
+      conf: null,
+      note: "Customer spec NB-QA-118 compliance file not in package (demo)",
+    },
   ];
 }
 
@@ -589,7 +605,10 @@ export function buildCaseDataFromDemoPipeline(file: UploadedPackageFile): CaseDa
   const status_label =
     g.completeness_status === "fail" ? "Incomplete" : g.completeness_status === "pass" ? "Ready" : "Review";
 
-  const docs = multi ? buildMultiItemDemoDocs() : [...buildDocsFromParse(), APPEARANCE_DEMO_DOC];
+  const docs = multi
+    ? buildMultiItemDemoDocs()
+    : [...buildDocsFromParse(), APPEARANCE_DEMO_DOC, NB_QA118_DEMO_DOC];
+  const docs_baseline = docs.map((d) => ({ ...d }));
   const gap_catalog = multi ? DEMO_MULTI_ITEM_GAP_FINDINGS : DEMO_GAP_FINDINGS;
 
   const partial: CaseData = {
@@ -618,6 +637,7 @@ export function buildCaseDataFromDemoPipeline(file: UploadedPackageFile): CaseDa
     completeness,
     status_label,
     docs,
+    docs_baseline,
     gap_catalog,
     triggered_rules: [...g.triggered_rules],
     gap_findings: [],
@@ -634,9 +654,5 @@ export function buildCaseDataFromDemoPipeline(file: UploadedPackageFile): CaseDa
   };
 
   const reconciled = reconcileCaseGapsWithDocuments(partial);
-  return {
-    ...reconciled,
-    risk_score: g.risk_score,
-    quote: { ...reconciled.quote, risk_score: g.risk_score },
-  };
+  return reconciled;
 }

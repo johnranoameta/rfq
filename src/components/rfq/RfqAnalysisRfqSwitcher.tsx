@@ -93,8 +93,9 @@ export function RfqAnalysisRfqSwitcher({
           <optgroup label={`Workbook analyses (${workbooks.length})`}>
             {workbooks.map((w) => (
               <option key={w.id} value={`workbook:${w.id}`}>
+                {w.isDemo ? "★ " : ""}
                 {w.label}
-                {w.isDemo ? " (demo)" : ""}
+                {w.isDemo ? " — demo (gaps + matching)" : ""}
               </option>
             ))}
           </optgroup>

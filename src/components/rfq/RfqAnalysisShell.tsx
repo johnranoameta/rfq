@@ -52,7 +52,7 @@ function AnalysisPageLayout({
   expandUpload?: boolean;
 }) {
   return (
-    <div className="ra-analysis-page">
+    <div className="ra-analysis-page flex min-h-0 flex-1 flex-col">
       <div className="ra-analysis-page-scroll">
         <div className="ra-analysis-page-inner">{children}</div>
       </div>

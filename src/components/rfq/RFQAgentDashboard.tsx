@@ -1,9 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { applySuppliedPackageDoc } from "@/lib/rfq/applySuppliedPackageDoc";
+import {
+  applySuppliedPackageDoc,
+  clearSuppliedPackageDoc,
+  finalizeGapDocument,
+} from "@/lib/rfq/applySuppliedPackageDoc";
 import { gapFindingUploadSlot } from "@/lib/rfq/reconcileGapsWithDocuments";
 import { buildCaseDataFromPersisted } from "@/lib/rfq/caseFromPersisted";
+import { loadGapSessionCache, restoreGapSessionCaseData, saveGapSessionCache, clearGapSessionCache } from "@/lib/rfq/gapSessionCache";
+import { loadWorkspacePrefs, saveWorkspacePrefs } from "@/lib/rfq/workspacePrefsCache";
 import { loadSidebarListCache, saveSidebarListCache } from "@/lib/rfq/sidebarListCache";
 import type { RfqParseSessionFull } from "@/lib/rfq/sqlite/parseSessions";
 import Link from "next/link";
@@ -47,7 +53,7 @@ import {
   type AnalysisStatusKind,
   type UploadedPackageFile,
 } from "@/components/rfq/RfqPackageUpload";
-import { KB_CLASS_COUNT } from "@/lib/rfq/kbCanonicalClasses";
+import { classifyKbClass, KB_CLASS_COUNT, KB_CLASS_ORDER } from "@/lib/rfq/kbCanonicalClasses";
 import { partitionKbBuckets, type KbBucket } from "@/lib/rfq/kbBucketPartition";
 import type { KbCategoryRow } from "@/lib/rfq/sqlite/kbCategories";
 import type { RfqParseSessionRow } from "@/lib/rfq/sqlite/parseSessions";
@@ -107,8 +113,12 @@ function gapRuleSupplySlotLegacy(c: CaseData, rule: string): string | null {
     const d = c.docs.find((x) => x.type === "pkg" && x.status === "miss");
     return d?.name ?? null;
   }
-  if (rule === "RULE_002" || rule === "RULE_028") {
-    const d = c.docs.find((x) => x.type === "test" && (x.status === "miss" || x.status === "pend"));
+  if (rule === "RULE_002") {
+    const d = c.docs.find((x) => x.type === "test" && x.status === "miss" && x.name.includes("DV_PV"));
+    return d?.name ?? null;
+  }
+  if (rule === "RULE_028") {
+    const d = c.docs.find((x) => x.name === "NB-QA-118_Customer_Spec.pdf");
     return d?.name ?? null;
   }
   if (rule === "RULE_029") {
@@ -239,6 +249,9 @@ export default function RFQAgentDashboard() {
   const [sidebarQuery, setSidebarQuery] = useState("");
   const [catalog, setCatalog] = useState<CatalogPayload | null>(null);
   const [gapFilter, setGapFilter] = useState<GapFilterKey>("all");
+  /** KB class filter in Analysis → Gap analysis (sidebar); stays in Analysis, does not open Knowledge Base. */
+  const [analysisGapKbSlug, setAnalysisGapKbSlug] = useState<string | null>("stamping");
+  const gapWorkbookSyncRef = useRef<string | null>(null);
   const [expandedRule, setExpandedRule] = useState<Record<string, boolean>>({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarLoadBusy, setSidebarLoadBusy] = useState(false);
@@ -252,6 +265,21 @@ export default function RFQAgentDashboard() {
     Record<string, { status: AnalysisStatusKind; message?: string }>
   >({});
   const demoSeededRef = useRef(false);
+  /** Blocks prefs/cache writes until startup restore finishes. */
+  const initialHydrationDoneRef = useRef(false);
+  /** Avoid re-fetch loops when stored analysis is missing. */
+  const sessionEnsureKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     if (!showPortfolio && workspaceMode === "portfolio") {
@@ -270,15 +298,44 @@ export default function RFQAgentDashboard() {
     [extractPackages],
   );
 
+  const openDemoWorkbookAnalysis = useCallback((subMode: AnalysisSubMode = "summary") => {
+    sessionEnsureKeyRef.current = null;
+    setWorkspaceMode("analysis");
+    setAnalysisSubMode(subMode);
+    setAnalysisSelection({
+      kind: "workbook",
+      fileId: DEFAULT_DEMO_UPLOAD.id,
+      label: DEFAULT_DEMO_UPLOAD.originalName,
+    });
+    setUploadedRfqs((prev) => {
+      if (prev.some((x) => x.id === DEFAULT_DEMO_UPLOAD.id)) return prev;
+      return [DEFAULT_DEMO_UPLOAD, ...prev];
+    });
+    const defaultSession = getDefaultDemoSession();
+    setSession({
+      file: defaultSession.file,
+      caseData: restoreGapSessionCaseData(DEFAULT_DEMO_UPLOAD.id, defaultSession.caseData),
+    });
+    setSessionNotice(null);
+    setPipelineBusy(false);
+    setGapFilter("all");
+    setExpandedRule({});
+  }, []);
+
   const selectAnalysisWorkbook = useCallback(
     (id: string) => {
+      sessionEnsureKeyRef.current = null;
+      if (id === DEFAULT_DEMO_UPLOAD.id) {
+        openDemoWorkbookAnalysis(analysisSubMode);
+        return;
+      }
       const u = uploadedRfqs.find((x) => x.id === id);
       if (!u) return;
       setWorkspaceMode("analysis");
       setAnalysisSelection({ kind: "workbook", fileId: id, label: u.originalName });
       void activateRfqFromSidebar(u);
     },
-    [uploadedRfqs],
+    [uploadedRfqs, analysisSubMode, openDemoWorkbookAnalysis],
   );
 
   const analysisWordOptions = useMemo(
@@ -291,34 +348,28 @@ export default function RFQAgentDashboard() {
     [extractPackages],
   );
 
-  const analysisWorkbookOptions = useMemo(
-    () =>
-      uploadedRfqs.map((u) => ({
+  const analysisWorkbookOptions = useMemo(() => {
+    const userWorkbooks = uploadedRfqs
+      .filter((u) => !isPreloadedDemoUpload(u))
+      .map((u) => ({
         id: u.id,
         label: u.originalName,
-        isDemo: isPreloadedDemoUpload(u),
-      })),
+        isDemo: false as const,
+      }));
+    return [
+      {
+        id: DEFAULT_DEMO_UPLOAD.id,
+        label: DEFAULT_DEMO_UPLOAD.originalName,
+        isDemo: true as const,
+      },
+      ...userWorkbooks,
+    ];
+  }, [uploadedRfqs]);
+
+  const userWorkbookUploads = useMemo(
+    () => uploadedRfqs.filter((u) => !isPreloadedDemoUpload(u)),
     [uploadedRfqs],
   );
-
-  const openDemoWorkbookAnalysis = useCallback((subMode: AnalysisSubMode = "summary") => {
-    setWorkspaceMode("analysis");
-    setAnalysisSubMode(subMode);
-    setAnalysisSelection({
-      kind: "workbook",
-      fileId: DEFAULT_DEMO_UPLOAD.id,
-      label: DEFAULT_DEMO_UPLOAD.originalName,
-    });
-    setUploadedRfqs((prev) => {
-      if (prev.some((x) => x.id === DEFAULT_DEMO_UPLOAD.id)) return prev;
-      return [DEFAULT_DEMO_UPLOAD, ...prev];
-    });
-    setSession(getDefaultDemoSession());
-    setSessionNotice(null);
-    setPipelineBusy(false);
-    setGapFilter("all");
-    setExpandedRule({});
-  }, []);
 
   const handleAnalysisStatus = useCallback((event: AnalysisStatusEvent) => {
     setAnalysisStatus((prev) => ({
@@ -343,19 +394,39 @@ export default function RFQAgentDashboard() {
     setSupplyDocBusySlot(slotName);
     setSupplyDocError(null);
     try {
+      const label = file.name;
+      let handledDemo = false;
+      let nextRisk: number | null = null;
+
+      setSession((prev) => {
+        if (!prev?.caseData?.gap_catalog?.length) return prev;
+        handledDemo = true;
+        const nextCase = applySuppliedPackageDoc(prev.caseData, slotName, label);
+        nextRisk = nextCase.risk_score;
+        return { ...prev, caseData: nextCase };
+      });
+
+      if (handledDemo) {
+        if (nextRisk != null) {
+          showRaToast(`Document applied — risk score now ${nextRisk}`);
+        }
+        return;
+      }
+
       const body = new FormData();
       body.set("file", file);
+      body.set("purpose", "gap-doc");
       const res = await fetch("/api/rfq/upload", { method: "POST", body });
       const data = (await res.json().catch(() => ({}))) as { error?: string; originalName?: string };
       if (!res.ok) {
         throw new Error(data.error || `Upload failed (${res.status})`);
       }
-      const label = data.originalName || file.name;
+      const uploadedLabel = data.originalName || label;
       setSession((prev) => {
         if (!prev?.caseData) return prev;
         return {
           ...prev,
-          caseData: applySuppliedPackageDoc(prev.caseData, slotName, label),
+          caseData: applySuppliedPackageDoc(prev.caseData, slotName, uploadedLabel),
         };
       });
     } catch (e) {
@@ -363,6 +434,26 @@ export default function RFQAgentDashboard() {
     } finally {
       setSupplyDocBusySlot(null);
     }
+  }, []);
+
+  const handleRemoveSuppliedDoc = useCallback((slotName: string, rule?: string) => {
+    setSupplyDocError(null);
+    setSession((prev) => {
+      if (!prev?.caseData) return prev;
+      return { ...prev, caseData: clearSuppliedPackageDoc(prev.caseData, slotName, rule) };
+    });
+  }, []);
+
+  const handleFinalizeGapDoc = useCallback((slotName: string, rule: string) => {
+    setSupplyDocError(null);
+    let nextRisk: number | null = null;
+    setSession((prev) => {
+      if (!prev?.caseData) return prev;
+      const nextCase = finalizeGapDocument(prev.caseData, slotName, rule);
+      nextRisk = nextCase.risk_score;
+      return { ...prev, caseData: nextCase };
+    });
+    return nextRisk;
   }, []);
 
   /**
@@ -420,14 +511,40 @@ export default function RFQAgentDashboard() {
     saveSidebarListCache(uploadedRfqs);
   }, [uploadedRfqs, sidebarHydrated]);
 
-  /** Preload bundled workbook demo when no real analyses exist (restores pre–workbook-first UX). */
+  useEffect(() => {
+    if (!sidebarHydrated || !session?.caseData) return;
+    saveGapSessionCache(session.file.id, session.caseData);
+  }, [session, sidebarHydrated]);
+
+  /**
+   * On refresh: restore workspace prefs first (do not persist until hydration completes).
+   */
   useEffect(() => {
     if (!sidebarHydrated || demoSeededRef.current) return;
-    const hasRealWorkbooks = uploadedRfqs.some((u) => !isPreloadedDemoUpload(u));
-    if (hasRealWorkbooks) return;
     demoSeededRef.current = true;
-    openDemoWorkbookAnalysis("summary");
-  }, [sidebarHydrated, uploadedRfqs, openDemoWorkbookAnalysis]);
+
+    const prefs = loadWorkspacePrefs();
+    if (prefs) {
+      setWorkspaceMode(prefs.workspaceMode);
+      setAnalysisSubMode(prefs.analysisSubMode);
+      if (prefs.analysisSelection) setAnalysisSelection(prefs.analysisSelection);
+    } else if (!uploadedRfqs.some((u) => !isPreloadedDemoUpload(u))) {
+      setWorkspaceMode("analysis");
+      setAnalysisSubMode("summary");
+      setAnalysisSelection({
+        kind: "workbook",
+        fileId: DEFAULT_DEMO_UPLOAD.id,
+        label: DEFAULT_DEMO_UPLOAD.originalName,
+      });
+    }
+
+    initialHydrationDoneRef.current = true;
+  }, [sidebarHydrated, uploadedRfqs]);
+
+  useEffect(() => {
+    if (!sidebarHydrated || !initialHydrationDoneRef.current) return;
+    saveWorkspacePrefs({ workspaceMode, analysisSubMode, analysisSelection });
+  }, [workspaceMode, analysisSubMode, analysisSelection, sidebarHydrated]);
 
   const c = session?.caseData ?? null;
 
@@ -450,7 +567,10 @@ export default function RFQAgentDashboard() {
           mimeType: u.mimeType || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           storedName: STORED_NAME_DB_ONLY,
         };
-        setSession({ file: fileDb, caseData: buildCaseDataFromPersisted(row, fileDb) });
+        setSession({
+          file: fileDb,
+          caseData: restoreGapSessionCaseData(u.id, buildCaseDataFromPersisted(row, fileDb)),
+        });
         setPipelineBusy(false);
         setGapFilter("all");
         setExpandedRule({});
@@ -461,8 +581,18 @@ export default function RFQAgentDashboard() {
           ? "No stored analysis for this upload. Run analysis while the workbook file is on the server, or upload the workbook again."
           : `Could not load RFQ (${res.status}).`,
       );
+      const cached = loadGapSessionCache(u.id);
+      if (cached) {
+        setSession({ file: u, caseData: cached });
+        setSessionNotice(null);
+      }
     } catch {
       setSessionNotice("Network error loading stored RFQ.");
+      const cached = loadGapSessionCache(u.id);
+      if (cached) {
+        setSession({ file: u, caseData: cached });
+        setSessionNotice(null);
+      }
     } finally {
       setSidebarLoadBusy(false);
     }
@@ -497,6 +627,7 @@ export default function RFQAgentDashboard() {
         setSessionNotice(null);
       }
     }
+    clearGapSessionCache(u.id);
     void (async () => {
       try {
         const r = await fetch("/api/rfq/database/catalog", { cache: "no-store" });
@@ -585,6 +716,58 @@ export default function RFQAgentDashboard() {
 
   const isKbTraining = workspaceMode === "kb" && kbSubMode === "training";
   const isAnalysis = workspaceMode === "analysis";
+
+  /** Load workbook caseData whenever Analysis points at a workbook but session is empty. */
+  useEffect(() => {
+    if (!sidebarHydrated || !initialHydrationDoneRef.current) return;
+    if (!isAnalysis || sidebarLoadBusy || pipelineBusy) return;
+
+    const sel = analysisSelection;
+    if (sel?.kind !== "workbook") return;
+    if (session?.file.id === sel.fileId && session.caseData) return;
+
+    const ensureKey = sel.fileId;
+    if (sessionEnsureKeyRef.current === ensureKey) {
+      const cached = loadGapSessionCache(sel.fileId);
+      if (cached) {
+        const file =
+          uploadedRfqs.find((u) => u.id === sel.fileId) ??
+          (sel.fileId === DEFAULT_DEMO_UPLOAD.id
+            ? DEFAULT_DEMO_UPLOAD
+            : {
+                id: sel.fileId,
+                originalName: sel.label,
+                size: 0,
+                mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                storedName: STORED_NAME_DB_ONLY,
+              });
+        setSession({ file, caseData: cached });
+      }
+      return;
+    }
+    sessionEnsureKeyRef.current = ensureKey;
+
+    if (sel.fileId === DEFAULT_DEMO_UPLOAD.id) {
+      openDemoWorkbookAnalysis(analysisSubMode);
+      return;
+    }
+
+    const u = uploadedRfqs.find((x) => x.id === sel.fileId);
+    if (u) {
+      void activateRfqFromSidebar(u);
+    }
+  }, [
+    sidebarHydrated,
+    isAnalysis,
+    analysisSelection,
+    analysisSubMode,
+    session?.file.id,
+    session?.caseData,
+    sidebarLoadBusy,
+    pipelineBusy,
+    uploadedRfqs,
+    openDemoWorkbookAnalysis,
+  ]);
 
   const analysisSelectionResolved = useMemo((): AnalysisSelection | null => {
     if (analysisSelection) return analysisSelection;
@@ -678,11 +861,81 @@ export default function RFQAgentDashboard() {
     return findings;
   }, [c, gapFilter]);
 
-  const catOptions = useMemo(() => {
-    if (!c) return [];
-    const set = new Set(c.gap_findings.map((f) => f.cat));
-    return Array.from(set).sort();
+  const workbookKbSlugByFileId = useMemo(() => {
+    const map = new Map<string, string>();
+    map.set(DEFAULT_DEMO_UPLOAD.id, "stamping");
+    for (const row of catalog?.upload_analyses ?? []) {
+      let slug = row.kb_category_slug?.trim();
+      if (!slug) {
+        slug = classifyKbClass({
+          process_family: row.process_family_hint ?? "",
+          part_name: row.part_display_name ?? "",
+          program_name: row.program_name ?? "",
+        });
+      }
+      map.set(row.session_id, slug);
+    }
+    if (session?.file?.id && c?.kb_category_slug?.trim()) {
+      map.set(session.file.id, c.kb_category_slug.trim());
+    }
+    return map;
+  }, [catalog?.upload_analyses, session?.file?.id, c?.kb_category_slug]);
+
+  const activeKbSlugForGap = useMemo(() => {
+    if (!c) return null;
+    if (c.kb_category_slug?.trim()) return c.kb_category_slug.trim();
+    return classifyKbClass({
+      process_family: c.process?.[0] ?? "",
+      part_name: c.title,
+      program_name: c.program,
+    });
   }, [c]);
+
+  useEffect(() => {
+    if (analysisSubMode !== "gaps") return;
+    const wbId = analysisSelectionResolved?.kind === "workbook" ? analysisSelectionResolved.fileId : null;
+    if (wbId === gapWorkbookSyncRef.current) return;
+    gapWorkbookSyncRef.current = wbId;
+    if (activeKbSlugForGap) setAnalysisGapKbSlug(activeKbSlugForGap);
+  }, [analysisSubMode, analysisSelectionResolved, activeKbSlugForGap]);
+
+  const gapKbSidebarItems = useMemo(() => {
+    if (kbClassBuckets.length > 0) {
+      return kbClassBuckets.map((b) => ({
+        slug: b.slug,
+        label: b.label,
+        letter: b.letter,
+        icon_bg: b.icon_bg,
+        icon_fg: b.icon_fg,
+        rfqCount: b.projects.length,
+      }));
+    }
+    return KB_CLASS_ORDER.map((m) => ({
+      slug: m.id,
+      label: m.label,
+      letter: m.letter,
+      icon_bg: m.iconBg,
+      icon_fg: m.iconFg,
+      rfqCount: 0,
+    }));
+  }, [kbClassBuckets]);
+
+  const analysisGapKbLabel = useMemo(() => {
+    if (!analysisGapKbSlug) return null;
+    return gapKbSidebarItems.find((b) => b.slug === analysisGapKbSlug)?.label ?? analysisGapKbSlug;
+  }, [analysisGapKbSlug, gapKbSidebarItems]);
+
+  const gapWorkbooksInClass = useMemo(() => {
+    if (!analysisGapKbSlug) return [];
+    const items: UploadedPackageFile[] = [];
+    if (analysisGapKbSlug === "stamping") {
+      items.push(DEFAULT_DEMO_UPLOAD);
+    }
+    for (const u of userWorkbookUploads) {
+      if (workbookKbSlugByFileId.get(u.id) === analysisGapKbSlug) items.push(u);
+    }
+    return items;
+  }, [analysisGapKbSlug, userWorkbookUploads, workbookKbSlugByFileId]);
 
   const workflowSteps = useMemo(() => {
     if (!c) {
@@ -763,6 +1016,26 @@ export default function RFQAgentDashboard() {
 
   const workbookGapsPanel = useMemo(() => {
     if (!c || analysisSelectionResolved?.kind !== "workbook") return null;
+
+    const gapKbClassMismatch =
+      analysisGapKbSlug != null &&
+      activeKbSlugForGap != null &&
+      analysisGapKbSlug !== activeKbSlugForGap;
+
+    if (gapKbClassMismatch) {
+      return (
+        <div className="rounded-xl border border-border bg-card/50 px-6 py-10 text-center text-sm text-muted-foreground max-w-xl">
+          <p>
+            No analyzed workbooks in{" "}
+            <strong className="text-foreground">{analysisGapKbLabel ?? analysisGapKbSlug}</strong> yet.
+          </p>
+          <p className="mt-2 leading-relaxed">
+            Pick a workbook under this class in the sidebar, or upload a new analysis from the panel below.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <RfqWorkbookGapsPanel
         caseData={c}
@@ -771,10 +1044,21 @@ export default function RFQAgentDashboard() {
         expandedRule={expandedRule}
         toggleExpanded={toggleExpanded}
         gapFindingsFiltered={gapFindingsFiltered}
-        catOptions={catOptions}
         supplyDocError={supplyDocError}
         supplyDocBusySlot={supplyDocBusySlot}
         onSupplyMissingDoc={handleSupplyMissingDoc}
+        onRemoveSuppliedDoc={(slotName, rule) => {
+          handleRemoveSuppliedDoc(slotName, rule);
+          showRaToast("Upload removed — gap reopened");
+        }}
+        onFinalizeGapDoc={(slotName, rule) => {
+          const nextRisk = handleFinalizeGapDoc(slotName, rule);
+          showRaToast(
+            nextRisk != null
+              ? `Document finalized — risk score now ${nextRisk}`
+              : "Document finalized for this gap",
+          );
+        }}
         onWorkflowChange={(rule, status) => {
           setSession((prev) => {
             if (!prev?.caseData) return prev;
@@ -788,18 +1072,23 @@ export default function RFQAgentDashboard() {
           });
         }}
         onOpenDocuments={() => setWorkspaceMode("library")}
+        isDemoGapSession={!!c.gap_catalog?.length}
       />
     );
   }, [
     c,
     analysisSelectionResolved,
+    analysisGapKbSlug,
+    analysisGapKbLabel,
+    activeKbSlugForGap,
     gapFilter,
     expandedRule,
     gapFindingsFiltered,
-    catOptions,
     supplyDocError,
     supplyDocBusySlot,
     handleSupplyMissingDoc,
+    handleRemoveSuppliedDoc,
+    handleFinalizeGapDoc,
   ]);
 
   function rfqSidebarStatusDot(u: UploadedPackageFile): string {
@@ -1036,7 +1325,13 @@ export default function RFQAgentDashboard() {
             <input
               value={sidebarQuery}
               onChange={(e) => setSidebarQuery(e.target.value)}
-              placeholder={workspaceMode === "analysis" ? "Filter RFQs…" : "Search…"}
+              placeholder={
+                workspaceMode === "analysis" && analysisSubMode === "gaps"
+                  ? "Filter classes…"
+                  : workspaceMode === "analysis"
+                    ? "Filter RFQs…"
+                    : "Search…"
+              }
               aria-label="Filter sidebar"
             />
           </div>
@@ -1178,6 +1473,111 @@ export default function RFQAgentDashboard() {
                     : "Chat compares Word RFQs (RFQ1 vs RFQ2). Upload under Training, then ask in the main panel."
                   : "…"}
               </div>
+            ) : workspaceMode === "analysis" && analysisSubMode === "gaps" ? (
+              <>
+                {gapKbSidebarItems
+                  .filter((b) => {
+                    const q = sidebarQuery.trim().toLowerCase();
+                    if (!q) return true;
+                    if (b.label.toLowerCase().includes(q)) return true;
+                    return gapWorkbooksInClass.some((u) => u.originalName.toLowerCase().includes(q));
+                  })
+                  .map((b) => {
+                    const active = analysisGapKbSlug === b.slug;
+                    return (
+                      <button
+                        key={b.slug}
+                        type="button"
+                        className={["ra-kb-item ra-nav-item-btn", active ? "active" : ""].join(" ")}
+                        onClick={() => {
+                          setWorkspaceMode("analysis");
+                          setAnalysisSubMode("gaps");
+                          setAnalysisGapKbSlug(b.slug);
+                        }}
+                      >
+                        <div
+                          className="ra-kb-icon"
+                          style={{
+                            background: b.icon_bg,
+                            color: b.icon_fg,
+                          }}
+                        >
+                          {b.letter}
+                        </div>
+                        {sidebarOpen ? (
+                          <div className="min-w-0 flex-1 text-left">
+                            <div className="ra-kb-name">{b.label}</div>
+                            <div className="ra-kb-count">
+                              {b.rfqCount} RFQ{b.rfqCount === 1 ? "" : "s"}
+                            </div>
+                          </div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                {sidebarOpen ? (
+                  <>
+                    <div className="ra-divider my-2" />
+                    <div className="px-0.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ra-muted)]">
+                      {analysisGapKbLabel ? `Workbooks · ${analysisGapKbLabel}` : "Workbooks"}
+                    </div>
+                  </>
+                ) : null}
+                {gapWorkbooksInClass
+                  .filter((u) => {
+                    const q = sidebarQuery.trim().toLowerCase();
+                    if (!q) return true;
+                    return u.originalName.toLowerCase().includes(q);
+                  })
+                  .map((u) => {
+                    const active =
+                      analysisSelectionResolved?.kind === "workbook" &&
+                      analysisSelectionResolved.fileId === u.id;
+                    const isDemo = u.id === DEFAULT_DEMO_UPLOAD.id;
+                    const status = analysisStatus[u.id];
+                    return (
+                      <button
+                        key={`gap-wb-${u.id}`}
+                        type="button"
+                        className={["rfq-item w-full text-left", active ? "active" : ""].join(" ")}
+                        onClick={() => {
+                          if (isDemo) openDemoWorkbookAnalysis("gaps");
+                          else selectAnalysisWorkbook(u.id);
+                        }}
+                        title={isDemo ? "NorthBridge demo — gap analysis, matching, and historical references" : undefined}
+                      >
+                        <span className={`rfq-dot ${isDemo ? "dot-amber" : rfqSidebarStatusDot(u)}`} aria-hidden />
+                        {sidebarOpen ? (
+                          <div className="min-w-0 flex-1">
+                            <div className="rfq-item-name truncate">{u.originalName}</div>
+                            <div className="rfq-item-meta flex items-center gap-2 flex-wrap">
+                              {isDemo ? (
+                                <>
+                                  Gap analysis demo
+                                  <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                                    Demo
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  Workbook
+                                  {status ? (
+                                    <SidebarStatusPill status={status.status} message={status.message} />
+                                  ) : null}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                {sidebarOpen && gapWorkbooksInClass.length === 0 ? (
+                  <div className="text-[12px] text-[var(--ra-muted)] px-2 py-3 leading-snug">
+                    No workbook analyses in this class yet. Upload a workbook from the main panel.
+                  </div>
+                ) : null}
+              </>
             ) : workspaceMode === "analysis" ? (
               <>
                 {sidebarOpen ? (
@@ -1196,13 +1596,43 @@ export default function RFQAgentDashboard() {
                     />
                   </div>
                 ) : null}
-                {extractPackages.length === 0 && uploadedRfqs.length === 0 ? (
+                {extractPackages.length === 0 && userWorkbookUploads.length === 0 ? (
                   <div className="text-[12px] text-[var(--ra-muted)] px-2 py-3 leading-snug">
                     {sidebarOpen
-                      ? "No RFQs to analyze. Upload under Knowledge Base → Training, or run a workbook analysis."
+                      ? "No other RFQs yet. Open the demo workbook below, or upload under Knowledge Base → Training."
                       : "…"}
                   </div>
                 ) : null}
+                {sidebarOpen ? (
+                  <div className="px-2 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ra-muted)]">
+                    Demo workbook
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className={[
+                    "rfq-item w-full text-left",
+                    analysisSelectionResolved?.kind === "workbook" &&
+                    analysisSelectionResolved.fileId === DEFAULT_DEMO_UPLOAD.id
+                      ? "active"
+                      : "",
+                  ].join(" ")}
+                  onClick={() => openDemoWorkbookAnalysis(analysisSubMode)}
+                  title="NorthBridge demo — gap analysis, matching, and historical references"
+                >
+                  <span className="rfq-dot dot-amber" aria-hidden />
+                  {sidebarOpen ? (
+                    <div className="min-w-0 flex-1">
+                      <div className="rfq-item-name truncate">{DEFAULT_DEMO_UPLOAD.originalName}</div>
+                      <div className="rfq-item-meta flex items-center gap-2 flex-wrap">
+                        Gap analysis demo
+                        <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                          Demo
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+                </button>
                 {extractPackages.length > 0 && sidebarOpen ? (
                   <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ra-muted)]">
                     Word packages
@@ -1249,12 +1679,12 @@ export default function RFQAgentDashboard() {
                       </button>
                     );
                   })}
-                {uploadedRfqs.length > 0 && sidebarOpen ? (
+                {userWorkbookUploads.length > 0 && sidebarOpen ? (
                   <div className="px-2 pt-3 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ra-muted)]">
-                    Workbook analyses
+                    Your workbook analyses
                   </div>
                 ) : null}
-                {uploadedRfqs
+                {userWorkbookUploads
                   .filter((u) => {
                     const q = sidebarQuery.trim().toLowerCase();
                     if (!q) return true;
@@ -1277,12 +1707,7 @@ export default function RFQAgentDashboard() {
                           <div className="min-w-0 flex-1">
                             <div className="rfq-item-name truncate">{u.originalName}</div>
                             <div className="rfq-item-meta flex items-center gap-2 flex-wrap">
-                              {isPreloadedDemoUpload(u) ? "Demo workbook" : "Workbook"}
-                              {isPreloadedDemoUpload(u) ? (
-                                <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
-                                  Demo
-                                </span>
-                              ) : null}
+                              Workbook
                               {status ? (
                                 <SidebarStatusPill status={status.status} message={status.message} />
                               ) : null}
@@ -1388,34 +1813,36 @@ export default function RFQAgentDashboard() {
               onPackageDeleted={() => void loadExtractPackages()}
             />
           ) : isAnalysis ? (
-            <RfqAnalysisShell
-              subMode={analysisSubMode}
-              selection={analysisSelectionResolved}
-              caseData={analysisSelectionResolved?.kind === "workbook" ? c : null}
-              sessionNotice={sessionNotice}
-              loading={sidebarLoadBusy}
-              gapsPanel={workbookGapsPanel}
-              isDemoWorkbook={
-                analysisSelectionResolved?.kind === "workbook" &&
-                isPreloadedDemoUpload(
-                  uploadedRfqs.find((u) => u.id === analysisSelectionResolved.fileId) ?? DEFAULT_DEMO_UPLOAD,
-                )
-              }
-              onLoadDemo={() => openDemoWorkbookAnalysis("summary")}
-              onNavigateSubMode={setAnalysisSubMode}
-              wordPackages={analysisWordOptions}
-              workbooks={analysisWorkbookOptions}
-              onSelectWord={selectAnalysisWord}
-              onSelectWorkbook={selectAnalysisWorkbook}
-              workbookUploadSlot={
-                <RfqPackageUpload
-                  embedded
-                  onUploaded={handleUploaded}
-                  onAnalyzed={handleAnalyzed}
-                  onAnalysisStatusChange={handleAnalysisStatus}
-                />
-              }
-            />
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <RfqAnalysisShell
+                subMode={analysisSubMode}
+                selection={analysisSelectionResolved}
+                caseData={analysisSelectionResolved?.kind === "workbook" ? c : null}
+                sessionNotice={sessionNotice}
+                loading={sidebarLoadBusy}
+                gapsPanel={workbookGapsPanel}
+                isDemoWorkbook={
+                  analysisSelectionResolved?.kind === "workbook" &&
+                  isPreloadedDemoUpload(
+                    uploadedRfqs.find((u) => u.id === analysisSelectionResolved.fileId) ?? DEFAULT_DEMO_UPLOAD,
+                  )
+                }
+                onLoadDemo={() => openDemoWorkbookAnalysis("summary")}
+                onNavigateSubMode={setAnalysisSubMode}
+                wordPackages={analysisWordOptions}
+                workbooks={analysisWorkbookOptions}
+                onSelectWord={selectAnalysisWord}
+                onSelectWorkbook={selectAnalysisWorkbook}
+                workbookUploadSlot={
+                  <RfqPackageUpload
+                    embedded
+                    onUploaded={handleUploaded}
+                    onAnalyzed={handleAnalyzed}
+                    onAnalysisStatusChange={handleAnalysisStatus}
+                  />
+                }
+              />
+            </div>
           ) : (
               <div className="ra-canvas-content text-[var(--ra-muted)] text-sm px-4">
                 Select <span className="font-semibold text-[var(--ra-text)]">Knowledge Base → Training</span> to upload a

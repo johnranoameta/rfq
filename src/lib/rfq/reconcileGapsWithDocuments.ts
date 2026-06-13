@@ -1,7 +1,10 @@
-import type { CaseData, DocEntry, GapFinding } from "@/data/rfqTypes";
+import type { CaseData, DocEntry, GapFinding, GapWorkflowStatus } from "@/data/rfqTypes";
 
-/** Commercial row still counts as a “mismatch” gap while confidence is below this (demo). */
-export const COMM_MISMATCH_CONF_THRESHOLD = 0.85;
+/** Document confidence below this keeps a linked gap open (demo + workbook UI). */
+export const DOC_GAP_CONF_THRESHOLD = 0.85;
+
+/** @deprecated Use {@link DOC_GAP_CONF_THRESHOLD}. */
+export const COMM_MISMATCH_CONF_THRESHOLD = DOC_GAP_CONF_THRESHOLD;
 
 function sumCostBreakdown(b: CaseData["quote"]["cost_breakdown"]): number {
   return (
@@ -24,13 +27,41 @@ export function gapStillOpenForDocuments(g: GapFinding, docs: DocEntry[]): boole
   if (!g.doc_slot) return true;
   const doc = docs.find((d) => d.name === g.doc_slot);
   if (!doc) return true;
+  if (doc.finalized) return false;
   if (doc.status === "miss" || doc.status === "pend") return true;
-  if (doc.type === "comm" && doc.conf !== null && doc.conf < COMM_MISMATCH_CONF_THRESHOLD) return true;
+  if (doc.conf !== null && doc.conf < DOC_GAP_CONF_THRESHOLD) return true;
   return false;
 }
 
 export function filterGapsByDocuments(catalog: GapFinding[], docs: DocEntry[]): GapFinding[] {
   return catalog.filter((g) => gapStillOpenForDocuments(g, docs));
+}
+
+export type GapDocumentStatus = "none" | "missing" | "pending" | "partial" | "supplied" | "finalized";
+
+/** UI status for a gap linked to a package document row. */
+export function gapDocumentStatus(g: GapFinding, docs: DocEntry[]): GapDocumentStatus {
+  if (!g.doc_slot) return "none";
+  const doc = docs.find((d) => d.name === g.doc_slot);
+  if (!doc || doc.status === "miss") return "missing";
+  if (doc.status === "pend") return "pending";
+  if (doc.finalized) return "finalized";
+  if (doc.conf !== null && doc.conf < DOC_GAP_CONF_THRESHOLD) return "partial";
+  return "supplied";
+}
+
+export function isGapWorkflowClosed(w: GapWorkflowStatus | undefined): boolean {
+  return w === "resolved" || w === "accepted_risk";
+}
+
+/** Whether a gap still needs action (document + workflow) in catalog-backed sessions. */
+export function isGapOpenInCase(
+  c: Pick<CaseData, "gap_catalog" | "gap_workflow" | "docs">,
+  g: GapFinding,
+): boolean {
+  if (isGapWorkflowClosed(c.gap_workflow?.[g.rule])) return false;
+  if (c.gap_catalog?.length) return gapStillOpenForDocuments(g, c.docs);
+  return true;
 }
 
 function demoRiskScore(docs: DocEntry[], gapFindings: GapFinding[]): number {
@@ -49,12 +80,15 @@ function demoRiskScore(docs: DocEntry[], gapFindings: GapFinding[]): number {
 export function reconcileCaseGapsWithDocuments(c: CaseData): CaseData {
   if (!c.gap_catalog?.length) return c;
 
-  const gap_findings = filterGapsByDocuments(c.gap_catalog, c.docs);
-  const triggered_rules = [...new Set(gap_findings.map((g) => g.rule))];
+  const gap_findings = c.gap_catalog;
+  const openGaps = filterGapsByDocuments(c.gap_catalog, c.docs);
+  const triggered_rules = [...new Set(openGaps.map((g) => g.rule))];
 
   const wf = { ...(c.gap_workflow ?? {}) };
-  for (const key of Object.keys(wf)) {
-    if (!gap_findings.some((g) => g.rule === key)) delete wf[key];
+  for (const g of c.gap_catalog) {
+    if (!gapStillOpenForDocuments(g, c.docs) && (wf[g.rule] ?? "open") === "open") {
+      wf[g.rule] = "resolved";
+    }
   }
 
   const missingCount = c.docs.filter((d) => d.status === "miss").length;
@@ -63,10 +97,10 @@ export function reconcileCaseGapsWithDocuments(c: CaseData): CaseData {
   const status_label =
     missingCount === 0 ? "Ready" : missingCount >= 2 ? "Incomplete" : "Review";
 
-  const risk_score = demoRiskScore(c.docs, gap_findings);
+  const risk_score = demoRiskScore(c.docs, openGaps);
   let quote = { ...c.quote, risk_score };
 
-  const packagingGapOpen = gap_findings.some((g) => g.rule === "RULE_001");
+  const packagingGapOpen = openGaps.some((g) => g.rule === "RULE_001");
   const pkgDoc = c.docs.find((d) => d.type === "pkg");
   if (!packagingGapOpen && pkgDoc?.status === "ok" && quote.lines.length > 0) {
     const pkgVal = quote.lines[0]!.pkg > 0 ? quote.lines[0]!.pkg : 0.1;
@@ -76,7 +110,7 @@ export function reconcileCaseGapsWithDocuments(c: CaseData): CaseData {
     quote = { ...quote, lines, cost_breakdown };
   }
 
-  if (missingCount === 0 && gap_findings.length === 0) {
+  if (missingCount === 0 && openGaps.length === 0) {
     const line0 = quote.lines[0];
     const total_value =
       line0 != null ? Math.round((line0.vol * line0.price + line0.tooling) * 100) / 100 : quote.total_value;
@@ -107,15 +141,9 @@ export function gapFindingUploadSlot(c: CaseData, f: GapFinding): string | null 
   if (f.doc_slot) {
     const doc = c.docs.find((d) => d.name === f.doc_slot);
     if (!doc) return f.doc_slot;
+    if (doc.supplied_label || doc.finalized) return f.doc_slot;
     if (doc.status === "miss" || doc.status === "pend") return f.doc_slot;
-    if (
-      f.rule === "RULE_029" &&
-      doc.type === "comm" &&
-      doc.conf !== null &&
-      doc.conf < COMM_MISMATCH_CONF_THRESHOLD
-    ) {
-      return f.doc_slot;
-    }
+    if (doc.conf !== null && doc.conf < DOC_GAP_CONF_THRESHOLD) return f.doc_slot;
     return null;
   }
   return null;

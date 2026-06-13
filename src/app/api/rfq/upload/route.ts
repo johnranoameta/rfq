@@ -13,6 +13,14 @@ const ALLOWED_EXT = new Set([
   ".xls",
 ]);
 
+const GAP_DOC_EXT = new Set([
+  ".pdf",
+  ".xlsx",
+  ".xls",
+  ".doc",
+  ".docx",
+]);
+
 function extnameSafe(name: string): string {
   const base = path.basename(name).toLowerCase();
   const i = base.lastIndexOf(".");
@@ -45,10 +53,15 @@ export async function POST(request: Request) {
   }
 
   const ext = extnameSafe(file.name);
-  if (!ext || !ALLOWED_EXT.has(ext)) {
+  const purpose = String(formData.get("purpose") ?? "").trim();
+  const allowed = purpose === "gap-doc" ? GAP_DOC_EXT : ALLOWED_EXT;
+  if (!ext || !allowed.has(ext)) {
     return NextResponse.json(
       {
-        error: "Unsupported type. Allowed: Excel workbook (.xlsx/.xls) with 4 RFQ tabs.",
+        error:
+          purpose === "gap-doc"
+            ? "Unsupported type. Allowed for gap documents: PDF, Word, or Excel."
+            : "Unsupported type. Allowed: Excel workbook (.xlsx/.xls) with 4 RFQ tabs.",
       },
       { status: 415 },
     );

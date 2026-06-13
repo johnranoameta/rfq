@@ -68,6 +68,10 @@ export type DocEntry = {
   status: DocStatus;
   conf: number | null;
   note: string;
+  /** Filename the user uploaded to this document slot in the current session. */
+  supplied_label?: string | null;
+  /** User finalized this slot — locks the gap response for this RFQ. */
+  finalized?: boolean;
 };
 
 /** Workflow status for a gap row (Gap Analysis tab). */
@@ -161,6 +165,8 @@ export type CaseData = {
   completeness: "complete" | "incomplete" | "missing";
   status_label: string;
   docs: DocEntry[];
+  /** Initial document rows before session uploads (demo gap revert). */
+  docs_baseline?: DocEntry[];
   triggered_rules: string[];
   gap_findings: GapFinding[];
   /** Full gap template for bundled demos; visible gaps are derived from documents when this is set. */

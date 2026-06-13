@@ -33,11 +33,7 @@ export default function Page() {
   }
 
   if (isAuthenticated()) {
-    return (
-      <div className="h-dvh overflow-hidden">
-        <RFQAgentDashboard />
-      </div>
-    );
+    return <RFQAgentDashboard />;
   }
 
   return (

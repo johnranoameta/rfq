@@ -1,6 +1,5 @@
 /* Scoped RFQ Assistant shell (matches procurement mock: navy header, light canvas). */
 .rfq-assistant {
-  height: 100%;
   --ra-navy: #0f2340;
   --ra-accent: #1a6fc4;
   --ra-accent-h: #1460aa;
@@ -44,17 +43,19 @@
 }
 
 .rfq-assistant-app {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
   display: grid;
-  grid-template-rows: var(--ra-header-h) 1fr;
-  height: 100vh;
+  grid-template-rows: var(--ra-header-h) minmax(0, 1fr);
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
+  background: var(--ra-bg);
 }
 
 .rfq-assistant-body {
   display: flex;
-  flex: 1;
   min-height: 0;
   overflow: hidden;
 }
@@ -499,9 +500,10 @@
 
 /* Canvas */
 .ra-canvas {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -655,8 +657,9 @@
 
 /* Analysis workspace: scrollable body + pinned upload footer */
 .ra-analysis-page {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
