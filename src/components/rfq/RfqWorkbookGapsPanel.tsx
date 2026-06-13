@@ -394,6 +394,37 @@ export function RfqWorkbookGapsPanel({
                           </div>
 
                           <div className="flex flex-wrap items-center justify-end gap-2">
+                            <div
+                              className={[
+                                "rounded-lg border px-2 py-1 text-[11px] font-mono",
+                                "leading-none h-8 flex items-center",
+                                sevPill,
+                              ].join(" ")}
+                            >
+                              {f.sev.toUpperCase()}
+                            </div>
+                            <select
+                              className="h-8 rounded-lg border border-border bg-background/25 px-2 text-[11px] font-mono text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background max-w-[140px]"
+                              value={wf}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                const v = e.target.value as GapWorkflowStatus;
+                                onWorkflowChange(f.rule, v);
+                              }}
+                            >
+                              <option value="open">Open</option>
+                              <option value="in_review">In Review</option>
+                              <option value="resolved">Resolved</option>
+                              <option value="accepted_risk">Accepted Risk</option>
+                            </select>
+                            {supplySlotDoc && supplySlotDoc.conf != null && supplySlotDoc.conf < DOC_GAP_CONF_THRESHOLD ? (
+                              <span
+                                className="text-[10px] font-mono text-amber-800 dark:text-amber-200 px-2"
+                              >
+                                Conf {(supplySlotDoc.conf * 100).toFixed(0)}%
+                              </span>
+                            ) : null}
                             {supplySlot && supplyLabel ? (
                               <>
                                 <input
@@ -459,37 +490,6 @@ export function RfqWorkbookGapsPanel({
                                 ) : null}
                               </>
                             ) : null}
-                            {supplySlotDoc && supplySlotDoc.conf != null && supplySlotDoc.conf < DOC_GAP_CONF_THRESHOLD ? (
-                              <span
-                                className="text-[10px] font-mono text-amber-800 dark:text-amber-200 px-2"
-                              >
-                                Conf {(supplySlotDoc.conf * 100).toFixed(0)}%
-                              </span>
-                            ) : null}
-                            <div
-                              className={[
-                                "rounded-lg border px-2 py-1 text-[11px] font-mono",
-                                "leading-none h-8 flex items-center",
-                                sevPill,
-                              ].join(" ")}
-                            >
-                              {f.sev.toUpperCase()}
-                            </div>
-                            <select
-                              className="h-8 rounded-lg border border-border bg-background/25 px-2 text-[11px] font-mono text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background max-w-[140px]"
-                              value={wf}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                const v = e.target.value as GapWorkflowStatus;
-                                onWorkflowChange(f.rule, v);
-                              }}
-                            >
-                              <option value="open">Open</option>
-                              <option value="in_review">In Review</option>
-                              <option value="resolved">Resolved</option>
-                              <option value="accepted_risk">Accepted Risk</option>
-                            </select>
                           </div>
                         </div>
                       </button>

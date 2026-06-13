@@ -77,7 +77,7 @@ function bandLabel(b: ScoreBand): string {
 
 function bandClasses(b: ScoreBand): string {
   if (b === "high") {
-    return "border-emerald-400/40 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700";
+    return "border-border bg-background/30 text-foreground";
   }
   if (b === "medium") {
     return "border-amber-400/40 bg-amber-400/10 dark:text-amber-200 text-amber-800";
@@ -432,7 +432,7 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
             title="Reference score"
           >
             <span className="font-mono text-lg font-semibold leading-none">
-              {score01.toFixed(2)}
+              {Math.round(score01 * 100)}%
             </span>
             <span className="font-mono text-[10px] font-bold leading-none uppercase tracking-wider">
               {bandLabel(band)}
@@ -443,7 +443,7 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
 
       <CardContent className="p-4 space-y-3">
         <div className="grid grid-cols-3 gap-2">
-          <Metric label="Reference Score" value={score01.toFixed(2)} band={band} />
+          <Metric label="Reference Score" value={Math.round(score01 * 100) + "%"} band={band} />
           <Metric label="Coverage" value={pct(coverage)} band={coverageBand(coverage)} />
           <Metric label="Dimensions" value={`${dimsHit.size}/${TOTAL_DIMENSIONS}`} />
         </div>
@@ -452,7 +452,7 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
           className={[
             "rounded-lg border px-3 py-2 text-[12px]",
             band === "high"
-              ? "border-emerald-400/30 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700"
+              ? "border-border bg-background/30 text-foreground"
               : band === "medium"
                 ? "border-amber-400/30 bg-amber-400/10 dark:text-amber-200 text-amber-800"
                 : "border-red-500/30 bg-red-500/10 dark:text-red-200 text-red-700",
@@ -563,7 +563,7 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
                         bandClasses(altBand),
                       ].join(" ")}
                     >
-                      {altScore01.toFixed(2)} · {bandLabel(altBand)}
+                      {Math.round(altScore01 * 100)}% · {bandLabel(altBand)}
                     </span>
                   </div>
                 );
@@ -766,7 +766,7 @@ function CompactTable({ rows }: { rows: ItemRow[] }) {
                     {matchedIds.length > 0 ? matchedIds.join(", ") : "—"}
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {top ? score01.toFixed(2) : "—"}
+                    {top ? Math.round(score01 * 100) + "%" : "—"}
                   </TableCell>
                   <TableCell className="text-right font-mono">{top ? pct(cov) : "—"}</TableCell>
                   <TableCell>
@@ -860,7 +860,7 @@ export function OverviewTopReferenceCard({
             Reference Score
           </div>
           <div className="mt-1 font-mono text-3xl font-semibold leading-none">
-            {score01.toFixed(2)}
+            {Math.round(score01 * 100)}%
           </div>
           <div className="mt-1 text-[10px] font-mono font-bold uppercase tracking-wider">
             {bandLabel(band)}

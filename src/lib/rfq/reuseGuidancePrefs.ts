@@ -14,8 +14,8 @@ export const REUSE_APPLY_SCOPE_OPTIONS: {
 }[] = [
   {
     id: "active_rfq",
-    label: "This RFQ only",
-    short: "This RFQ",
+    label: "Same Vendor only",
+    short: "Same Vendor",
     hint: "Drafts and customer questions use only the active workbook — its matches, gaps, and quote lines.",
   },
   {
