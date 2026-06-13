@@ -63,9 +63,10 @@ import {
   getDefaultDemoSession,
   isPreloadedDemoUpload,
 } from "@/data/sampleRfqPipeline";
-import { isWorkspaceModuleEnabled } from "@/lib/rfq/workspaceModules";
+import { isAnalysisSubModuleEnabled, isWorkspaceModuleEnabled } from "@/lib/rfq/workspaceModules";
 
 const showPortfolio = isWorkspaceModuleEnabled("portfolio");
+const showQuoteHistory = isAnalysisSubModuleEnabled("quoteHistory");
 type WorkspaceMode = "kb" | "inquiry" | "analysis" | "library" | "portfolio";
 type KbSubMode = "browse" | "training";
 type NewWorkspaceTab = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "documents" | "quote";
@@ -526,7 +527,9 @@ export default function RFQAgentDashboard() {
     const prefs = loadWorkspacePrefs();
     if (prefs) {
       setWorkspaceMode(prefs.workspaceMode);
-      setAnalysisSubMode(prefs.analysisSubMode);
+      const subMode =
+        prefs.analysisSubMode === "quote" && !showQuoteHistory ? "summary" : prefs.analysisSubMode;
+      setAnalysisSubMode(subMode);
       if (prefs.analysisSelection) setAnalysisSelection(prefs.analysisSelection);
     } else if (!uploadedRfqs.some((u) => !isPreloadedDemoUpload(u))) {
       setWorkspaceMode("analysis");
@@ -545,6 +548,11 @@ export default function RFQAgentDashboard() {
     if (!sidebarHydrated || !initialHydrationDoneRef.current) return;
     saveWorkspacePrefs({ workspaceMode, analysisSubMode, analysisSelection });
   }, [workspaceMode, analysisSubMode, analysisSelection, sidebarHydrated]);
+
+  useEffect(() => {
+    if (showQuoteHistory || analysisSubMode !== "quote") return;
+    setAnalysisSubMode("summary");
+  }, [analysisSubMode]);
 
   const c = session?.caseData ?? null;
 
@@ -1285,16 +1293,18 @@ export default function RFQAgentDashboard() {
                 >
                   <span className="ra-nav-text">Reuse guidance</span>
                 </button>
-                <button
-                  type="button"
-                  className={["ra-nav-subitem", analysisSubMode === "quote" ? "active" : ""].join(" ")}
-                  onClick={() => {
-                    setWorkspaceMode("analysis");
-                    setAnalysisSubMode("quote");
-                  }}
-                >
-                  <span className="ra-nav-text">Quote &amp; history</span>
-                </button>
+                {showQuoteHistory ? (
+                  <button
+                    type="button"
+                    className={["ra-nav-subitem", analysisSubMode === "quote" ? "active" : ""].join(" ")}
+                    onClick={() => {
+                      setWorkspaceMode("analysis");
+                      setAnalysisSubMode("quote");
+                    }}
+                  >
+                    <span className="ra-nav-text">Quote &amp; history</span>
+                  </button>
+                ) : null}
               </div>
             ) : null}
             <button

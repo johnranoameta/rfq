@@ -18,6 +18,9 @@ import {
   type AnalysisRfqWordOption,
   type AnalysisRfqWorkbookOption,
 } from "@/components/rfq/RfqAnalysisRfqSwitcher";
+import { isAnalysisSubModuleEnabled } from "@/lib/rfq/workspaceModules";
+
+const showQuoteHistory = isAnalysisSubModuleEnabled("quoteHistory");
 
 export type AnalysisSubMode = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "quote";
 
@@ -174,7 +177,7 @@ export function RfqAnalysisShell({
         </AnalysisPageLayout>
       );
     }
-    if (subMode === "coverage" || subMode === "reuse" || subMode === "quote") {
+    if (subMode === "coverage" || subMode === "reuse" || (showQuoteHistory && subMode === "quote")) {
       return (
         <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
           {switcher}
@@ -182,7 +185,7 @@ export function RfqAnalysisShell({
             {subMode === "coverage"
               ? "Coverage matrix applies to multi-line workbook analyses."
               : subMode === "reuse"
-                ? "Reuse guidance and quote history apply to analyzed workbooks."
+                ? "Reuse guidance applies to analyzed workbooks."
                 : "Quote & history applies to analyzed workbooks."}{" "}
             For Word packages, use <strong className="text-[var(--ra-text)]">Matching</strong> to compare against other
             Word uploads.
@@ -297,13 +300,13 @@ export function RfqAnalysisShell({
         <RfqWorkbookReusePanel
           caseData={caseData}
           onOpenMatches={() => onNavigateSubMode?.("matching")}
-          onOpenQuote={() => onNavigateSubMode?.("quote")}
+          onOpenQuote={showQuoteHistory ? () => onNavigateSubMode?.("quote") : undefined}
         />
       </AnalysisPageLayout>
     );
   }
 
-  if (subMode === "quote") {
+  if (showQuoteHistory && subMode === "quote") {
     return (
       <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
         {switcher}

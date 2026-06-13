@@ -10,6 +10,9 @@ import {
   saveReuseGuidancePrefs,
   type ReuseApplyScope,
 } from "@/lib/rfq/reuseGuidancePrefs";
+import { isAnalysisSubModuleEnabled } from "@/lib/rfq/workspaceModules";
+
+const showQuoteHistory = isAnalysisSubModuleEnabled("quoteHistory");
 
 function isGapWorkflowClosed(w: GapWorkflowStatus | undefined): boolean {
   return w === "resolved" || w === "accepted_risk";
@@ -91,8 +94,16 @@ export function RfqWorkbookReusePanel({
             </li>
             <li>
               Use <strong className="text-[var(--ra-text)]">Generate Draft Response</strong> or{" "}
-              <strong className="text-[var(--ra-text)]">Generate Customer Questions</strong>, then open{" "}
-              <strong className="text-[var(--ra-text)]">Quote &amp; history</strong> to validate cost bands.
+              <strong className="text-[var(--ra-text)]">Generate Customer Questions</strong>
+              {showQuoteHistory ? (
+                <>
+                  , then open <strong className="text-[var(--ra-text)]">Quote &amp; history</strong> to validate cost
+                  bands
+                </>
+              ) : (
+                <> to prepare your buyer reply</>
+              )}
+              .
             </li>
           </ol>
           <p className="text-[11px]">
@@ -103,11 +114,16 @@ export function RfqWorkbookReusePanel({
               onClick={() => onOpenMatches?.()}
             >
               Matching
-            </button>{" "}
-            or{" "}
-            <button type="button" className="text-accent hover:underline font-medium" onClick={() => onOpenQuote?.()}>
-              Quote &amp; history
             </button>
+            {showQuoteHistory && onOpenQuote ? (
+              <>
+                {" "}
+                or{" "}
+                <button type="button" className="text-accent hover:underline font-medium" onClick={() => onOpenQuote()}>
+                  Quote &amp; history
+                </button>
+              </>
+            ) : null}
             .
           </p>
         </div>
@@ -181,9 +197,11 @@ export function RfqWorkbookReusePanel({
             >
               Generate Customer Questions
             </button>
-            <button type="button" className="ra-btn" onClick={() => onOpenQuote?.()}>
-              View Cost Breakdown
-            </button>
+            {showQuoteHistory && onOpenQuote ? (
+              <button type="button" className="ra-btn" onClick={() => onOpenQuote()}>
+                View Cost Breakdown
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="ra-mini">
