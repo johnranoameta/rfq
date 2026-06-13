@@ -417,62 +417,51 @@ export function RfqWorkbookGapsPanel({
                         </div>
                       </div>
 
-                      <div className="p-4 grid gap-4 items-start" style={{ gridTemplateColumns: "120px 1fr" }}>
+                      <div className="p-4 space-y-2">
 
-                        {/* LEFT: slot + attached file info */}
-                        <div className="flex flex-col gap-2 border-r border-border/50 pr-4">
-                          {f.doc_slot ? (
-                            <div className="font-mono text-[9px] text-muted-foreground/60 truncate" title={f.doc_slot}>
-                              {f.doc_slot}
-                            </div>
-                          ) : null}
-                          {supplySlotDoc?.supplied_label ? (
-                            <div className="rounded-lg border border-border/70 bg-background/20 px-2 py-1.5 text-[10px] font-mono text-muted-foreground">
-                              <span className="text-foreground font-semibold">{supplySlotDoc.supplied_label}</span>
-                              {supplySlotDoc.finalized ? (
-                                <div className="text-violet-600 dark:text-violet-300">Finalized</div>
-                              ) : (
-                                <div className="text-amber-700 dark:text-amber-300">Not finalized</div>
-                              )}
-                            </div>
-                          ) : null}
-                          {sessionUpload ? (
-                            <div className="flex flex-col gap-1">
-                              {!supplySlotDoc?.finalized ? (
-                                <Button
-                                  type="button"
-                                  variant="default"
-                                  size="sm"
-                                  className="h-7 text-[11px] w-full"
-                                  disabled={supplyDocBusySlot !== null}
-                                  onClick={() => onFinalizeGapDoc(supplySlot!, f.rule)}
-                                >
-                                  Finalize
-                                </Button>
-                              ) : null}
+                        {/* Title row + file details + response button */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="font-semibold text-[13px] min-w-0" title={f.title}>{f.title}</div>
+                          {/* right side: uploaded file info + action buttons */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {supplySlotDoc?.supplied_label ? (
+                              <div className="flex items-center gap-1.5 rounded-lg border border-border/70 bg-background/20 px-2 py-1 text-[10px] font-mono text-muted-foreground">
+                                <span className="text-foreground font-semibold truncate max-w-[120px]" title={supplySlotDoc.supplied_label}>
+                                  {supplySlotDoc.supplied_label}
+                                </span>
+                                {supplySlotDoc.conf != null && supplySlotDoc.conf < DOC_GAP_CONF_THRESHOLD ? (
+                                  <span className="text-amber-700 dark:text-amber-300">{(supplySlotDoc.conf * 100).toFixed(0)}%</span>
+                                ) : supplySlotDoc.finalized ? (
+                                  <span className="text-violet-600 dark:text-violet-300">Finalized</span>
+                                ) : (
+                                  <span className="text-amber-700 dark:text-amber-300">Not finalized</span>
+                                )}
+                              </div>
+                            ) : null}
+                            {sessionUpload && !supplySlotDoc?.finalized ? (
+                              <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                className="h-7 text-[11px]"
+                                disabled={supplyDocBusySlot !== null}
+                                onClick={() => onFinalizeGapDoc(supplySlot!, f.rule)}
+                              >
+                                Finalize
+                              </Button>
+                            ) : null}
+                            {sessionUpload ? (
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 text-[11px] w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                                className="h-7 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
                                 disabled={supplyDocBusySlot !== null}
                                 onClick={() => onRemoveSuppliedDoc(supplySlot!, f.rule)}
                               >
                                 Remove
                               </Button>
-                            </div>
-                          ) : null}
-                          {supplySlotDoc && supplySlotDoc.conf != null && supplySlotDoc.conf < DOC_GAP_CONF_THRESHOLD ? (
-                            <span className="text-[10px] font-mono text-amber-800 dark:text-amber-200">
-                              Conf {(supplySlotDoc.conf * 100).toFixed(0)}%
-                            </span>
-                          ) : null}
-                        </div>
-
-                        {/* RIGHT: Title + response + doc status + detail + evidence + action */}
-                        <div className="min-w-0 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="font-semibold text-[13px] min-w-0" title={f.title}>{f.title}</div>
+                            ) : null}
                             {supplySlot && supplyLabel ? (
                               <>
                                 <input
@@ -491,7 +480,7 @@ export function RfqWorkbookGapsPanel({
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  className="h-7 text-[11px] shrink-0"
+                                  className="h-7 text-[11px]"
                                   disabled={supplyDocBusySlot !== null}
                                   onClick={() => {
                                     const el = document.getElementById(
@@ -505,6 +494,7 @@ export function RfqWorkbookGapsPanel({
                               </>
                             ) : null}
                           </div>
+                        </div>
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-mono bg-background/20 dark:bg-background/15 border-border/70 text-muted-foreground">
                               {f.impact}
@@ -551,7 +541,6 @@ export function RfqWorkbookGapsPanel({
                               </div>
                             </div>
                           ) : null}
-                        </div>
                       </div>
                     </div>
                   );
