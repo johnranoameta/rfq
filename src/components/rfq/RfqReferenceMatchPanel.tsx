@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { CaseData, ItemHistoricalComparison } from "@/data/rfqTypes";
+import { clampDisplayScore, computeGapAdjustment } from "@/lib/rfq/gapScoreAdjustment";
 
 type ItemRow = NonNullable<CaseData["item_historical_comparison"]>[number];
 type MatchRow = ItemRow["matches"][number];
@@ -185,6 +186,12 @@ export function RfqReferenceMatchPanel({ caseData }: RfqReferenceMatchPanelProps
   const [search, setSearch] = useState("");
   const [bandFilter, setBandFilter] = useState<"all" | ScoreBand | "none">("all");
 
+  const gapAdjustment = useMemo(
+    () => computeGapAdjustment(caseData),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [caseData.gap_findings, caseData.gap_workflow],
+  );
+
   const summary = useMemo(() => summarizeReferenceMatches(rows), [rows]);
 
   const filtered = useMemo(() => {
@@ -352,17 +359,25 @@ export function RfqReferenceMatchPanel({ caseData }: RfqReferenceMatchPanelProps
       ) : viewMode === "cards" ? (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {filtered.map((row) => (
-            <ReferenceItemCard key={row.item_index} row={row} caseData={caseData} />
+            <ReferenceItemCard key={row.item_index} row={row} caseData={caseData} gapAdjustment={gapAdjustment} />
           ))}
         </div>
       ) : (
-        <CompactTable rows={filtered} />
+        <CompactTable rows={filtered} adjustment={gapAdjustment} />
       )}
     </div>
   );
 }
 
-function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData }) {
+function ReferenceItemCard({
+  row,
+  caseData,
+  gapAdjustment,
+}: {
+  row: ItemRow;
+  caseData: CaseData;
+  gapAdjustment: number;
+}) {
   const top = row.matches[0];
   const alts = row.matches.slice(1, 4);
 
@@ -391,7 +406,10 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
   }
 
   const score01 = top.similarity_0_1 ?? top.score / 100;
-  const band = referenceScoreBand(score01);
+  const rawScorePct = Math.round(score01 * 100);
+  const adjustedScorePct = clampDisplayScore(rawScorePct + gapAdjustment);
+  const adjustedScore01 = adjustedScorePct / 100;
+  const adjustedBand = referenceScoreBand(adjustedScore01);
   const dimsHit = dimensionsCovered(top.reasons);
   const coverage = dimsHit.size / TOTAL_DIMENSIONS;
 
@@ -399,9 +417,9 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
     <Card
       className={[
         "border bg-card/45 overflow-hidden",
-        band === "high"
+        adjustedBand === "high"
           ? "border-emerald-400/40 ring-1 ring-emerald-400/20"
-          : band === "medium"
+          : adjustedBand === "medium"
             ? "border-amber-400/40"
             : "border-red-500/40",
       ].join(" ")}
@@ -427,15 +445,19 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
           <div
             className={[
               "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5",
-              bandClasses(band),
+              bandClasses(adjustedBand),
             ].join(" ")}
-            title="Reference score"
+            title={
+              gapAdjustment > 0
+                ? `Raw score: ${rawScorePct}% · +${gapAdjustment} from gap responses`
+                : "Reference score"
+            }
           >
             <span className="font-mono text-lg font-semibold leading-none">
-              {Math.round(score01 * 100)}%
+              {adjustedScorePct}%
             </span>
             <span className="font-mono text-[10px] font-bold leading-none uppercase tracking-wider">
-              {bandLabel(band)}
+              {bandLabel(adjustedBand)}
             </span>
           </div>
         </div>
@@ -443,7 +465,7 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
 
       <CardContent className="p-4 space-y-3">
         <div className="grid grid-cols-3 gap-2">
-          <Metric label="Reference Score" value={Math.round(score01 * 100) + "%"} band={band} />
+          <Metric label="Reference Score" value={adjustedScorePct + "%"} band={adjustedBand} />
           <Metric label="Coverage" value={pct(coverage)} band={coverageBand(coverage)} />
           <Metric label="Dimensions" value={`${dimsHit.size}/${TOTAL_DIMENSIONS}`} />
         </div>
@@ -451,9 +473,9 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
         <div
           className={[
             "rounded-lg border px-3 py-2 text-[12px]",
-            band === "high"
+            adjustedBand === "high"
               ? "border-border bg-background/30 text-foreground"
-              : band === "medium"
+              : adjustedBand === "medium"
                 ? "border-amber-400/30 bg-amber-400/10 dark:text-amber-200 text-amber-800"
                 : "border-red-500/30 bg-red-500/10 dark:text-red-200 text-red-700",
           ].join(" ")}
@@ -461,8 +483,14 @@ function ReferenceItemCard({ row, caseData }: { row: ItemRow; caseData: CaseData
           <div className="text-[10px] font-mono font-semibold uppercase tracking-[0.12em] mb-0.5 opacity-80">
             Recommendation
           </div>
-          <div>{reuseRecommendation(band, !!top.exact_part_number)}</div>
+          <div>{reuseRecommendation(adjustedBand, !!top.exact_part_number)}</div>
         </div>
+
+        {gapAdjustment > 0 ? (
+          <div className="text-[11px] font-mono text-muted-foreground">
+            +{gapAdjustment} pts from gap responses · Base: {rawScorePct}%
+          </div>
+        ) : null}
 
         <div className="rounded-lg border border-border bg-background/25 p-3">
           <div className="flex items-center justify-between gap-2">
@@ -722,7 +750,7 @@ function SummaryTile({
   );
 }
 
-function CompactTable({ rows }: { rows: ItemRow[] }) {
+function CompactTable({ rows, adjustment }: { rows: ItemRow[]; adjustment: number }) {
   return (
     <Card className="bg-card/50 border-border overflow-visible">
       <CardContent className="p-0 overflow-x-auto">
@@ -745,7 +773,9 @@ function CompactTable({ rows }: { rows: ItemRow[] }) {
               const top = row.matches[0];
               const matchedIds = row.matches.slice(0, 3).map((m) => displayRfqIdLocal(m.project_id));
               const score01 = top ? (top.similarity_0_1 ?? top.score / 100) : 0;
-              const band = top ? referenceScoreBand(score01) : null;
+              const rawPct = top ? Math.round(score01 * 100) : 0;
+              const adjustedPct = top ? clampDisplayScore(rawPct + adjustment) : 0;
+              const adjustedBand = top ? referenceScoreBand(adjustedPct / 100) : null;
               const cov = top ? matchCoverage01(top.reasons) : 0;
               return (
                 <TableRow key={`${row.item_index}-${row.item_label}`}>
@@ -765,17 +795,20 @@ function CompactTable({ rows }: { rows: ItemRow[] }) {
                   >
                     {matchedIds.length > 0 ? matchedIds.join(", ") : "—"}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {top ? Math.round(score01 * 100) + "%" : "—"}
+                  <TableCell
+                    className="text-right font-mono"
+                    title={top && adjustment > 0 ? `Raw score: ${rawPct}% · +${adjustment} from gap responses` : undefined}
+                  >
+                    {top ? adjustedPct + "%" : "—"}
                   </TableCell>
                   <TableCell className="text-right font-mono">{top ? pct(cov) : "—"}</TableCell>
                   <TableCell>
-                    {band ? (
+                    {adjustedBand ? (
                       <Badge
                         variant="outline"
-                        className={["border font-mono text-[10px] uppercase", bandClasses(band)].join(" ")}
+                        className={["border font-mono text-[10px] uppercase", bandClasses(adjustedBand)].join(" ")}
                       >
-                        {bandLabel(band)}
+                        {bandLabel(adjustedBand)}
                       </Badge>
                     ) : (
                       "—"
@@ -812,6 +845,11 @@ export function OverviewTopReferenceCard({
   );
   const top = useMemo(() => selectTopOverallMatch(rows), [rows]);
   const summary = useMemo(() => summarizeReferenceMatches(rows), [rows]);
+  const adjustment = useMemo(
+    () => computeGapAdjustment(caseData),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [caseData.gap_findings, caseData.gap_workflow],
+  );
 
   if (!top) {
     if (rows.length === 0) return null;
@@ -835,16 +873,18 @@ export function OverviewTopReferenceCard({
   }
 
   const score01 = top.match.similarity_0_1 ?? top.match.score / 100;
-  const band = referenceScoreBand(score01);
+  const rawScorePct = Math.round(score01 * 100);
+  const adjustedScorePct = clampDisplayScore(rawScorePct + adjustment);
+  const adjustedBand = referenceScoreBand(adjustedScorePct / 100);
   const coverage = matchCoverage01(top.match.reasons);
 
   return (
     <Card
       className={[
         "border bg-card/45 overflow-hidden",
-        band === "high"
+        adjustedBand === "high"
           ? "border-emerald-400/40"
-          : band === "medium"
+          : adjustedBand === "medium"
             ? "border-amber-400/40"
             : "border-red-500/40",
       ].join(" ")}
@@ -853,18 +893,23 @@ export function OverviewTopReferenceCard({
         <div
           className={[
             "shrink-0 w-[140px] rounded-xl border px-3 py-3 text-center",
-            bandClasses(band),
+            bandClasses(adjustedBand),
           ].join(" ")}
         >
           <div className="text-[9px] font-mono font-semibold uppercase tracking-[0.12em] opacity-80">
             Reference Score
           </div>
           <div className="mt-1 font-mono text-3xl font-semibold leading-none">
-            {Math.round(score01 * 100)}%
+            {adjustedScorePct}%
           </div>
           <div className="mt-1 text-[10px] font-mono font-bold uppercase tracking-wider">
-            {bandLabel(band)}
+            {bandLabel(adjustedBand)}
           </div>
+          {adjustment > 0 ? (
+            <div className="mt-1 text-[9px] font-mono opacity-70">
+              Base {rawScorePct}% +{adjustment}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex-1 min-w-[240px] space-y-1">
@@ -877,7 +922,7 @@ export function OverviewTopReferenceCard({
             {top.match.record.rfq.part_name}
           </div>
           <div className="text-[12px] text-muted-foreground">
-            {reuseRecommendation(band, !!top.match.exact_part_number)}
+            {reuseRecommendation(adjustedBand, !!top.match.exact_part_number)}
           </div>
           <div className="mt-1 flex flex-wrap gap-3 text-[11px] font-mono text-muted-foreground">
             <span>Coverage {pct(coverage)}</span>
