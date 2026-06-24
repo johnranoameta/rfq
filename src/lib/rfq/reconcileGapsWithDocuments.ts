@@ -148,3 +148,51 @@ export function gapFindingUploadSlot(c: CaseData, f: GapFinding): string | null 
   }
   return null;
 }
+
+/**
+ * Legacy (non-catalog) supply-slot resolution for hard-coded demo rules.
+ * Shared by the Gap Analysis panel and {@link gapFinalizeSupplySlot}.
+ */
+export function gapRuleSupplySlotLegacy(c: CaseData, rule: string): string | null {
+  if (rule === "RULE_001") {
+    const d = c.docs.find((x) => x.type === "pkg" && x.status === "miss");
+    return d?.name ?? null;
+  }
+  if (rule === "RULE_002") {
+    const d = c.docs.find((x) => x.type === "test" && (x.status === "miss" || x.status === "pend") && x.name.includes("DV_PV"));
+    return d?.name ?? null;
+  }
+  if (rule === "RULE_028") {
+    const d = c.docs.find(
+      (x) =>
+        x.name === "NB-QA-118_Customer_Spec.pdf" ||
+        (x.name.includes("NB-QA-118") && x.name.includes("Customer")),
+    );
+    if (d && (d.status === "miss" || d.status === "pend" || d.supplied_label)) return d.name;
+    return d?.name ?? "NB-QA-118_Customer_Spec.pdf";
+  }
+  if (rule === "RULE_029") {
+    const d = c.docs.find((x) => x.type === "comm" && x.status === "ok");
+    return d?.name ?? null;
+  }
+  return null;
+}
+
+/**
+ * The document slot a gap's Finalize action targets — catalog upload slot first,
+ * then the legacy demo-rule fallback.
+ */
+export function gapFinalizeSupplySlot(c: CaseData, f: GapFinding): string | null {
+  return gapFindingUploadSlot(c, f) ?? gapRuleSupplySlotLegacy(c, f.rule);
+}
+
+/**
+ * True when the gap's Finalize supply-slot document has been finalized.
+ * This is the signal that hides the card from the default Gap Analysis views.
+ */
+export function isGapFinalized(c: CaseData, f: GapFinding): boolean {
+  const slot = gapFinalizeSupplySlot(c, f);
+  if (!slot) return false;
+  const doc = c.docs.find((d) => d.name === slot);
+  return Boolean(doc?.finalized);
+}
