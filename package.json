@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "next start",
     "start:pm2": "pm2 start ecosystem.config.cjs --env production",
     "pm2:reload": "pm2 reload ecosystem.config.cjs --env production",
@@ -38,7 +40,6 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "pm2": "^6.0.14",
     "@tailwindcss/postcss": "^4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
@@ -47,7 +48,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
     "pdf-lib": "^1.17.1",
+    "pm2": "^6.0.14",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   }
 }
