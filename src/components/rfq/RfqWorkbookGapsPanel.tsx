@@ -166,6 +166,10 @@ export function RfqWorkbookGapsPanel({
   const hiddenGapCount = hiddenFindings.length;
   // Department count badges follow the active mode: finalized set under "Hidden", otherwise the visible set.
   const deptCountBase = gapFilter === "hidden" ? hiddenFindings : visibleFindings;
+  // If the selected department has no cards in the active mode, fall back to "all" so the user
+  // is never stranded in an empty grid with no visible pill to clear (e.g. after switching to Hidden).
+  const effectiveDeptFilter =
+    deptFilter === "all" || deptCountBase.some((f) => f.cat === deptFilter) ? deptFilter : "all";
   const activeKbLabel = caseData.kb_category_label?.trim() || null;
 
   const riskCls =
@@ -304,7 +308,7 @@ export function RfqWorkbookGapsPanel({
                       onClick={() => setDeptFilter(cat)}
                       className={[
                         "h-9 px-3 rounded-xl border font-mono text-[11px] transition",
-                        deptFilter === cat
+                        effectiveDeptFilter === cat
                           ? "border-accent/60 bg-card ring-1 ring-accent/30"
                           : "border-border bg-background/20 hover:bg-background/30",
                       ].join(" ")}
@@ -317,10 +321,10 @@ export function RfqWorkbookGapsPanel({
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              {gapFindingsFiltered.filter((f) => deptFilter === "all" || f.cat === deptFilter).length === 0 ? (
+              {gapFindingsFiltered.filter((f) => effectiveDeptFilter === "all" || f.cat === effectiveDeptFilter).length === 0 ? (
                 <div className="text-muted-foreground text-[12px]">No findings match this filter.</div>
               ) : (
-                gapFindingsFiltered.filter((f) => deptFilter === "all" || f.cat === deptFilter).map((f) => {
+                gapFindingsFiltered.filter((f) => effectiveDeptFilter === "all" || f.cat === effectiveDeptFilter).map((f) => {
                   const wf = caseData.gap_workflow?.[f.rule] ?? "open";
                   const docStatus = gapDocumentStatus(f, caseData.docs);
                   const linkedDoc = f.doc_slot ? caseData.docs.find((d) => d.name === f.doc_slot) : undefined;
