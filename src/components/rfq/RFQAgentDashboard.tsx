@@ -108,27 +108,6 @@ function isGapWorkflowClosed(w: GapWorkflowStatus | undefined): boolean {
   return w === "resolved" || w === "accepted_risk";
 }
 
-/** Fallback package slot when a gap has no doc_slot (e.g. DB-backed sessions). */
-function gapRuleSupplySlotLegacy(c: CaseData, rule: string): string | null {
-  if (rule === "RULE_001") {
-    const d = c.docs.find((x) => x.type === "pkg" && x.status === "miss");
-    return d?.name ?? null;
-  }
-  if (rule === "RULE_002") {
-    const d = c.docs.find((x) => x.type === "test" && x.status === "miss" && x.name.includes("DV_PV"));
-    return d?.name ?? null;
-  }
-  if (rule === "RULE_028") {
-    const d = c.docs.find((x) => x.name === "NB-QA-118_Customer_Spec.pdf");
-    return d?.name ?? null;
-  }
-  if (rule === "RULE_029") {
-    const d = c.docs.find((x) => x.type === "comm" && x.status === "ok");
-    return d?.name ?? null;
-  }
-  return null;
-}
-
 const DOC_TYPE_LABEL: Record<DocType, string> = {
   rfq: "RFQ Main",
   cost: "Cost Template",

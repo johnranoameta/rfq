@@ -161,7 +161,11 @@ export function RfqWorkbookGapsPanel({
   const supplyInputBaseId = useId();
   const [deptFilter, setDeptFilter] = useState<string>("all");
   const openGapCount = caseData.gap_findings.filter((f) => isGapOpenInCase(caseData, f)).length;
-  const hiddenGapCount = caseData.gap_findings.filter((f) => isGapFinalized(caseData, f)).length;
+  const hiddenFindings = caseData.gap_findings.filter((f) => isGapFinalized(caseData, f));
+  const visibleFindings = caseData.gap_findings.filter((f) => !isGapFinalized(caseData, f));
+  const hiddenGapCount = hiddenFindings.length;
+  // Department count badges follow the active mode: finalized set under "Hidden", otherwise the visible set.
+  const deptCountBase = gapFilter === "hidden" ? hiddenFindings : visibleFindings;
   const activeKbLabel = caseData.kb_category_label?.trim() || null;
 
   const riskCls =
@@ -203,7 +207,7 @@ export function RfqWorkbookGapsPanel({
                   {caseData.risk_score < 35 ? " · Good" : caseData.risk_score < 55 ? " · Improving" : " · Review"}
                 </div>
                 <div className="text-[12px] text-muted-foreground font-mono">
-                  {openGapCount} open · {caseData.gap_findings.length} total
+                  {openGapCount} open · {visibleFindings.length} total
                 </div>
                 <Button
                   type="button"
@@ -290,8 +294,8 @@ export function RfqWorkbookGapsPanel({
               <div className="flex gap-2 flex-wrap">
                 {(["all", "commercial", "technical", "completeness", "quality", "logistics", "quote"] as const).map((cat) => {
                   const count = cat === "all"
-                    ? caseData.gap_findings.length
-                    : caseData.gap_findings.filter((f) => f.cat === cat).length;
+                    ? deptCountBase.length
+                    : deptCountBase.filter((f) => f.cat === cat).length;
                   if (cat !== "all" && count === 0) return null;
                   return (
                     <button
