@@ -93,7 +93,7 @@ type CatalogPayload = {
 };
 type GapFilterKey =
   | "all"
-  | "hidden"
+  | "finalized"
   | "sev-critical"
   | "sev-high"
   | "sev-medium"
@@ -831,8 +831,8 @@ export default function RFQAgentDashboard() {
   const gapFindingsFiltered = useMemo(() => {
     if (!c) return [];
     const findings = c.gap_findings;
-    // Finalized gaps are hidden from every view except the dedicated "Hidden" filter.
-    if (gapFilter === "hidden") return findings.filter((f) => isGapFinalized(c, f));
+    // Finalized gaps are hidden from every view except the dedicated "Finalized" filter.
+    if (gapFilter === "finalized") return findings.filter((f) => isGapFinalized(c, f));
     const visible = findings.filter((f) => !isGapFinalized(c, f));
     if (gapFilter === "all") return visible;
     if (gapFilter.startsWith("sev-")) {

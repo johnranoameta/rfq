@@ -15,7 +15,7 @@ import { gapSlotHasSessionUpload } from "@/lib/rfq/applySuppliedPackageDoc";
 
 type GapFilterKey =
   | "all"
-  | "hidden"
+  | "finalized"
   | "sev-critical"
   | "sev-high"
   | "sev-medium"
@@ -161,13 +161,13 @@ export function RfqWorkbookGapsPanel({
   const supplyInputBaseId = useId();
   const [deptFilter, setDeptFilter] = useState<string>("all");
   const openGapCount = caseData.gap_findings.filter((f) => isGapOpenInCase(caseData, f)).length;
-  const hiddenFindings = caseData.gap_findings.filter((f) => isGapFinalized(caseData, f));
+  const finalizedFindings = caseData.gap_findings.filter((f) => isGapFinalized(caseData, f));
   const visibleFindings = caseData.gap_findings.filter((f) => !isGapFinalized(caseData, f));
-  const hiddenGapCount = hiddenFindings.length;
-  // Department count badges follow the active mode: finalized set under "Hidden", otherwise the visible set.
-  const deptCountBase = gapFilter === "hidden" ? hiddenFindings : visibleFindings;
+  const finalizedGapCount = finalizedFindings.length;
+  // Department count badges follow the active mode: finalized set under "Finalized", otherwise the visible set.
+  const deptCountBase = gapFilter === "finalized" ? finalizedFindings : visibleFindings;
   // If the selected department has no cards in the active mode, fall back to "all" so the user
-  // is never stranded in an empty grid with no visible pill to clear (e.g. after switching to Hidden).
+  // is never stranded in an empty grid with no visible pill to clear (e.g. after switching to Finalized).
   const effectiveDeptFilter =
     deptFilter === "all" || deptCountBase.some((f) => f.cat === deptFilter) ? deptFilter : "all";
   const activeKbLabel = caseData.kb_category_label?.trim() || null;
@@ -274,20 +274,20 @@ export function RfqWorkbookGapsPanel({
                       : "border-border bg-background/20 hover:bg-background/30",
                   ].join(" ")}
                 >
-                  All ({caseData.gap_findings.length - hiddenGapCount})
+                  All ({caseData.gap_findings.length - finalizedGapCount})
                 </button>
-                {hiddenGapCount > 0 ? (
+                {finalizedGapCount > 0 ? (
                   <button
                     type="button"
-                    onClick={() => setGapFilter("hidden")}
+                    onClick={() => setGapFilter("finalized")}
                     className={[
                       "h-9 px-3 rounded-xl border font-mono text-[11px] transition",
-                      gapFilter === "hidden"
+                      gapFilter === "finalized"
                         ? "border-accent/60 bg-card ring-1 ring-accent/30"
                         : "border-border bg-background/20 hover:bg-background/30",
                     ].join(" ")}
                   >
-                    Hidden ({hiddenGapCount})
+                    Finalized ({finalizedGapCount})
                   </button>
                 ) : null}
               </div>
