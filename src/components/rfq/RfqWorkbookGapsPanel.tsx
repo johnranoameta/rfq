@@ -7,13 +7,15 @@ import type { CaseData, DocEntry, GapFinding, GapWorkflowStatus } from "@/data/r
 import {
   DOC_GAP_CONF_THRESHOLD,
   gapDocumentStatus,
-  gapFindingUploadSlot,
+  gapFinalizeSupplySlot,
+  isGapFinalized,
   isGapOpenInCase,
 } from "@/lib/rfq/reconcileGapsWithDocuments";
 import { gapSlotHasSessionUpload } from "@/lib/rfq/applySuppliedPackageDoc";
 
 type GapFilterKey =
   | "all"
+  | "hidden"
   | "sev-critical"
   | "sev-high"
   | "sev-medium"
@@ -55,31 +57,6 @@ function documentStatusPillCls(status: ReturnType<typeof gapDocumentStatus>): st
     return "border-orange-500/35 bg-orange-500/10 dark:text-orange-200 text-orange-700";
   }
   return "border-border bg-background/20 text-muted-foreground";
-}
-
-function gapRuleSupplySlotLegacy(c: CaseData, rule: string): string | null {
-  if (rule === "RULE_001") {
-    const d = c.docs.find((x) => x.type === "pkg" && x.status === "miss");
-    return d?.name ?? null;
-  }
-  if (rule === "RULE_002") {
-    const d = c.docs.find((x) => x.type === "test" && (x.status === "miss" || x.status === "pend") && x.name.includes("DV_PV"));
-    return d?.name ?? null;
-  }
-  if (rule === "RULE_028") {
-    const d = c.docs.find(
-      (x) =>
-        x.name === "NB-QA-118_Customer_Spec.pdf" ||
-        (x.name.includes("NB-QA-118") && x.name.includes("Customer")),
-    );
-    if (d && (d.status === "miss" || d.status === "pend" || d.supplied_label)) return d.name;
-    return d?.name ?? "NB-QA-118_Customer_Spec.pdf";
-  }
-  if (rule === "RULE_029") {
-    const d = c.docs.find((x) => x.type === "comm" && x.status === "ok");
-    return d?.name ?? null;
-  }
-  return null;
 }
 
 function supplyAcceptForDoc(doc: DocEntry | undefined): string {
@@ -184,6 +161,7 @@ export function RfqWorkbookGapsPanel({
   const supplyInputBaseId = useId();
   const [deptFilter, setDeptFilter] = useState<string>("all");
   const openGapCount = caseData.gap_findings.filter((f) => isGapOpenInCase(caseData, f)).length;
+  const hiddenGapCount = caseData.gap_findings.filter((f) => isGapFinalized(caseData, f)).length;
   const activeKbLabel = caseData.kb_category_label?.trim() || null;
 
   const riskCls =
@@ -288,8 +266,22 @@ export function RfqWorkbookGapsPanel({
                       : "border-border bg-background/20 hover:bg-background/30",
                   ].join(" ")}
                 >
-                  All ({caseData.gap_findings.length})
+                  All ({caseData.gap_findings.length - hiddenGapCount})
                 </button>
+                {hiddenGapCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setGapFilter("hidden")}
+                    className={[
+                      "h-9 px-3 rounded-xl border font-mono text-[11px] transition",
+                      gapFilter === "hidden"
+                        ? "border-accent/60 bg-card ring-1 ring-accent/30"
+                        : "border-border bg-background/20 hover:bg-background/30",
+                    ].join(" ")}
+                  >
+                    Hidden ({hiddenGapCount})
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -330,8 +322,7 @@ export function RfqWorkbookGapsPanel({
                   const linkedDoc = f.doc_slot ? caseData.docs.find((d) => d.name === f.doc_slot) : undefined;
                   const gapOpen = isGapOpenInCase(caseData, f);
                   const closed = !gapOpen;
-                  const supplySlot =
-                    gapFindingUploadSlot(caseData, f) ?? gapRuleSupplySlotLegacy(caseData, f.rule);
+                  const supplySlot = gapFinalizeSupplySlot(caseData, f);
                   const supplySlotDoc = supplySlot ? caseData.docs.find((d) => d.name === supplySlot) : undefined;
                   const supplyLabel =
                     supplySlotDoc?.status === "ok" &&
