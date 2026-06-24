@@ -6,7 +6,7 @@ import {
   clearSuppliedPackageDoc,
   finalizeGapDocument,
 } from "@/lib/rfq/applySuppliedPackageDoc";
-import { gapFindingUploadSlot } from "@/lib/rfq/reconcileGapsWithDocuments";
+import { isGapFinalized } from "@/lib/rfq/reconcileGapsWithDocuments";
 import { buildCaseDataFromPersisted } from "@/lib/rfq/caseFromPersisted";
 import { loadGapSessionCache, restoreGapSessionCaseData, saveGapSessionCache, clearGapSessionCache } from "@/lib/rfq/gapSessionCache";
 import { loadWorkspacePrefs, saveWorkspacePrefs } from "@/lib/rfq/workspacePrefsCache";
@@ -93,6 +93,7 @@ type CatalogPayload = {
 };
 type GapFilterKey =
   | "all"
+  | "hidden"
   | "sev-critical"
   | "sev-high"
   | "sev-medium"
@@ -851,16 +852,19 @@ export default function RFQAgentDashboard() {
   const gapFindingsFiltered = useMemo(() => {
     if (!c) return [];
     const findings = c.gap_findings;
-    if (gapFilter === "all") return findings;
+    // Finalized gaps are hidden from every view except the dedicated "Hidden" filter.
+    if (gapFilter === "hidden") return findings.filter((f) => isGapFinalized(c, f));
+    const visible = findings.filter((f) => !isGapFinalized(c, f));
+    if (gapFilter === "all") return visible;
     if (gapFilter.startsWith("sev-")) {
       const sev = gapFilter.replace("sev-", "") as CaseData["gap_findings"][number]["sev"];
-      return findings.filter((f) => f.sev === sev);
+      return visible.filter((f) => f.sev === sev);
     }
     if (gapFilter.startsWith("cat-")) {
       const cat = gapFilter.replace("cat-", "");
-      return findings.filter((f) => f.cat === cat);
+      return visible.filter((f) => f.cat === cat);
     }
-    return findings;
+    return visible;
   }, [c, gapFilter]);
 
 
