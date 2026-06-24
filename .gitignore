@@ -58,3 +58,12 @@ __pycache__/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# graphify (local-only cache + machine-specific state)
+graphify-out/cache/
+graphify-out/manifest.json
+graphify-out/cost.json
+
+# GRAPHIFY: REMOVE IF TEAM WANTS IT
+graphify-out/*
+.graphifyignore
