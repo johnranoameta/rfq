@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFQ UI Redesign — Mockup Plan</title>
+<style>
+  :root{
+    --ink:#1a1d21; --ink2:#454b54; --ink3:#737b86; --line:#e3e6ea; --line2:#cdd2d9;
+    --bg:#f6f7f9; --card:#fff; --accent:#2f6fb0; --ok:#2f7d4f; --warn:#b07b2f; --bad:#a8443a;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bg);line-height:1.55;padding:40px 24px 80px}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{font-size:26px;font-weight:700;letter-spacing:-.01em}
+  h2{font-size:16px;font-weight:700;margin:36px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--ink);text-transform:uppercase;letter-spacing:.04em}
+  h3{font-size:14px;font-weight:700;margin:0 0 4px}
+  p{margin:0 0 10px;color:var(--ink2)}
+  .sub{color:var(--ink3);font-size:13px;margin-top:4px}
+  .meta{display:flex;gap:24px;flex-wrap:wrap;margin:16px 0 4px;font-size:13px}
+  .meta div{color:var(--ink2)} .meta b{color:var(--ink);font-weight:600}
+  code{font-family:var(--mono);font-size:.88em;background:#eceff3;padding:1px 5px;border-radius:3px;color:var(--ink)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line2);color:var(--ink2);margin-right:5px}
+  .accent{height:4px;border-radius:4px;margin:-18px -20px 14px;border-radius:10px 10px 0 0}
+  ul{margin:6px 0 4px 20px;color:var(--ink2);font-size:13.5px}
+  li{margin-bottom:4px}
+  .resolved{background:#f0f6f1;border:1px solid #cfe6d4;border-radius:10px;padding:16px 20px;margin-bottom:14px}
+  .resolved h3{color:var(--ok)}
+  .oq{background:#fbf6ef;border:1px solid #ecdcc3;border-radius:10px;padding:16px 20px}
+  .oq h3{color:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);font-weight:700}
+  td code{font-size:12px}
+  .pill{font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:4px}
+  .p-todo{background:#eceff3;color:var(--ink2)}
+  .num{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:700;align-items:center;justify-content:center;margin-right:8px;flex-shrink:0}
+  .step{display:flex;gap:4px;align-items:flex-start;margin-bottom:8px}
+  .swatch{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:6px;border:1px solid rgba(0,0,0,.1)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>RFQ Assistant — UI Redesign Mockups</h1>
+  <p class="sub">Plan doc · agentic-flow · 2026-06-24</p>
+
+  <div class="meta">
+    <div><b>Goal:</b> 5 standalone HTML mockups, each a radically different IA, restrained light-neutral palette, production-ready clarity.</div>
+  </div>
+  <div class="meta">
+    <div><b>Source mock:</b> <code>~/Downloads/rfq_agent_v2.1.html</code></div>
+    <div><b>Output:</b> <code>mockups/0X-name.html</code></div>
+    <div><b>Tabs/file:</b> 5 (Overview · Documents · Part Detail · Gap Analysis · Quote &amp; Benchmark)</div>
+  </div>
+
+  <h2>Brief &amp; resolved decisions</h2>
+  <div class="resolved">
+    <h3>✓ Locked with human</h3>
+    <ul>
+      <li><b>Scope:</b> each file = full app, all 5 tabs (apples-to-apples).</li>
+      <li><b>Divergence:</b> 5 radically distinct directions — variance comes from <b>layout / information architecture</b>, not color.</li>
+      <li><b>Palette:</b> light neutral (steel/graphite canvas + charcoal text). Each design gets <b>one</b> restrained low-chroma accent for its own identity. No multi-color semantic rainbow like the source.</li>
+      <li><b>Severity colors:</b> kept functional but desaturated — single muted red/amber/green/slate, never neon. Severity also encoded by weight/position/label, not color alone.</li>
+      <li><b>Stress data:</b> add a 4th case (D) — multi-part RFQ with <b>45+ gaps</b> to prove each design handles "hundreds of gaps."</li>
+      <li><b>Do NOT reference</b> the source's dark navy + amber + mono-everything language.</li>
+    </ul>
+  </div>
+
+  <h2>The 5 directions</h2>
+  <p>All light-neutral. Each solves the high-volume gap problem differently so the human can compare scale strategies.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="accent" style="background:#2f6fb0"></div>
+      <h3>01 · Atlas <span class="tag">Enterprise SaaS</span></h3>
+      <p class="sub"><span class="swatch" style="background:#2f6fb0"></span>Steel-blue accent</p>
+      <p>Top app bar + left icon-rail. Airy cards, soft borders, generous whitespace. Linear/Stripe-dashboard feel.</p>
+      <ul><li><b>Gaps:</b> accordion grouped by severity, sticky filter chips, inline status select.</li></ul>
+    </div>
+
+    <div class="card">
+      <div class="accent" style="background:#475569"></div>
+      <h3>02 · Console <span class="tag">Data workstation</span></h3>
+      <p class="sub"><span class="swatch" style="background:#475569"></span>Slate accent</p>
+      <p>Compact, table-first, tight grid, tabular-figure numerics. Maximum information density, light not dark.</p>
+      <ul><li><b>Gaps:</b> dense sortable table, rows expand in place (accordion-in-table). Scale via density + sort + sticky header.</li></ul>
+    </div>
+
+    <div class="card">
+      <div class="accent" style="background:#8a4b4b"></div>
+      <h3>03 · Dossier <span class="tag">Document / report</span></h3>
+      <p class="sub"><span class="swatch" style="background:#8a4b4b"></span>Ink + muted oxblood</p>
+      <p>Reads like a printed RFQ review memo. Serif headings, single readable column, sticky table-of-contents. Print-ready.</p>
+      <ul><li><b>Gaps:</b> numbered findings as report sections, collapsible detail, severity as small inline tags.</li></ul>
+    </div>
+
+    <div class="card">
+      <div class="accent" style="background:#2c7a7b"></div>
+      <h3>04 · Triage <span class="tag">Master-detail inbox</span></h3>
+      <p class="sub"><span class="swatch" style="background:#2c7a7b"></span>Teal accent</p>
+      <p>Two-pane email-client paradigm. Left = scrollable finding list, right = detail. The direct answer to "hundreds of gaps."</p>
+      <ul><li><b>Gaps:</b> list/detail split — no accordion. Severity dot + compact rows, keyboard-nav feel, filter rail.</li></ul>
+    </div>
+
+    <div class="card">
+      <div class="accent" style="background:#2f7d4f"></div>
+      <h3>05 · Cockpit <span class="tag">Guided dashboard</span></h3>
+      <p class="sub"><span class="swatch" style="background:#2f7d4f"></span>Muted green accent</p>
+      <p>Workflow-stage driven. KPI tiles + the 7-step pipeline as the spine. Decision-support, progressive disclosure.</p>
+      <ul><li><b>Gaps:</b> severity buckets as collapsible groups (accordion-of-groups), each expands to its findings.</li></ul>
+    </div>
+
+  </div>
+
+  <h2>Shared data model</h2>
+  <p>Each file is fully self-contained (inline CSS + JS + data). Data block is the same across all 5 so designs are judged on form, not content.</p>
+  <table>
+    <thead><tr><th>Case</th><th>Part</th><th>Gaps</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>A</code></td><td>Front Seat Reinf. Bracket</td><td>2</td><td>Nominal / low risk</td></tr>
+      <tr><td><code>B</code></td><td>Rear Floor Mounting Bracket</td><td>4</td><td>Incomplete — blocked</td></tr>
+      <tr><td><code>C</code></td><td>Seat Side Impact Reinf.</td><td>14</td><td>High risk</td></tr>
+      <tr><td><code>D</code> <span class="pill p-todo">NEW</span></td><td>Battery Tray Assembly (multi-part, 6 sub-parts)</td><td>45+</td><td>Density stress test</td></tr>
+    </tbody>
+  </table>
+  <p class="sub">Case D synthesized from the 28-rule catalog spread across 6 sub-parts × categories (completeness / technical / quality / commercial / logistics) at mixed severities. Justifies grouping, sub-part scoping, and scan affordances.</p>
+
+  <h2>File structure</h2>
+  <table>
+    <thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>mockups/01-atlas.html</code></td><td>Enterprise SaaS direction, all tabs, all 4 cases</td></tr>
+      <tr><td><code>mockups/02-console.html</code></td><td>Data workstation direction</td></tr>
+      <tr><td><code>mockups/03-dossier.html</code></td><td>Document/report direction</td></tr>
+      <tr><td><code>mockups/04-triage.html</code></td><td>Master-detail inbox direction</td></tr>
+      <tr><td><code>mockups/05-cockpit.html</code></td><td>Guided dashboard direction</td></tr>
+      <tr><td><code>mockups/index.html</code></td><td>Landing page linking all 5 with thumbnails/notes (nav aid for review)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Build tasks</h2>
+  <div class="card">
+    <div class="step"><span class="num">1</span><div><b>Shared data + case D.</b> Author the canonical JS data block (cases A–D, rule catalog, historical, 45-gap multi-part case D). Verify counts/severity spread render sane. <span class="pill p-todo">foundation</span></div></div>
+    <div class="step"><span class="num">2</span><div><b>01 Atlas.</b> Full build, all 5 tabs + 4 cases, accordion gaps. Open in browser, click every tab + case + accordion.</div></div>
+    <div class="step"><span class="num">3</span><div><b>02 Console.</b> Table-first dense build, expandable rows.</div></div>
+    <div class="step"><span class="num">4</span><div><b>03 Dossier.</b> Report build, sticky TOC, collapsible findings.</div></div>
+    <div class="step"><span class="num">5</span><div><b>04 Triage.</b> Master-detail build, list/detail wiring.</div></div>
+    <div class="step"><span class="num">6</span><div><b>05 Cockpit.</b> Dashboard build, workflow spine, bucket groups.</div></div>
+    <div class="step"><span class="num">7</span><div><b>index.html</b> linking all 5. Commit per design (plain messages, no co-author).</div></div>
+  </div>
+
+  <h2>Verification (reviewer — separate agent)</h2>
+  <p>No unit tests apply (static HTML/CSS). A fresh reviewer agent opens each file in a browser and checks against acceptance criteria:</p>
+  <ul>
+    <li>All 5 tabs render with real data for every case (A–D); no JS errors in console.</li>
+    <li>Case D (45+ gaps) is scannable — grouping/scoping/scan affordance works, not an unbounded wall.</li>
+    <li>Palette is restrained light-neutral; no neon; single accent per file; severity legible without relying on color alone.</li>
+    <li>The 5 designs are genuinely distinct IAs, not recolors of one layout.</li>
+    <li>Accordion (or chosen scale strategy) works; tab + case switching works; horizontal layout never breaks.</li>
+    <li>Each file fully self-contained (no external CDN/font/script dependency that breaks offline).</li>
+  </ul>
+
+  <h2>Open questions</h2>
+  <div class="oq">
+    <h3>None blocking.</h3>
+    <p style="margin:0">All four decision axes resolved with the human (see Resolved decisions). Minor in-bounds choices made by builder: per-design accent hue (within "single restrained accent"), exact case-D part breakdown, and use of system fonts only (no external font CDN, to keep files self-contained & offline-safe). Will surface to human if any forces a real tradeoff during build.</p>
+  </div>
+
+</div>
+</body>
+</html>

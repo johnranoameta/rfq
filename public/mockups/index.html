@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFQ Assistant — UI Redesign Mockups</title>
+<style>
+:root{
+  --ink:#19222a;--ink2:#525e67;--ink3:#869199;--line:#e3e7ea;--bg:#f4f6f8;--surface:#fff;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);line-height:1.55;padding:48px 24px 80px}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.lede{color:var(--ink2);font-size:15px;margin-top:8px;max-width:680px}
+.meta{margin-top:14px;font-size:13px;color:var(--ink3);font-family:var(--mono)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px;margin-top:32px}
+a.card{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;transition:transform .12s,box-shadow .12s}
+a.card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(20,30,45,.10)}
+.swatch{height:64px;display:flex;align-items:flex-end;padding:12px 16px}
+.swatch .n{font-family:var(--mono);font-size:12px;font-weight:700;color:#fff;opacity:.9}
+.cbody{padding:16px 18px}
+.cbody h3{font-size:17px;font-weight:700}
+.cbody .tag{font-size:12px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em}
+.cbody p{font-size:13.5px;color:var(--ink2);margin-top:8px}
+.cbody .gap{font-size:12.5px;color:var(--ink3);margin-top:10px;font-family:var(--mono)}
+.legend{margin-top:36px;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:13.5px;color:var(--ink2)}
+.legend b{color:var(--ink)}
+.legend ul{margin:8px 0 0 18px}.legend li{margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RFQ Assistant — UI Redesign</h1>
+  <p class="lede">Five production-ready directions for the RFQ analysis tool. All share one restrained light-neutral palette; each is a <b>radically different information architecture</b>. Same data across all five (4 cases, incl. a 46-gap stress case) so they're judged on form.</p>
+  <p class="meta">4 cases · A (2 gaps) · B (4) · C (14) · D (46, multi-part) — open any file and switch cases + tabs.</p>
+
+  <div class="grid">
+    <a class="card" href="01-atlas.html">
+      <div class="swatch" style="background:linear-gradient(120deg,#2f6fb0,#4a86c4)"><span class="n">01</span></div>
+      <div class="cbody"><div class="tag">Enterprise SaaS</div><h3>Atlas</h3><p>Top bar + icon rail, airy cards, generous whitespace. Linear/Stripe-dashboard feel.</p><div class="gap">Gaps → accordion grouped by severity</div></div>
+    </a>
+    <a class="card" href="02-console.html">
+      <div class="swatch" style="background:linear-gradient(120deg,#475569,#64748b)"><span class="n">02</span></div>
+      <div class="cbody"><div class="tag">Data Workstation</div><h3>Console</h3><p>Dense, table-first, tabular numerics. Maximum information per screen — light, not dark.</p><div class="gap">Gaps → sortable table, rows expand in place</div></div>
+    </a>
+    <a class="card" href="03-dossier.html">
+      <div class="swatch" style="background:linear-gradient(120deg,#8a4b4b,#a86a6a)"><span class="n">03</span></div>
+      <div class="cbody"><div class="tag">Document / Report</div><h3>Dossier</h3><p>Reads like a printed engineering review memo. Serif headings, sticky table-of-contents.</p><div class="gap">Gaps → numbered report sections, collapsible</div></div>
+    </a>
+    <a class="card" href="04-triage.html">
+      <div class="swatch" style="background:linear-gradient(120deg,#2c7a7b,#3f9897)"><span class="n">04</span></div>
+      <div class="cbody"><div class="tag">Master-Detail Inbox</div><h3>Triage</h3><p>Two-pane email-client. List + detail — the direct answer to "hundreds of gaps."</p><div class="gap">Gaps → list/detail split, no accordion</div></div>
+    </a>
+    <a class="card" href="05-cockpit.html">
+      <div class="swatch" style="background:linear-gradient(120deg,#2f7d4f,#469b66)"><span class="n">05</span></div>
+      <div class="cbody"><div class="tag">Guided Dashboard</div><h3>Cockpit</h3><p>Workflow spine + KPI gauges. Decision-support, status at a glance, progressive disclosure.</p><div class="gap">Gaps → severity buckets (accordion of groups)</div></div>
+    </a>
+    <a class="card" href="06-nova.html">
+      <div class="swatch" style="background:linear-gradient(120deg,#5b5fb0,#7d80c8)"><span class="n">06</span></div>
+      <div class="cbody"><div class="tag">Modern Minimal</div><h3>Nova</h3><p>Near-monochrome, airy, soft surfaces, one muted indigo accent. Clean modern-product feel.</p><div class="gap">Gaps → severity buckets, airy accordion</div></div>
+    </a>
+  </div>
+
+  <div class="legend">
+    <b>How to evaluate.</b> Each handles the 46-gap Case D differently — that's the real test:
+    <ul>
+      <li><b>Atlas / Cockpit</b> — grouping (severity / sub-part) keeps the list collapsible &amp; scannable.</li>
+      <li><b>Console</b> — density + sort + sticky headers fit it all in one tight table.</li>
+      <li><b>Dossier</b> — per-sub-part report sections with a summary table on top.</li>
+      <li><b>Triage</b> — master-detail means volume never overwhelms; you work the list one item at a time.</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

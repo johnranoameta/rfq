@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFQ Dossier · NorthBridge Automotive</title>
+<style>
+/* ════════ DOSSIER — editorial report treatment ════════
+   Palette:
+     --paper:   #faf8f5   warm parchment (not cream — slightly cooler)
+     --panel:   #f2ede6   section panel tint
+     --rule:    #cdc5b8   hairline rules
+     --rule2:   #e6e0d8   lighter rules
+     --ink:     #1c1916   near-black, warm cast
+     --ink2:    #6a6055   body secondary
+     --ink3:    #9c9285   captions / labels
+     --ox:      #8a4b4b   oxblood accent (used sparingly)
+     --ox-soft: #f5edec   oxblood tint
+     --bad:     #a8443a   high severity
+     --warn:    #b07b2f   medium severity
+     --ok:      #2f7d4f   low / ok
+     --bad-s:   #fdf0ef   high tint
+     --warn-s:  #fdf6ec   medium tint
+     --ok-s:    #edf6f1   ok tint
+   ════════════════════════════════════════════════════ */
+:root{
+  --paper:#faf8f5; --panel:#f2ede6; --rule:#cdc5b8; --rule2:#e6e0d8;
+  --ink:#1c1916; --ink2:#6a6055; --ink3:#9c9285;
+  --ox:#8a4b4b; --ox-soft:#f5edec;
+  --bad:#a8443a; --warn:#b07b2f; --ok:#2f7d4f;
+  --bad-s:#fdf0ef; --warn-s:#fdf6ec; --ok-s:#edf6f1;
+  --serif:Georgia,"Times New Roman",Times,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.6}
+.num{font-variant-numeric:tabular-nums}
+
+/* ── Shell ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+
+/* ── Sidebar ── */
+.sidebar{
+  width:216px;min-width:216px;background:var(--paper);
+  border-right:1px solid var(--rule);
+  display:flex;flex-direction:column;
+  padding:0;overflow:hidden;flex-shrink:0;
+}
+.sidebar-logo{
+  padding:20px 20px 16px;border-bottom:1px solid var(--rule);
+}
+.sidebar-logo .wordmark{
+  font-family:var(--serif);font-size:13px;letter-spacing:.02em;
+  color:var(--ox);font-weight:normal;text-transform:uppercase;
+}
+.sidebar-logo .sub{font-size:11px;color:var(--ink3);margin-top:2px}
+
+.case-switcher{padding:14px 12px 10px;border-bottom:1px solid var(--rule2)}
+.cs-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;padding:0 4px}
+.cs-btn{
+  display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;
+  border-radius:4px;cursor:pointer;border:none;background:none;
+  font-family:var(--sans);text-align:left;margin-bottom:2px;
+  transition:background .1s;
+}
+.cs-btn:hover{background:var(--panel)}
+.cs-btn.active{background:var(--ox-soft)}
+.cs-badge{
+  width:22px;height:22px;border-radius:3px;
+  font-family:var(--serif);font-size:12px;font-weight:bold;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:var(--rule2);color:var(--ink2);
+}
+.cs-btn.active .cs-badge{background:var(--ox);color:#fff}
+.cs-info{flex:1;min-width:0}
+.cs-name{font-size:12px;font-weight:600;color:var(--ink);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-meta{font-size:11px;color:var(--ink3);margin-top:1px}
+.cs-risk{font-size:11px;font-weight:700;font-family:var(--mono);margin-left:auto;flex-shrink:0}
+
+.toc-nav{flex:1;overflow-y:auto;padding:14px 12px 20px}
+.toc-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;padding:0 4px}
+.toc-link{
+  display:flex;align-items:baseline;gap:8px;width:100%;
+  padding:7px 10px;border-radius:4px;border:none;background:none;
+  font-family:var(--sans);font-size:12.5px;color:var(--ink2);
+  cursor:pointer;text-align:left;transition:background .1s;
+}
+.toc-link:hover{background:var(--panel);color:var(--ink)}
+.toc-link.active{background:var(--ox-soft);color:var(--ox)}
+.toc-num{font-family:var(--serif);font-size:12px;color:var(--ink3);width:14px;flex-shrink:0;font-style:italic}
+.toc-link.active .toc-num{color:var(--ox)}
+
+/* ── Main reading area ── */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0}
+.main-inner{max-width:860px;margin:0 auto;padding:40px 48px 80px;width:100%}
+
+/* ── Document header ── */
+.doc-header{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:32px}
+.doc-eyebrow{
+  font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--ox);margin-bottom:10px;
+}
+.doc-title{font-family:var(--serif);font-size:26px;line-height:1.25;color:var(--ink);text-wrap:balance;margin-bottom:8px}
+.doc-meta-row{display:flex;gap:24px;flex-wrap:wrap;align-items:baseline;margin-top:10px}
+.doc-meta-item{font-size:12px;color:var(--ink3)}
+.doc-meta-item strong{color:var(--ink2);font-weight:600}
+
+/* ── Section ── */
+.section{margin-bottom:48px}
+.section-heading{
+  display:flex;align-items:baseline;gap:12px;
+  margin-bottom:20px;padding-bottom:8px;
+  border-bottom:1px solid var(--rule);
+}
+.section-num{
+  font-family:var(--serif);font-style:italic;font-size:18px;
+  color:var(--ink3);min-width:22px;
+}
+.section-title{
+  font-family:var(--serif);font-size:19px;font-weight:normal;
+  color:var(--ink);letter-spacing:.01em;
+}
+
+/* ── KPI strip ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);margin-bottom:20px}
+.kpi{background:var(--paper);padding:16px 18px}
+.kpi-l{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
+.kpi-v{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--ink);line-height:1}
+.kpi-sub{font-size:11px;color:var(--ink3);margin-top:5px}
+.kpi-bar{height:3px;background:var(--rule2);margin-top:10px;overflow:hidden}
+.kpi-bar-fill{height:100%;background:var(--ox)}
+
+/* ── Status badge ── */
+.status-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:2px;
+  font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+}
+.status-badge.ok{background:var(--ok-s);color:var(--ok)}
+.status-badge.warn{background:var(--warn-s);color:var(--warn)}
+.status-badge.bad{background:var(--bad-s);color:var(--bad)}
+
+/* ── Workflow steps ── */
+.wf-row{display:flex;align-items:center;gap:0;margin-bottom:20px;flex-wrap:wrap;gap:4px}
+.wf-step{display:flex;align-items:center;gap:7px}
+.wf-dot{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--rule);background:var(--paper);flex-shrink:0}
+.wf-dot.done{background:var(--ok);border-color:var(--ok)}
+.wf-dot.active{background:var(--ox);border-color:var(--ox)}
+.wf-dot.pending{background:var(--paper);border-color:var(--rule)}
+.wf-name{font-size:12px;color:var(--ink3);white-space:nowrap}
+.wf-name.done{color:var(--ink2)}
+.wf-name.active{color:var(--ox);font-weight:600}
+.wf-arrow{color:var(--rule);font-size:11px;margin:0 4px;user-select:none}
+
+/* ── Info grid ── */
+.info-table{width:100%;border-collapse:collapse;margin-bottom:20px;border:1px solid var(--rule)}
+.info-table td{padding:9px 14px;font-size:13px;border-bottom:1px solid var(--rule2);vertical-align:top}
+.info-table td:first-child{width:200px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);background:var(--panel)}
+.info-table tr:last-child td{border-bottom:none}
+.info-table td.flag-bad{color:var(--bad);font-weight:600}
+.info-table td.flag-warn{color:var(--warn);font-weight:600}
+
+/* ── Risk note ── */
+.risk-note{
+  border-left:3px solid var(--ox);background:var(--ox-soft);
+  padding:14px 18px;margin-bottom:12px;font-size:13px;line-height:1.6;
+}
+.risk-note strong{color:var(--ox)}
+
+/* ── Tables ── */
+.ruled-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:4px}
+.ruled-table th{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--ink3);text-align:left;padding:8px 12px;
+  border-bottom:2px solid var(--rule);background:var(--panel);
+}
+.ruled-table td{padding:9px 12px;border-bottom:1px solid var(--rule2);vertical-align:middle;color:var(--ink)}
+.ruled-table tr:last-child td{border-bottom:none}
+.ruled-table tr:hover td{background:var(--panel)}
+.ruled-table .num{font-family:var(--mono)}
+.ruled-table td.right,.ruled-table th.right{text-align:right}
+.ruled-table td.mono{font-family:var(--mono);font-size:12px}
+
+/* doc status */
+.doc-ok{color:var(--ok);font-weight:600}
+.doc-miss{color:var(--bad);font-weight:600}
+.conf-bar{display:inline-block;width:48px;height:4px;background:var(--rule2);border-radius:2px;vertical-align:middle;overflow:hidden;margin-left:6px}
+.conf-fill{height:100%;background:var(--ok);border-radius:2px}
+
+/* ── Process pills ── */
+.proc-list{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.proc-pill{
+  font-size:12px;padding:4px 12px;border:1px solid var(--rule);
+  background:var(--paper);color:var(--ink2);border-radius:2px;
+}
+
+/* ── Sub-part table ── */
+.subpart-row td{background:var(--panel)}
+
+/* ── Gap section ── */
+.gap-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+.gap-search{
+  flex:1;min-width:180px;position:relative;
+}
+.gap-search input{
+  width:100%;padding:8px 10px 8px 32px;
+  border:1px solid var(--rule);background:var(--paper);
+  font-family:var(--sans);font-size:13px;color:var(--ink);
+  border-radius:2px;outline:none;
+}
+.gap-search input:focus{border-color:var(--ox)}
+.gap-search-icon{position:absolute;left:9px;top:9px;width:14px;height:14px;color:var(--ink3);pointer-events:none}
+.sev-filter{display:flex;gap:4px;flex-wrap:wrap}
+.sev-btn{
+  font-size:11px;font-weight:700;padding:6px 12px;border-radius:2px;
+  border:1px solid var(--rule);background:var(--paper);color:var(--ink3);
+  cursor:pointer;letter-spacing:.04em;text-transform:uppercase;transition:all .1s;
+}
+.sev-btn:hover{border-color:var(--ink3);color:var(--ink)}
+.sev-btn.on.all{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.sev-btn.on.high{border-color:var(--bad);background:var(--bad-s);color:var(--bad)}
+.sev-btn.on.medium{border-color:var(--warn);background:var(--warn-s);color:var(--warn)}
+.sev-btn.on.low{border-color:var(--ok);background:var(--ok-s);color:var(--ok)}
+
+/* Gap summary table (Case D) */
+.gap-summary-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:24px;border:1px solid var(--rule)}
+.gap-summary-table th{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--ink3);padding:7px 11px;border-bottom:2px solid var(--rule);
+  background:var(--panel);text-align:left;
+}
+.gap-summary-table td{padding:7px 11px;border-bottom:1px solid var(--rule2)}
+.gap-summary-table tr:last-child td{border-bottom:none}
+.gap-summary-table .num{font-family:var(--mono);text-align:center}
+
+/* Sub-part group heading */
+.part-group-heading{
+  margin:28px 0 12px;padding:8px 0;
+  border-bottom:1px solid var(--rule);
+  display:flex;align-items:baseline;gap:10px;
+}
+.part-group-title{font-family:var(--serif);font-size:15px;color:var(--ink)}
+.part-group-count{font-size:11px;color:var(--ink3)}
+.part-group-heading:first-of-type{margin-top:0}
+
+/* Collapsible finding */
+.finding{border:1px solid var(--rule2);margin-bottom:6px;border-radius:2px;overflow:hidden}
+.finding.hidden-finding{display:none}
+.finding-header{
+  display:flex;align-items:baseline;gap:10px;
+  padding:11px 14px;cursor:pointer;user-select:none;
+  background:var(--paper);transition:background .1s;
+}
+.finding-header:hover{background:var(--panel)}
+.finding.open .finding-header{background:var(--panel);border-bottom:1px solid var(--rule2)}
+.finding-num{font-family:var(--serif);font-style:italic;font-size:12px;color:var(--ink3);flex-shrink:0;min-width:28px}
+.finding-title{font-size:13.5px;font-weight:600;color:var(--ink);flex:1;line-height:1.4}
+.sev-tag{
+  font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 8px;border-radius:2px;flex-shrink:0;
+}
+.sev-tag.high{background:var(--bad-s);color:var(--bad);border:1px solid #f0c4c2}
+.sev-tag.medium{background:var(--warn-s);color:var(--warn);border:1px solid #f0dfb8}
+.sev-tag.low{background:var(--ok-s);color:var(--ok);border:1px solid #b8dfc8}
+.cat-tag{font-size:11px;color:var(--ink3);text-transform:capitalize;flex-shrink:0}
+.finding-chev{color:var(--ink3);flex-shrink:0;transition:transform .15s;font-size:10px}
+.finding.open .finding-chev{transform:rotate(180deg)}
+
+.finding-body{display:none;padding:14px 16px 16px 42px}
+.finding.open .finding-body{display:block}
+.finding-detail{font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:14px}
+.finding-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px;padding:12px 14px;background:var(--panel);border:1px solid var(--rule2)}
+.finding-meta-item .fl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:3px}
+.finding-meta-item .fv{font-size:12.5px;color:var(--ink);font-weight:600}
+.action-note{
+  border-left:2px solid var(--ox);padding:10px 14px;
+  background:var(--ox-soft);font-size:13px;color:var(--ink2);line-height:1.6;
+}
+.action-note .al{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ox);margin-bottom:5px}
+.hist-compare{margin-top:12px;border:1px solid var(--rule2);border-radius:2px;overflow:hidden}
+.hist-compare-h{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);background:var(--panel);padding:7px 12px;border-bottom:1px solid var(--rule2)}
+.hist-compare-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule2)}
+.hist-compare-cell{background:var(--paper);padding:9px 12px}
+.hist-compare-cell .cl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:3px}
+.hist-compare-cell .cv{font-size:12.5px;font-weight:700;font-family:var(--mono)}
+
+/* ── Quote ── */
+.quote-header-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);margin-bottom:20px}
+.qhk{background:var(--paper);padding:12px 15px}
+.qhk .ql{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:4px}
+.qhk .qv{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--ink)}
+.qhk .qv.bad{color:var(--bad)}
+.qhk .qv.warn{color:var(--warn)}
+.qhk .qv.ok{color:var(--ok)}
+
+/* Cost breakdown */
+.cost-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px}
+.cost-bar-list{border:1px solid var(--rule2)}
+.cost-bar-row{display:flex;align-items:center;gap:12px;padding:9px 13px;border-bottom:1px solid var(--rule2)}
+.cost-bar-row:last-child{border-bottom:none;border-top:2px solid var(--rule);font-weight:700;background:var(--panel)}
+.cbl-name{font-size:12.5px;color:var(--ink2);flex:1}
+.cbl-bar{flex:2;height:4px;background:var(--rule2);border-radius:2px;overflow:hidden}
+.cbl-bar-fill{height:100%;background:var(--ox);opacity:.6;border-radius:2px}
+.cbl-val{font-family:var(--mono);font-size:12.5px;color:var(--ink);width:48px;text-align:right}
+
+/* Hist benchmark */
+.bench-table{border:1px solid var(--rule2);margin-top:4px}
+.bench-band{
+  padding:14px 16px;background:var(--panel);border-bottom:1px solid var(--rule2);
+  display:flex;gap:24px;align-items:center;flex-wrap:wrap;
+}
+.band-item .bl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:4px}
+.band-item .bv{font-family:var(--mono);font-size:15px;font-weight:700}
+.band-arrow{color:var(--ink3);font-size:18px;margin-top:14px}
+
+/* risk score visual */
+.risk-meter{display:flex;align-items:center;gap:10px;margin-top:8px}
+.risk-track{flex:1;height:6px;background:var(--rule2);border-radius:3px;overflow:hidden;position:relative}
+.risk-fill{height:100%;border-radius:3px}
+.risk-label{font-family:var(--mono);font-size:13px;font-weight:700;min-width:28px}
+
+/* no-results */
+.no-results{padding:32px;text-align:center;color:var(--ink3);font-size:13px;font-style:italic}
+
+/* scrollbar */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--rule);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--ink3)}
+
+/* focus */
+*:focus-visible{outline:2px solid var(--ox);outline-offset:2px}
+
+@media(prefers-reduced-motion:reduce){
+  *{transition:none!important}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="wordmark">RFQ Dossier</div>
+      <div class="sub">NorthBridge Automotive</div>
+    </div>
+
+    <div class="case-switcher">
+      <div class="cs-label">Active Case</div>
+      <div id="case-buttons"></div>
+    </div>
+
+    <nav class="toc-nav">
+      <div class="toc-label">Contents</div>
+      <div id="toc-links"></div>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="main" id="main-scroll">
+    <div class="main-inner" id="main-inner">
+      <!-- rendered by JS -->
+    </div>
+  </main>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   RFQ ASSISTANT — CANONICAL MOCKUP DATA  (shared across all 5 designs)
+   Inline this whole block into each mockup so every file is self-contained.
+   Cases A/B/C carried from the v2.1 mock; Case D added as a 45+ gap stress test.
+═══════════════════════════════════════════════════════════════════════ */
+
+const RULE_CATALOG = {
+  RULE_001:{name:"Missing packaging specification",cat:"completeness",sev:"high"},
+  RULE_002:{name:"Missing test standard",cat:"completeness",sev:"high"},
+  RULE_003:{name:"PPAP level above historical baseline",cat:"quality",sev:"high"},
+  RULE_004:{name:"General tolerance tighter than historical family",cat:"technical",sev:"high"},
+  RULE_005:{name:"Critical tolerance at or below 0.03 mm",cat:"technical",sev:"high"},
+  RULE_007:{name:"Supplier-funded gauges required",cat:"quality",sev:"high"},
+  RULE_008:{name:"100% appearance inspection required",cat:"quality",sev:"high"},
+  RULE_009:{name:"Payment terms extended beyond historical norm",cat:"commercial",sev:"medium"},
+  RULE_010:{name:"Annual price reduction above historical norm",cat:"commercial",sev:"medium"},
+  RULE_011:{name:"DDP or supplier-managed freight required",cat:"commercial",sev:"high"},
+  RULE_012:{name:"Returnable packaging required",cat:"logistics",sev:"medium"},
+  RULE_013:{name:"Premium freight recovery excluded",cat:"commercial",sev:"medium"},
+  RULE_015:{name:"Special surface or burr requirement below family norm",cat:"technical",sev:"medium"},
+  RULE_016:{name:"Cpk target above family baseline",cat:"quality",sev:"medium"},
+  RULE_017:{name:"Run-at-rate required beyond normal PPAP",cat:"quality",sev:"medium"},
+  RULE_018:{name:"Annual revalidation / corrosion retention required",cat:"quality",sev:"low"},
+  RULE_019:{name:"No explicit packaging cost line in quote template",cat:"quote",sev:"high"},
+  RULE_021:{name:"Material grade not in historical database",cat:"technical",sev:"high"},
+  RULE_022:{name:"Weld / joining spec referenced but not supplied",cat:"completeness",sev:"high"},
+  RULE_023:{name:"Capacity below requested annual volume",cat:"commercial",sev:"high"},
+  RULE_024:{name:"Tooling ownership unspecified",cat:"commercial",sev:"medium"},
+  RULE_025:{name:"Secondary coating / e-coat requirement",cat:"technical",sev:"medium"},
+  RULE_027:{name:"Appearance approval required prior to PPAP",cat:"quality",sev:"medium"},
+  RULE_028:{name:"Customer specification reference unresolved",cat:"completeness",sev:"medium"},
+  RULE_029:{name:"Traceability / lot marking required",cat:"quality",sev:"low"},
+  RULE_030:{name:"Sub-part interface tolerance stack-up unverified",cat:"technical",sev:"medium"},
+};
+
+const HISTORICAL = [
+  {id:"H015",pn:"NB-SI-2519",name:"Seat Side Impact Reinf.",material:"SPFC980Y",vol:152000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 90",apd:2.5,price:6.08,tooling:69000,pkg:0.15,award:"Won"},
+  {id:"H016",pn:"NB-SI-2586",name:"Seat Side Impact Reinf.",material:"SPFC980Y",vol:148000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 90",apd:2.5,price:6.15,tooling:70000,pkg:0.15,award:"Won"},
+  {id:"H017",pn:"NB-SI-2633",name:"Seat Side Impact Reinf.",material:"SPFC980Y",vol:150000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 90",apd:2.5,price:6.22,tooling:70500,pkg:0.16,award:"Lost"},
+  {id:"H001",pn:"NB-SS-1101",name:"Front Seat Reinf. Bracket",material:"SPCC",vol:190000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 60",apd:2.0,price:4.05,tooling:38000,pkg:0.08,award:"Won"},
+  {id:"H002",pn:"NB-SS-1178",name:"Front Seat Reinf. Bracket",material:"SPCC",vol:175000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 60",apd:2.0,price:4.12,tooling:39500,pkg:0.07,award:"Won"},
+  {id:"H003",pn:"NB-RF-1204",name:"Rear Floor Mounting Bracket",material:"SPHC",vol:210000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 75",apd:2.0,price:4.42,tooling:42000,pkg:0.10,award:"Won"},
+  {id:"H004",pn:"NB-RF-1229",name:"Rear Floor Mounting Bracket",material:"SPHC",vol:240000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 75",apd:2.0,price:4.35,tooling:41000,pkg:0.09,award:"Lost"},
+  {id:"H020",pn:"NB-BT-3010",name:"Battery Tray Base Pan",material:"AA5754",vol:90000,ppap:4,incoterm:"FOB Shanghai",terms:"Net 90",apd:3.0,price:18.40,tooling:240000,pkg:0.55,award:"Won"},
+  {id:"H021",pn:"NB-BT-3044",name:"Battery Tray Base Pan",material:"AA5754",vol:88000,ppap:4,incoterm:"FOB Shanghai",terms:"Net 90",apd:3.0,price:18.90,tooling:245000,pkg:0.57,award:"Lost"},
+];
+
+const CASES = {
+  A: {
+    id:"CASE-A", rfq_num:"RFQ-2025-0437", title:"Front Seat Reinforcement Bracket",
+    customer:"NorthBridge Automotive", program:"NB-EV Crossover",
+    part_number:"NB-SS-2147", sop:"2027-03-01", annual_vol:180000,
+    material:"SPCC", thickness:1.20, tolerance:"±0.10 mm", critical_tol:"±0.05 mm burr height",
+    ppap:3, cpk:"≥ 1.67", surface:["oil-free","burr < 0.05 mm","no red rust"],
+    incoterm:"FOB Shanghai", payment:"Net 60", apd:2.0, currency:"USD", tooling_owner:"Customer",
+    process:["progressive die stamping","forming"],
+    risk_score:24, completeness:"complete", status_label:"Nominal",
+    docs:[
+      {name:"RFQ_Main_Document.pdf",type:"rfq",status:"ok",conf:0.97,note:"Core header and commercial terms extracted"},
+      {name:"Cost_Template.xlsx",type:"cost",status:"ok",conf:0.93,note:"Pricing template parsed — packaging cost line is zero"},
+      {name:"Part_Drawing.pdf",type:"draw",status:"ok",conf:0.90,note:"Tolerance and surface finish extracted"},
+      {name:"Packaging_Spec.pdf",type:"pkg",status:"ok",conf:0.88,note:"Packaging type confirmed — tray pack"},
+      {name:"Supplier_Questionnaire.xlsx",type:"q",status:"ok",conf:0.95,note:"Capacity and lead time captured"},
+    ],
+    triggered_rules:["RULE_015","RULE_019"],
+    gap_findings:[
+      {rule:"RULE_015",sev:"medium",cat:"technical",title:"Burr requirement below family norm",
+       detail:"The drawing requires burr height < 0.05 mm, tighter than the standard SPHC/SPCC family spec of < 0.08 mm. A secondary deburr step may be required; the current quote has no deburr operation in the process route.",
+       impact:"Secondary op cost ~$0.05–0.08/pc",evidence:"Drawing §2, surface notes",action:"Confirm deburr operation with process engineering. Add cost if a secondary step is required."},
+      {rule:"RULE_019",sev:"high",cat:"quote",title:"Packaging cost line is zero in cost template",
+       detail:"Packaging spec is present but the packaging cost line in Cost_Template.xlsx is $0.00. The tray pack typically costs $0.06–0.10/pc at this volume. Completable gap — spec exists, number just needs entering.",
+       impact:"Cost omission ~$0.06–0.10/pc",evidence:"Cost_Template.xlsx — packaging_cost_per_pc = 0",action:"Enter packaging cost from spec before release. RULE_019 clears once populated."},
+    ],
+    quote:{
+      version:"v1 Draft", prepared_by:"K. Whitmore", validity:90,
+      total_value:null, total_tooling:38000, risk_score:24,
+      lines:[{pn:"NB-SS-2147",name:"Front Seat Reinf. Bracket",plant:"PLT-01",vol:180000,price:4.08,tooling:38000,pkg:0.00,quality:0.12,freight:0.05,margin:16.2}],
+      cost_breakdown:{material:2.58,labor:0.41,machine:0.52,overhead:0.32,scrap:0.07,quality:0.12,logistics:0.05,packaging:0.00,total:4.07},
+      hist_match:["H001","H002"],hist_price_band:[4.05,4.12],hist_tooling_band:[38000,39500]
+    }
+  },
+
+  B: {
+    id:"CASE-B", rfq_num:"RFQ-2025-0438", title:"Rear Floor Mounting Bracket",
+    customer:"NorthBridge Automotive", program:"NB-EV Crossover",
+    part_number:"NB-RF-2388", sop:"2027-05-15", annual_vol:220000,
+    material:"SPHC", thickness:1.60, tolerance:"±0.10 mm", critical_tol:"Deburr to spec",
+    ppap:3, cpk:"Not specified", surface:["e-coat ready","oil-free","no visible edge burrs"],
+    incoterm:"FOB Shanghai", payment:"Net 75", apd:2.0, currency:"USD", tooling_owner:"Not specified",
+    process:["stamping","restrike","deburr"],
+    risk_score:62, completeness:"incomplete", status_label:"Incomplete",
+    docs:[
+      {name:"RFQ_Main_Document.pdf",type:"rfq",status:"ok",conf:0.96,note:"Header and commercial terms extracted"},
+      {name:"Cost_Template.xlsx",type:"cost",status:"ok",conf:0.91,note:"Pricing template parsed"},
+      {name:"Part_Drawing.pdf",type:"draw",status:"ok",conf:0.89,note:"General tolerance extracted — no critical feature detail"},
+      {name:"Packaging_Spec.pdf",type:"pkg",status:"miss",conf:null,note:"Referenced in RFQ §5 but not included in package"},
+      {name:"DV_PV_Test_Standard.pdf",type:"test",status:"miss",conf:null,note:"Referenced as NB-QA-118 in quality section — not received"},
+    ],
+    triggered_rules:["RULE_001","RULE_002","RULE_027","RULE_028"],
+    gap_findings:[
+      {rule:"RULE_001",sev:"high",cat:"completeness",title:"Missing packaging specification",
+       detail:"Packaging_Spec.pdf is listed in the RFQ attachment list (§5, Attachment B3) but was not included. Packaging cost in the template is $0.00. For a 220K/yr floor bracket, packaging is typically $0.09–0.12/pc. Must resolve before release.",
+       impact:"Cost omission $0.09–0.12/pc",evidence:"RFQ §5: 'Attachment B3 — Packaging_Spec.pdf'",action:"Request packaging spec from buyer immediately. If not received before quote-ready date, apply provisional $0.10/pc and document."},
+      {rule:"RULE_002",sev:"high",cat:"completeness",title:"Test standard NB-QA-118 not received",
+       detail:"§3 references 'DV and PV test requirements per NB-QA-118' but the document was not included. Without test scope, DV/PV validation cost cannot be estimated — typically $15K–$35K NRE for this program.",
+       impact:"Unknown NRE — est. $15K–35K",evidence:"RFQ §3 quality requirement",action:"Request NB-QA-118 before finalizing quality cost. Escalate if not received within 5 business days."},
+      {rule:"RULE_027",sev:"medium",cat:"quality",title:"Appearance approval required prior to PPAP",
+       detail:"§3 requires 'appearance sample approval prior to PPAP.' A two-stage approval milestone not reflected in the program plan; could add 4–8 weeks pre-PPAP.",
+       impact:"Program timing risk — 4–8 weeks",evidence:"RFQ §3",action:"Add appearance sample milestone to program plan and confirm customer review cycle time."},
+      {rule:"RULE_028",sev:"medium",cat:"completeness",title:"Customer spec reference NB-QA-118 unresolved",
+       detail:"NB-QA-118 is referenced for DV/PV but no file received and it is not in the historical database. Separate tracking item from RULE_002 — the reference itself must be acknowledged.",
+       impact:"Compliance and tracking risk",evidence:"RFQ §3 reference",action:"Create clarification tracker item and assign an owner to follow up with the buyer."},
+    ],
+    quote:{
+      version:"v1 Draft — Blocked", prepared_by:"K. Whitmore", validity:null,
+      total_value:null, total_tooling:42000, risk_score:62,
+      lines:[{pn:"NB-RF-2388",name:"Rear Floor Mounting Bracket",plant:"PLT-02",vol:220000,price:4.38,tooling:42000,pkg:0.00,quality:0.12,freight:0.05,margin:14.6}],
+      cost_breakdown:{material:2.82,labor:0.46,machine:0.58,overhead:0.36,scrap:0.08,quality:0.12,logistics:0.05,packaging:0.00,total:4.47},
+      hist_match:["H003","H004"],hist_price_band:[4.35,4.47],hist_tooling_band:[41000,42500]
+    }
+  },
+
+  C: {
+    id:"CASE-C", rfq_num:"RFQ-2025-0439", title:"Seat Side Impact Reinforcement",
+    customer:"NorthBridge Automotive", program:"NB-EV Premium",
+    part_number:"NB-SI-3411", sop:"2027-02-01", annual_vol:150000,
+    material:"SPFC980Y", thickness:1.80, tolerance:"±0.03 mm (hole pitch)", critical_tol:"Flatness ≤ 0.15 mm",
+    ppap:5, cpk:"≥ 1.67 at SOP / ≥ 1.33 ongoing", surface:["100% appearance inspection","burr < 0.03 mm","no edge crack"],
+    incoterm:"DDP Monterrey", payment:"Net 120", apd:4.0, currency:"USD", tooling_owner:"Supplier",
+    process:["progressive die stamping","forming","in-line camera inspection"],
+    supplier_funded_gauges:true,
+    risk_score:89, completeness:"complete", status_label:"High Risk",
+    docs:[
+      {name:"RFQ_Main_Document.pdf",type:"rfq",status:"ok",conf:0.98,note:"Full commercial and technical data extracted"},
+      {name:"Cost_Template.xlsx",type:"cost",status:"ok",conf:0.94,note:"Pricing template parsed — multiple cost gaps detected"},
+      {name:"Part_Drawing.pdf",type:"draw",status:"ok",conf:0.92,note:"Critical tolerances and SC/CC extracted"},
+      {name:"Packaging_Spec.pdf",type:"pkg",status:"ok",conf:0.87,note:"Returnable rack requirement confirmed"},
+      {name:"Supplier_Questionnaire.xlsx",type:"q",status:"ok",conf:0.93,note:"Capacity and gauge requirements captured"},
+    ],
+    triggered_rules:["RULE_003","RULE_004","RULE_005","RULE_007","RULE_008","RULE_009","RULE_010","RULE_011","RULE_012","RULE_013","RULE_015","RULE_016","RULE_017","RULE_018"],
+    gap_findings:[
+      {rule:"RULE_003",sev:"high",cat:"quality",title:"PPAP Level 5 — above historical norm of Level 3",
+       detail:"Requires PPAP Level 5 vs. family baseline Level 3. Adds full customer review, documentation, and ~$8K–$18K NRE in PPAP labor and document management.",
+       impact:"NRE +$8K–18K vs historical",evidence:"RFQ §3: 'PPAP Level 5 required'",action:"Add explicit PPAP L5 NRE line item; include run-at-rate and customer sign-off timeline.",
+       hist:{projects:["H015","H016","H017"],label:"Historical PPAP Level",hist_val:"Level 3",curr_val:"Level 5"}},
+      {rule:"RULE_004",sev:"high",cat:"technical",title:"Hole pitch tolerance ±0.03 mm — tighter than family",
+       detail:"Critical hole position tolerance ±0.03 mm vs historical ±0.05 mm. Requires enhanced die build, extra tryout iterations, and 100% go/no-go gauge inspection on the critical feature.",
+       impact:"Scrap +1.5–2× / extra die trials",evidence:"RFQ §2",action:"Request feasibility review from manufacturing engineering; increase scrap allowance and tryout contingency.",
+       hist:{projects:["H015","H016","H017"],label:"Historical Tolerance",hist_val:"±0.05 mm",curr_val:"±0.03 mm"}},
+      {rule:"RULE_005",sev:"high",cat:"technical",title:"Critical tolerance at process capability limit",
+       detail:"±0.03 mm approaches the boundary of repeatable progressive die stamping for 1.8 mm SPFC980Y. Slight die wear could cause 100% rejection. Needs explicit feasibility sign-off.",
+       impact:"Capability risk — may require CNC secondary op",evidence:"Drawing critical feature callout",action:"Do not quote final price until manufacturing engineering confirms ±0.03 mm is achievable in-process."},
+      {rule:"RULE_007",sev:"high",cat:"quality",title:"Supplier-funded check gauges with customer approval",
+       detail:"Supplier-funded gauges required for the critical hole pitch; gauge design needs customer approval before production. Gauge investment ~$12K–$22K, separate from base tooling.",
+       impact:"Gauge NRE $12K–22K unquoted",evidence:"RFQ §2",action:"Add separate gauge/check-fixture line; clarify amortization and approval timeline."},
+      {rule:"RULE_008",sev:"high",cat:"quality",title:"100% appearance inspection required",
+       detail:"100% appearance inspection (plus camera) needs a dedicated station or significant operator time. ~820 units/day at 150K/yr. Labor impact ~$0.10–0.18/pc.",
+       impact:"Inspection labor $0.10–0.18/pc",evidence:"RFQ §2",action:"Add inspection station labor, floor space, consumables. Do not absorb in overhead."},
+      {rule:"RULE_009",sev:"medium",cat:"commercial",title:"Net 120 payment terms exceed historical norm",
+       detail:"Net 120 vs historical Net 90. At ~$930K annual revenue, the extra 30 days adds ~$7.7K/yr financing at 10% working capital.",
+       impact:"~$7.7K/yr incremental financing",evidence:"RFQ §4",action:"Escalate to Finance. Add financing surcharge (~$0.05/pc) or negotiate to Net 90.",
+       hist:{projects:["H015","H016","H017"],label:"Historical Terms",hist_val:"Net 90",curr_val:"Net 120"}},
+      {rule:"RULE_010",sev:"medium",cat:"commercial",title:"Annual price reduction 4% — above norm of 2.5%",
+       detail:"4% APD vs family norm 2.5%. Over 5 years compounds to 18.5% vs 11.6%. At $6.20 launch, year-5 effective ~$5.06 — a $1.14/pc erosion.",
+       impact:"Year-5 margin erosion",evidence:"RFQ §4",action:"Model full price curve; confirm floor margin positive at year 5. Flag for management.",
+       hist:{projects:["H015","H016","H017"],label:"Historical APD",hist_val:"2.5%/yr",curr_val:"4.0%/yr"}},
+      {rule:"RULE_011",sev:"high",cat:"commercial",title:"DDP Monterrey — freight and customs not in quote",
+       detail:"DDP Monterrey makes the supplier absorb freight, customs, brokerage, delivery. Historical was FOB Shanghai. Freight delta ~$0.28–0.42/pc plus customs volatility.",
+       impact:"Logistics gap ~$0.28–0.42/pc",evidence:"RFQ §4",action:"Rebuild logistics for DDP; engage forwarder; add customs/brokerage line.",
+       hist:{projects:["H015","H016","H017"],label:"Historical Incoterm",hist_val:"FOB Shanghai",curr_val:"DDP Monterrey"}},
+      {rule:"RULE_012",sev:"medium",cat:"logistics",title:"Returnable rack required — not quoted",
+       detail:"Spec: 'Returnable rack required; one-way not accepted.' Adds rack acquisition, cycle count, loss allowance. Rack investment ~$18K–$35K + $0.04–0.07/pc cycle-loss.",
+       impact:"Rack $18K–35K + $0.04–0.07/pc",evidence:"RFQ §5",action:"Add returnable rack line to NRE and per-piece cycle-loss allowance."},
+      {rule:"RULE_013",sev:"medium",cat:"commercial",title:"Premium freight recovery excluded after nomination",
+       detail:"'Premium freight recovery not allowed after nomination.' Removes the safety valve for expediting during launch; cost fully absorbed by supplier.",
+       impact:"Launch freight risk unquoted",evidence:"RFQ §5",action:"Add launch freight buffer ($8K–$15K) and document the restriction."},
+      {rule:"RULE_015",sev:"medium",cat:"technical",title:"Burr spec below family norm — edge crack prohibition",
+       detail:"Burr < 0.03 mm and 'edge crack not allowed' are stricter than family (< 0.05 mm). Likely requires an inline deburr/finishing step not in historical routes.",
+       impact:"Secondary op ~$0.05–0.10/pc",evidence:"RFQ §2",action:"Confirm deburr/edge finishing with process engineering and add to cost model."},
+      {rule:"RULE_016",sev:"medium",cat:"quality",title:"Cpk ≥ 1.67 at SOP — above family baseline",
+       detail:"Cpk ≥ 1.67 at SOP vs family ≥ 1.33. Requires extended process qualification, extra measurement runs, adjusted parameters before first PPAP.",
+       impact:"Extended qualification timeline",evidence:"RFQ §3",action:"Assess added SPC effort and add to PPAP preparation budget."},
+      {rule:"RULE_017",sev:"medium",cat:"quality",title:"Run-at-rate required beyond standard PPAP",
+       detail:"Run-at-rate required as part of PPAP, above Level 3 expectation. Dedicates a production shift to customer observation; machine-time + labor cost ~$4K–$8K per event.",
+       impact:"Run-at-rate cost $4K–8K",evidence:"RFQ §3",action:"Add run-at-rate cost to PPAP NRE; coordinate machine availability."},
+      {rule:"RULE_018",sev:"low",cat:"quality",title:"Annual revalidation and corrosion retention required",
+       detail:"Annual revalidation and corrosion retention samples required ongoing. Typically not in unit price but belongs in the long-term cost model. ~$3K–$6K/yr.",
+       impact:"~$3K–6K/yr recurring",evidence:"RFQ §3",action:"Add recurring annual quality cost to the program financial model."},
+    ],
+    quote:{
+      version:"v1 Draft — High Risk", prepared_by:"K. Whitmore", validity:null,
+      total_value:null, total_tooling:70000, risk_score:89,
+      lines:[{pn:"NB-SI-3411",name:"Seat Side Impact Reinforcement",plant:"PLT-03",vol:150000,price:6.18,tooling:70000,pkg:0.00,quality:0.12,freight:0.05,margin:13.4}],
+      cost_breakdown:{material:3.86,labor:0.72,machine:0.88,overhead:0.56,scrap:0.12,quality:0.12,logistics:0.05,packaging:0.00,total:6.31},
+      hist_match:["H015","H016","H017"],hist_price_band:[6.08,6.22],hist_tooling_band:[69000,70500]
+    }
+  },
+
+  D: {
+    id:"CASE-D", rfq_num:"RFQ-2025-0451", title:"Battery Tray Assembly (Multi-Part)",
+    customer:"NorthBridge Automotive", program:"NB-EV Premium SUV",
+    part_number:"NB-BT-4100 (assembly)", sop:"2027-09-01", annual_vol:95000,
+    material:"AA5754 / AA6082-T6 (mixed)", thickness:2.50, tolerance:"±0.08 mm", critical_tol:"Coolant interface flatness ≤ 0.10 mm",
+    ppap:5, cpk:"≥ 1.67 at SOP / ≥ 1.33 ongoing", surface:["leak-tight welds","no porosity > 0.2 mm","class-A sealing face"],
+    incoterm:"DDP Stuttgart", payment:"Net 120", apd:3.5, currency:"USD", tooling_owner:"Supplier",
+    process:["stamping","CNC machining","MIG/laser welding","leak test","e-coat"],
+    supplier_funded_gauges:true, multi_part:true,
+    sub_parts:["Tray Base Pan","Side Rail (L)","Side Rail (R)","Cross Member","Mounting Bracket Set","Cooling-Plate Interface"],
+    risk_score:94, completeness:"incomplete", status_label:"Critical — Multi-Part",
+    docs:[
+      {name:"RFQ_Main_Document.pdf",type:"rfq",status:"ok",conf:0.97,note:"Assembly-level commercial terms extracted"},
+      {name:"Cost_Template_Assembly.xlsx",type:"cost",status:"ok",conf:0.90,note:"6 sub-part tabs parsed — several cost lines blank"},
+      {name:"Base_Pan_Drawing.pdf",type:"draw",status:"ok",conf:0.91,note:"Tray base pan tolerances extracted"},
+      {name:"Side_Rail_Drawing.pdf",type:"draw",status:"ok",conf:0.88,note:"L/R rail mirror parts extracted"},
+      {name:"Cross_Member_Drawing.pdf",type:"draw",status:"ok",conf:0.86,note:"Cross member extracted — weld callouts unclear"},
+      {name:"Welding_Spec_NB-WS-204.pdf",type:"test",status:"miss",conf:null,note:"Referenced for all weld joints — not received"},
+      {name:"Leak_Test_Standard.pdf",type:"test",status:"miss",conf:null,note:"Referenced in §3 — not received"},
+      {name:"Packaging_Spec_Assembly.pdf",type:"pkg",status:"miss",conf:null,note:"Returnable rack referenced — not received"},
+      {name:"Supplier_Questionnaire.xlsx",type:"q",status:"ok",conf:0.92,note:"Capacity flagged below requested volume"},
+    ],
+    triggered_rules:["RULE_001","RULE_002","RULE_003","RULE_004","RULE_005","RULE_007","RULE_008","RULE_011","RULE_012","RULE_021","RULE_022","RULE_023","RULE_025","RULE_030"],
+    gap_findings:[
+      {part:"Tray Base Pan",rule:"RULE_021",sev:"high",cat:"technical",title:"AA5754 aluminium not in historical database",detail:"The base pan is AA5754 aluminium; the historical family is steel (SPCC/SPHC/SPFC). No directly comparable cost basis exists. Forming behaviour, springback and weldability differ materially.",impact:"No historical price anchor",evidence:"Base_Pan_Drawing §1",action:"Build a bottom-up aluminium cost model; do not extrapolate from steel history.",hist:{projects:["H020","H021"],label:"Closest Aluminium History",hist_val:"AA5754 (limited)",curr_val:"AA5754"}},
+      {part:"Tray Base Pan",rule:"RULE_004",sev:"high",cat:"technical",title:"Forming tolerance ±0.08 mm tighter than aluminium norm",detail:"±0.08 mm general tolerance is tight for 2.5 mm AA5754 with springback. Requires die compensation iterations and possible restrike.",impact:"Extra tryout + scrap allowance",evidence:"Base_Pan_Drawing §2",action:"Add die-compensation iterations and scrap contingency to tooling/NRE."},
+      {part:"Tray Base Pan",rule:"RULE_005",sev:"high",cat:"technical",title:"Coolant interface flatness ≤ 0.10 mm at capability limit",detail:"Sealing face flatness ≤ 0.10 mm across a large pan is at the limit of stamping; likely needs a CNC finishing pass on the sealing face.",impact:"CNC secondary op required",evidence:"Base_Pan_Drawing critical callout",action:"Quote a CNC face-milling secondary operation; get feasibility sign-off."},
+      {part:"Tray Base Pan",rule:"RULE_025",sev:"medium",cat:"technical",title:"E-coat + sealing face masking required",detail:"E-coat specified with a masked class-A sealing face. Masking adds labour and fixturing not in the steel-family routes.",impact:"Masking labour ~$0.20–0.35/pc",evidence:"Base_Pan_Drawing surface notes",action:"Add masking fixture and labour to the coating cost line."},
+      {part:"Tray Base Pan",rule:"RULE_019",sev:"high",cat:"quote",title:"Base pan packaging cost line blank",detail:"Cost template base-pan tab has packaging at $0.00 despite a large aluminium part needing protective dunnage.",impact:"Cost omission",evidence:"Cost_Template_Assembly — Base Pan tab",action:"Enter packaging cost once spec received; do not release at $0.00."},
+      {part:"Tray Base Pan",rule:"RULE_029",sev:"low",cat:"quality",title:"Laser lot-marking / traceability required",detail:"Each base pan requires laser part + lot marking for battery traceability. Marking station and cycle time not in the route.",impact:"Marking station + cycle time",evidence:"RFQ §3 traceability",action:"Add laser-marking station cost and cycle-time allowance."},
+
+      {part:"Side Rail (L)",rule:"RULE_022",sev:"high",cat:"completeness",title:"Weld spec NB-WS-204 not supplied",detail:"All rail-to-pan joints reference welding spec NB-WS-204, which was not included. Weld process, wire, and inspection class are unknown, so weld cost and DV cannot be finalized.",impact:"Weld cost unquantifiable",evidence:"Side_Rail_Drawing weld callouts",action:"Request NB-WS-204 before quoting weld labour and inspection."},
+      {part:"Side Rail (L)",rule:"RULE_030",sev:"medium",cat:"technical",title:"Rail-to-pan interface stack-up unverified",detail:"The L rail mates to the base pan and cross member; combined stack-up tolerance is not called out. Risk of assembly interference at GD&T extremes.",impact:"Assembly fit risk",evidence:"Side_Rail_Drawing §3",action:"Request assembly-level GD&T or run a tolerance stack-up study."},
+      {part:"Side Rail (L)",rule:"RULE_025",sev:"medium",cat:"technical",title:"E-coat coverage on welded assembly",detail:"E-coat after weld means the rail must be coated as part of the assembly; rack/hanging design affects coverage in weld pockets.",impact:"Coating coverage risk",evidence:"RFQ §2 coating",action:"Confirm coat-after-weld sequence and rack design with coating supplier."},
+      {part:"Side Rail (L)",rule:"RULE_015",sev:"medium",cat:"technical",title:"Cut-edge burr spec on stamped rail",detail:"Rail cut edges require burr < 0.05 mm; an extra deburr pass is likely.",impact:"Deburr ~$0.04–0.07/pc",evidence:"Side_Rail_Drawing surface",action:"Add deburr operation to the rail route."},
+
+      {part:"Side Rail (R)",rule:"RULE_022",sev:"high",cat:"completeness",title:"Weld spec NB-WS-204 not supplied (mirror)",detail:"R rail mirrors the L rail and shares the same missing weld spec dependency; weld cost cannot be finalized.",impact:"Weld cost unquantifiable",evidence:"Side_Rail_Drawing weld callouts",action:"Resolve with the single NB-WS-204 request covering both rails."},
+      {part:"Side Rail (R)",rule:"RULE_030",sev:"medium",cat:"technical",title:"Mirror-part symmetry tooling note missing",detail:"L/R are mirror parts; the RFQ does not state whether a single mirrored die or two dies are expected, affecting tooling cost.",impact:"Tooling scope ambiguity",evidence:"Side_Rail_Drawing title block",action:"Clarify single-mirrored vs dual-die tooling expectation with the buyer."},
+      {part:"Side Rail (R)",rule:"RULE_015",sev:"medium",cat:"technical",title:"Cut-edge burr spec on stamped rail (mirror)",detail:"Same burr < 0.05 mm requirement as the L rail.",impact:"Deburr ~$0.04–0.07/pc",evidence:"Side_Rail_Drawing surface",action:"Add deburr operation; mirror of L rail line."},
+
+      {part:"Cross Member",rule:"RULE_022",sev:"high",cat:"completeness",title:"Weld callouts unclear + spec missing",detail:"Cross member drawing weld callouts were parsed at low confidence and the governing spec NB-WS-204 is missing. Weld length and class are uncertain.",impact:"Weld scope uncertain",evidence:"Cross_Member_Drawing §2 (conf 0.86)",action:"Request clarified weld callouts and NB-WS-204."},
+      {part:"Cross Member",rule:"RULE_021",sev:"high",cat:"technical",title:"AA6082-T6 extrusion grade — no history",detail:"Cross member is AA6082-T6 extrusion, a different grade/process (extrusion not stamping). No historical cost basis.",impact:"No historical anchor",evidence:"Cross_Member_Drawing §1",action:"Source extrusion quote and build dedicated cost line; this is not an in-house stamping."},
+      {part:"Cross Member",rule:"RULE_030",sev:"medium",cat:"technical",title:"Bolt-hole pattern stack-up to brackets",detail:"Cross member bolt pattern must align to the mounting bracket set; combined positional tolerance not specified.",impact:"Assembly fit risk",evidence:"Cross_Member_Drawing §3",action:"Request positional tolerance for the mating bolt pattern."},
+      {part:"Cross Member",rule:"RULE_024",sev:"medium",cat:"commercial",title:"Tooling ownership for extrusion die unspecified",detail:"The RFQ does not state who owns the extrusion die. Ownership affects amortization and unit price.",impact:"Amortization ambiguity",evidence:"RFQ §4",action:"Clarify extrusion die ownership and amortization terms."},
+
+      {part:"Mounting Bracket Set",rule:"RULE_003",sev:"high",cat:"quality",title:"PPAP Level 5 across all sub-parts",detail:"PPAP Level 5 required for every sub-part in the assembly, multiplying documentation and submission effort six-fold vs a single part.",impact:"NRE multiplied across 6 parts",evidence:"RFQ §3",action:"Quote PPAP L5 NRE per sub-part plus assembly-level submission."},
+      {part:"Mounting Bracket Set",rule:"RULE_007",sev:"high",cat:"quality",title:"Supplier-funded gauges for bracket positions",detail:"Supplier-funded check gauges required for bracket hole positions with customer approval. Gauge set ~$15K–$25K.",impact:"Gauge NRE $15K–25K",evidence:"RFQ §2",action:"Add a gauge/check-fixture line for the bracket set."},
+      {part:"Mounting Bracket Set",rule:"RULE_016",sev:"medium",cat:"quality",title:"Cpk ≥ 1.67 at SOP on bracket positions",detail:"Tight launch Cpk target on safety-critical mounting positions requires extended qualification.",impact:"Extended qualification",evidence:"RFQ §3",action:"Add SPC qualification effort to PPAP budget."},
+      {part:"Mounting Bracket Set",rule:"RULE_029",sev:"low",cat:"quality",title:"Per-bracket traceability marking",detail:"Each bracket requires individual traceability marking for safety recall capability.",impact:"Marking cycle time",evidence:"RFQ §3",action:"Add marking step to bracket route."},
+
+      {part:"Cooling-Plate Interface",rule:"RULE_005",sev:"high",cat:"technical",title:"Sealing-face flatness ≤ 0.10 mm — leak critical",detail:"The cooling-plate interface is leak-critical; flatness ≤ 0.10 mm with no porosity > 0.2 mm. At the limit of process capability; CNC finishing + 100% leak test required.",impact:"CNC + 100% leak test",evidence:"RFQ §2 critical feature",action:"Quote CNC finishing and inline leak-test station; feasibility sign-off required."},
+      {part:"Cooling-Plate Interface",rule:"RULE_002",sev:"high",cat:"completeness",title:"Leak-test standard not received",detail:"Leak_Test_Standard.pdf referenced in §3 but not supplied. Acceptance leak rate and method (pressure decay vs helium) unknown; equipment and cycle time cannot be sized.",impact:"Leak-test cost unquantifiable",evidence:"RFQ §3",action:"Request the leak-test standard before quoting test equipment and cycle time."},
+      {part:"Cooling-Plate Interface",rule:"RULE_008",sev:"high",cat:"quality",title:"100% leak + appearance inspection",detail:"Every assembly requires 100% leak test and class-A sealing-face appearance inspection. Dedicated stations and labour required.",impact:"Inspection labour + capex",evidence:"RFQ §2",action:"Add leak-test and appearance-inspection station capex and labour."},
+      {part:"Cooling-Plate Interface",rule:"RULE_025",sev:"medium",cat:"technical",title:"Sealing face must remain coating-free",detail:"Class-A sealing face must be masked from e-coat, adding masking complexity at a leak-critical surface.",impact:"Masking + rework risk",evidence:"RFQ §2",action:"Design masking fixture; add rework allowance for masking defects."},
+
+      {part:"Assembly",rule:"RULE_011",sev:"high",cat:"commercial",title:"DDP Stuttgart — freight, customs, duty absorbed",detail:"DDP Stuttgart requires the supplier to absorb ocean/air freight, EU customs, duty, and brokerage on a bulky aluminium assembly. Historical was FOB Shanghai. Large logistics delta plus FX/duty volatility.",impact:"Logistics gap — large, bulky part",evidence:"RFQ §4",action:"Rebuild DDP logistics with a forwarder quote; add duty and FX buffer."},
+      {part:"Assembly",rule:"RULE_023",sev:"high",cat:"commercial",title:"Quoted capacity below requested 95K/yr volume",detail:"The supplier questionnaire flags assembly/weld-cell capacity below the requested 95,000/yr at SOP ramp. Capacity shortfall risks an unmet commitment or capex.",impact:"Capacity shortfall — capex or risk",evidence:"Supplier_Questionnaire — capacity tab",action:"Confirm whether a second weld cell capex is in scope; reflect in NRE or decline volume."},
+      {part:"Assembly",rule:"RULE_001",sev:"high",cat:"completeness",title:"Assembly packaging spec missing",detail:"Packaging_Spec_Assembly.pdf referenced (returnable rack) but not supplied. A large EV battery tray needs custom returnable racking; cost unknown.",impact:"Packaging cost unknown — likely high",evidence:"RFQ §5",action:"Request the packaging spec; provisionally size custom returnable rack."},
+      {part:"Assembly",rule:"RULE_012",sev:"medium",cat:"logistics",title:"Returnable rack — large custom dunnage",detail:"Returnable rack required; for a battery tray this is large bespoke dunnage with significant per-rack cost and cycle-loss exposure.",impact:"Rack capex high + cycle-loss",evidence:"RFQ §5",action:"Quote custom returnable rack design and per-trip cycle-loss allowance."},
+      {part:"Assembly",rule:"RULE_009",sev:"medium",cat:"commercial",title:"Net 120 payment terms",detail:"Net 120 on a high-value assembly (~$1.7M+ annual) carries material financing cost vs the Net 90 norm.",impact:"Financing cost on high revenue",evidence:"RFQ §4",action:"Escalate to Finance; price in financing or negotiate Net 90.",hist:{projects:["H020","H021"],label:"Historical Terms",hist_val:"Net 90",curr_val:"Net 120"}},
+      {part:"Assembly",rule:"RULE_010",sev:"medium",cat:"commercial",title:"3.5% annual price-down on assembly",detail:"3.5% APD on a high-content aluminium assembly compounds to significant erosion; aluminium price volatility makes the floor harder to hold.",impact:"Margin erosion + Al price risk",evidence:"RFQ §4",action:"Model price curve with an aluminium-index clause; confirm year-5 floor."},
+      {part:"Assembly",rule:"RULE_013",sev:"medium",cat:"commercial",title:"Premium freight recovery excluded",detail:"No premium freight recovery after nomination; on a DDP intercontinental lane this is a real launch risk.",impact:"Launch freight risk unquoted",evidence:"RFQ §5",action:"Add a launch freight contingency to NRE."},
+      {part:"Assembly",rule:"RULE_024",sev:"medium",cat:"commercial",title:"Assembly tooling ownership unspecified",detail:"Ownership of welding fixtures and assembly jigs is not stated, affecting amortization across the program.",impact:"Amortization ambiguity",evidence:"RFQ §4",action:"Clarify ownership of weld fixtures and assembly jigs."},
+      {part:"Assembly",rule:"RULE_017",sev:"medium",cat:"quality",title:"Assembly-level run-at-rate required",detail:"Run-at-rate required at the assembly level, dedicating the full weld/leak cell to customer observation.",impact:"Run-at-rate cost $8K–15K",evidence:"RFQ §3",action:"Add assembly-level run-at-rate cost and schedule with production."},
+      {part:"Assembly",rule:"RULE_027",sev:"medium",cat:"quality",title:"Appearance approval before PPAP on sealing face",detail:"Class-A sealing face needs appearance approval prior to PPAP, adding a milestone before SOP.",impact:"Timing risk 4–8 weeks",evidence:"RFQ §3",action:"Add appearance approval milestone to the program plan."},
+      {part:"Assembly",rule:"RULE_028",sev:"medium",cat:"completeness",title:"Spec references NB-WS-204 / leak std unresolved",detail:"Two governing specs are referenced but unreceived; track as open clarifications independent of cost impact.",impact:"Compliance tracking",evidence:"RFQ §3",action:"Create clarification tracker entries with owners and due dates."},
+      {part:"Assembly",rule:"RULE_018",sev:"low",cat:"quality",title:"Annual revalidation + corrosion retention",detail:"Annual revalidation and corrosion retention required ongoing for the coated aluminium assembly.",impact:"~$5K–8K/yr recurring",evidence:"RFQ §3",action:"Add recurring revalidation cost to the program model."},
+      {part:"Assembly",rule:"RULE_030",sev:"medium",cat:"technical",title:"Full-assembly stack-up to vehicle mounting unverified",detail:"The assembly mounts to the vehicle floor; the cumulative stack-up from 6 sub-parts to the vehicle interface is not specified.",impact:"Vehicle-fit risk",evidence:"RFQ §2",action:"Request vehicle-interface datums or run a full assembly stack-up study."},
+      {part:"Assembly",rule:"RULE_016",sev:"medium",cat:"quality",title:"Assembly Cpk on leak rate",detail:"Cpk target applied to leak-rate as a variable also requires capable measurement and SPC on the leak test.",impact:"Measurement system effort",evidence:"RFQ §3",action:"Add gauge R&R and SPC for the leak-test measurement system."},
+      {part:"Assembly",rule:"RULE_021",sev:"medium",cat:"technical",title:"Mixed-alloy galvanic corrosion risk",detail:"AA5754 pan + AA6082 cross member + steel fasteners create galvanic couples; corrosion protection at joints is unspecified.",impact:"Corrosion design risk",evidence:"RFQ §2 / DFMEA gap",action:"Request joint corrosion-protection requirements; raise in DFMEA."},
+      {part:"Assembly",rule:"RULE_029",sev:"low",cat:"quality",title:"Assembly-level barcode / data-matrix",detail:"Finished assembly requires a data-matrix label linking all sub-part lots for traceability.",impact:"Labelling station",evidence:"RFQ §3",action:"Add assembly labelling + data aggregation step."},
+      {part:"Assembly",rule:"RULE_022",sev:"high",cat:"completeness",title:"Weld inspection class undefined (no spec)",detail:"Without NB-WS-204, the weld inspection class (visual vs CT vs cross-section frequency) is undefined, blocking quality-cost estimation for all welds.",impact:"Weld quality cost blocked",evidence:"RFQ §3 + missing spec",action:"Resolve NB-WS-204 to define weld inspection frequency and method."},
+      {part:"Assembly",rule:"RULE_005",sev:"medium",cat:"technical",title:"Weld distortion vs flatness requirement",detail:"Welding the assembly induces distortion that conflicts with the ≤ 0.10 mm sealing-face flatness, likely forcing post-weld machining.",impact:"Post-weld machining needed",evidence:"Process analysis",action:"Sequence machining after weld; quote a post-weld CNC pass."},
+      {part:"Assembly",rule:"RULE_004",sev:"medium",cat:"technical",title:"Cumulative tolerance vs single-part tolerances",detail:"Individual ±0.08 mm sub-part tolerances will not guarantee the assembly interface tolerance without controlled fixturing.",impact:"Fixturing precision cost",evidence:"Stack-up analysis",action:"Quote precision welding/assembly fixtures to control cumulative tolerance."},
+      {part:"Assembly",rule:"RULE_025",sev:"low",cat:"technical",title:"Coating thickness on sealing-adjacent areas",detail:"E-coat thickness near the sealing face must be controlled to avoid affecting the gasket seal.",impact:"Coating control",evidence:"RFQ §2",action:"Define coating thickness limits near the sealing face."},
+      {part:"Assembly",rule:"RULE_023",sev:"medium",cat:"commercial",title:"Ramp curve steeper than capacity plan",detail:"Volume ramps to 95K/yr faster than the stated weld-cell ramp; early-year shortfall risk.",impact:"Early-year supply risk",evidence:"Supplier_Questionnaire ramp tab",action:"Align ramp plan with customer SOP curve; flag capex timing."},
+    ],
+    quote:{
+      version:"v1 Draft — Multi-Part / Blocked", prepared_by:"K. Whitmore", validity:null,
+      total_value:null, total_tooling:520000, risk_score:94,
+      lines:[
+        {pn:"NB-BT-4100-01",name:"Tray Base Pan",plant:"PLT-05",vol:95000,price:7.90,tooling:240000,pkg:0.00,quality:0.30,freight:0.00,margin:11.0},
+        {pn:"NB-BT-4100-02",name:"Side Rail (L)",plant:"PLT-05",vol:95000,price:3.20,tooling:64000,pkg:0.00,quality:0.18,freight:0.00,margin:12.5},
+        {pn:"NB-BT-4100-03",name:"Side Rail (R)",plant:"PLT-05",vol:95000,price:3.20,tooling:64000,pkg:0.00,quality:0.18,freight:0.00,margin:12.5},
+        {pn:"NB-BT-4100-04",name:"Cross Member",plant:"PLT-05",vol:95000,price:4.10,tooling:52000,pkg:0.00,quality:0.16,freight:0.00,margin:10.8},
+        {pn:"NB-BT-4100-05",name:"Mounting Bracket Set",plant:"PLT-05",vol:95000,price:2.40,tooling:48000,pkg:0.00,quality:0.20,freight:0.00,margin:13.0},
+        {pn:"NB-BT-4100-06",name:"Cooling-Plate Interface",plant:"PLT-05",vol:95000,price:5.60,tooling:52000,pkg:0.00,quality:0.34,freight:0.00,margin:9.5},
+      ],
+      cost_breakdown:{material:14.80,labor:3.20,machine:3.90,overhead:2.40,scrap:0.90,quality:1.36,logistics:0.00,packaging:0.00,total:26.56},
+      hist_match:["H020","H021"],hist_price_band:[18.40,18.90],hist_tooling_band:[240000,245000]
+    }
+  }
+};
+
+const DOC_TYPE_LABEL = {rfq:"RFQ Main",cost:"Cost Template",draw:"Drawing",pkg:"Packaging",test:"Test Spec",q:"Questionnaire"};
+const CASE_ORDER = ["A","B","C","D"];
+
+/* ════════════════════════════════════════════════════════════════
+   RENDER ENGINE
+════════════════════════════════════════════════════════════════ */
+
+let currentCase = "A";
+let currentSection = "overview";
+let gapSevFilter = "all";
+let gapSearchTerm = "";
+
+const SECTIONS = [
+  {id:"overview",  num:"1", label:"Overview"},
+  {id:"documents", num:"2", label:"Documents"},
+  {id:"part",      num:"3", label:"Part Detail"},
+  {id:"gaps",      num:"4", label:"Gap Analysis"},
+  {id:"quote",     num:"5", label:"Quote & Benchmark"},
+];
+
+function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function fmt$(n){ return n==null?"—":"$"+Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtK(n){ return n==null?"—":"$"+(n>=1000?(n/1000).toFixed(0)+"K":n); }
+function fmtPct(n){ return n==null?"—":n+"%"; }
+function fmtVol(n){ return n==null?"—":Number(n).toLocaleString("en-US"); }
+
+function riskClass(score){
+  if(score>=80) return "bad";
+  if(score>=50) return "warn";
+  return "ok";
+}
+function riskColor(score){
+  if(score>=80) return "var(--bad)";
+  if(score>=50) return "var(--warn)";
+  return "var(--ok)";
+}
+function statusClass(c){
+  const s=(c.status_label||"").toLowerCase();
+  if(s.includes("critical")||s.includes("high risk")) return "bad";
+  if(s.includes("incomplete")) return "warn";
+  return "ok";
+}
+
+function buildCaseSwitcher(){
+  const el = document.getElementById("case-buttons");
+  el.innerHTML = CASE_ORDER.map(k=>{
+    const c = CASES[k];
+    const rc = riskClass(c.risk_score);
+    const col = rc==="bad"?"var(--bad)":rc==="warn"?"var(--warn)":"var(--ok)";
+    return `<button class="cs-btn${k===currentCase?" active":""}" onclick="switchCase('${k}')" aria-pressed="${k===currentCase}">
+      <div class="cs-badge">${esc(k)}</div>
+      <div class="cs-info">
+        <div class="cs-name">${esc(c.title)}</div>
+        <div class="cs-meta">${esc(c.rfq_num)}</div>
+      </div>
+      <div class="cs-risk" style="color:${col}">${c.risk_score}</div>
+    </button>`;
+  }).join("");
+}
+
+function buildTOC(){
+  const el = document.getElementById("toc-links");
+  el.innerHTML = SECTIONS.map(s=>`
+    <button class="toc-link${s.id===currentSection?" active":""}" onclick="switchSection('${s.id}')" aria-current="${s.id===currentSection}">
+      <span class="toc-num">${esc(s.num)}.</span>
+      ${esc(s.label)}
+    </button>
+  `).join("");
+}
+
+function switchCase(k){
+  currentCase = k;
+  gapSevFilter = "all";
+  gapSearchTerm = "";
+  buildCaseSwitcher();
+  renderMain();
+  buildTOC();
+}
+
+function switchSection(id){
+  currentSection = id;
+  buildTOC();
+  const el = document.getElementById("sec-"+id);
+  if(el){ el.scrollIntoView({behavior:"smooth",block:"start"}); }
+}
+
+/* ── Scroll spy ── */
+function setupScrollSpy(){
+  const main = document.getElementById("main-scroll");
+  if(!main || typeof main.addEventListener !== "function") return;
+  main.addEventListener("scroll", ()=>{
+    const sections = SECTIONS.map(s=>({id:s.id, el:document.getElementById("sec-"+s.id)})).filter(x=>x.el&&typeof x.el.offsetTop==="number");
+    if(!sections.length) return;
+    const scrollTop = main.scrollTop + 80;
+    let active = sections[0].id;
+    for(const s of sections){
+      if(s.el.offsetTop <= scrollTop) active = s.id;
+    }
+    if(active !== currentSection){
+      currentSection = active;
+      buildTOC();
+    }
+  },{passive:true});
+}
+
+/* ════════ SECTION RENDERERS ════════ */
+
+function renderOverview(c){
+  const findings = c.gap_findings||[];
+  const highCount = findings.filter(f=>f.sev==="high").length;
+  const medCount = findings.filter(f=>f.sev==="medium").length;
+  const lowCount = findings.filter(f=>f.sev==="low").length;
+  const totalDocs = (c.docs||[]).length;
+  const missDocs = (c.docs||[]).filter(d=>d.status==="miss").length;
+
+  // Workflow steps
+  const wfSteps = [
+    {label:"RFQ Received",done:true},
+    {label:"Extraction",done:true},
+    {label:"Gap Analysis",done:true},
+    {label:"Quote Draft",done:c.quote&&c.quote.version&&!c.quote.version.includes("Blocked")},
+    {label:"Risk Review",done:false,active:true},
+    {label:"Release",done:false},
+  ];
+  const wfHtml = wfSteps.map((s,i)=>`
+    <span class="wf-step">
+      <span class="wf-dot ${s.done?"done":s.active?"active":"pending"}"></span>
+      <span class="wf-name ${s.done?"done":s.active?"active":""}"> ${esc(s.label)}</span>
+    </span>${i<wfSteps.length-1?'<span class="wf-arrow">›</span>':''}
+  `).join("");
+
+  // Status badge
+  const sc = statusClass(c);
+  const completenessVal = c.completeness==="complete"?100:c.completeness==="incomplete"?68:85;
+
+  // Risk notes
+  let riskNotes = "";
+  if(c.risk_score>=80){
+    riskNotes = `<div class="risk-note"><strong>High-risk assessment.</strong> This RFQ carries a risk score of ${c.risk_score}/100. Multiple high-severity findings must be resolved before this quote can be released. Review Gap Analysis (Section 4) for required actions.</div>`;
+  } else if(c.risk_score>=50){
+    riskNotes = `<div class="risk-note"><strong>Elevated risk — blocked.</strong> Risk score: ${c.risk_score}/100. Missing documents prevent final pricing. Resolve open items before submission.</div>`;
+  }
+
+  return `
+    <div class="wf-row">${wfHtml}</div>
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-l">Completeness</div>
+        <div class="kpi-v num">${completenessVal}%</div>
+        <div class="kpi-sub">${missDocs>0?missDocs+" doc"+(missDocs>1?"s":"")+" missing":"All documents received"}</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${completenessVal}%"></div></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-l">Open Findings</div>
+        <div class="kpi-v num">${findings.length}</div>
+        <div class="kpi-sub">${highCount} high · ${medCount} medium · ${lowCount} low</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-l">Risk Score</div>
+        <div class="kpi-v num" style="color:${riskColor(c.risk_score)}">${c.risk_score}</div>
+        <div class="risk-meter">
+          <div class="risk-track"><div class="risk-fill" style="width:${c.risk_score}%;background:${riskColor(c.risk_score)}"></div></div>
+          <span class="risk-label num" style="color:${riskColor(c.risk_score)}">${c.risk_score}</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-l">Status</div>
+        <div class="kpi-v" style="font-size:15px;margin-top:6px"><span class="status-badge ${sc}">${esc(c.status_label)}</span></div>
+        <div class="kpi-sub">${(c.triggered_rules||[]).length} rules triggered</div>
+      </div>
+    </div>
+
+    ${riskNotes}
+
+    <table class="info-table">
+      <tr><td>Customer</td><td>${esc(c.customer)}</td></tr>
+      <tr><td>Program</td><td>${esc(c.program)}</td></tr>
+      <tr><td>Part Number</td><td><code style="font-family:var(--mono);font-size:12.5px">${esc(c.part_number)}</code></td></tr>
+      <tr><td>RFQ Number</td><td><code style="font-family:var(--mono);font-size:12.5px">${esc(c.rfq_num)}</code></td></tr>
+      <tr><td>SOP Date</td><td>${esc(c.sop)}</td></tr>
+      <tr><td>Annual Volume</td><td class="num">${fmtVol(c.annual_vol)} units/yr</td></tr>
+      <tr><td>Incoterm</td><td class="${(c.incoterm||"").includes("DDP")?"flag-bad":""}">${esc(c.incoterm)}</td></tr>
+      <tr><td>Payment Terms</td><td class="${(c.payment||"").includes("120")?"flag-bad":(c.payment||"").includes("75")?"flag-warn":""}">${esc(c.payment)}</td></tr>
+      <tr><td>Annual Price-Down</td><td class="${(c.apd||0)>=3?"flag-bad":(c.apd||0)>=2.5?"flag-warn":""}">${c.apd}%/yr</td></tr>
+      <tr><td>PPAP Level</td><td class="${c.ppap>=5?"flag-bad":""}">${c.ppap}</td></tr>
+      <tr><td>Tooling Owner</td><td>${esc(c.tooling_owner)}</td></tr>
+      <tr><td>Triggered Rules</td><td>${(c.triggered_rules||[]).map(r=>`<code style="font-family:var(--mono);font-size:11px;background:var(--panel);padding:1px 6px;border-radius:2px;margin-right:4px">${esc(r)}</code>`).join("")}</td></tr>
+    </table>
+  `;
+}
+
+function renderDocuments(c){
+  const docs = c.docs||[];
+  const ok = docs.filter(d=>d.status==="ok").length;
+  const miss = docs.filter(d=>d.status==="miss").length;
+
+  return `
+    <p style="font-size:13px;color:var(--ink2);margin-bottom:16px;line-height:1.65">
+      ${ok} of ${docs.length} expected documents were received and parsed. ${miss>0?`<strong style="color:var(--bad)">${miss} document${miss>1?"s":""} are missing</strong> — pricing items dependent on these documents remain unresolved.`:"All documents are present."}
+    </p>
+    <div style="overflow-x:auto">
+    <table class="ruled-table">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Confidence</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${docs.map(d=>`
+          <tr>
+            <td class="mono">${esc(d.name)}</td>
+            <td>${esc(DOC_TYPE_LABEL[d.type]||d.type)}</td>
+            <td class="${d.status==="ok"?"doc-ok":"doc-miss"}">${d.status==="ok"?"Received":"Missing"}</td>
+            <td>
+              ${d.conf!=null?`
+                <span class="num" style="font-size:12px">${Math.round(d.conf*100)}%</span>
+                <span class="conf-bar"><span class="conf-fill" style="width:${Math.round(d.conf*100)}%"></span></span>
+              `:'<span style="color:var(--ink3);font-size:12px">—</span>'}
+            </td>
+            <td style="font-size:12.5px;color:var(--ink2)">${esc(d.note)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+    </div>
+  `;
+}
+
+function renderPart(c){
+  const isMulti = !!c.multi_part;
+
+  let subPartHtml = "";
+  if(isMulti && c.sub_parts){
+    subPartHtml = `
+      <p style="font-size:13px;font-weight:700;color:var(--ink);margin:20px 0 10px">Sub-Parts (${c.sub_parts.length})</p>
+      <div style="overflow-x:auto">
+      <table class="ruled-table">
+        <thead><tr><th>#</th><th>Sub-Part</th><th>Part Number</th><th>Plant</th></tr></thead>
+        <tbody>
+          ${c.sub_parts.map((sp,i)=>{
+            const line = (c.quote&&c.quote.lines&&c.quote.lines[i])||null;
+            return `<tr>
+              <td class="num" style="color:var(--ink3)">${i+1}</td>
+              <td>${esc(sp)}</td>
+              <td class="mono">${line?esc(line.pn):"—"}</td>
+              <td class="mono">${line?esc(line.plant):"—"}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+      </div>
+    `;
+  }
+
+  return `
+    <table class="info-table" style="margin-bottom:20px">
+      <tr><td>Material</td><td>${esc(c.material)}</td></tr>
+      <tr><td>Thickness</td><td>${c.thickness} mm</td></tr>
+      <tr><td>General Tolerance</td><td>${esc(c.tolerance)}</td></tr>
+      <tr><td>Critical Tolerance</td><td class="flag-bad">${esc(c.critical_tol)}</td></tr>
+      <tr><td>Cpk Requirement</td><td>${esc(c.cpk)}</td></tr>
+      <tr><td>Surface Requirements</td><td>${(c.surface||[]).map(s=>`<span style="display:inline-block;font-size:12px;background:var(--panel);border:1px solid var(--rule2);padding:2px 8px;border-radius:2px;margin:2px 4px 2px 0">${esc(s)}</span>`).join("")}</td></tr>
+    </table>
+
+    <p style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Process Route</p>
+    <div class="proc-list">
+      ${(c.process||[]).map((p,i)=>`<span class="proc-pill">${i>0?'<span style="color:var(--ink3);margin-right:8px">→</span>':''} ${esc(p)}</span>`).join("")}
+    </div>
+
+    <table class="info-table" style="margin-top:16px">
+      <tr><td>Supplier-Funded Gauges</td><td class="${c.supplier_funded_gauges?"flag-bad":""}">${c.supplier_funded_gauges?"Yes — required":"No"}</td></tr>
+      <tr><td>Assembly Type</td><td>${isMulti?"Multi-part assembly":"Single part"}</td></tr>
+    </table>
+
+    ${subPartHtml}
+  `;
+}
+
+function renderGaps(c){
+  const findings = c.gap_findings||[];
+  const isMulti = !!c.multi_part;
+
+  // Summary counts
+  const highCt = findings.filter(f=>f.sev==="high").length;
+  const medCt = findings.filter(f=>f.sev==="medium").length;
+  const lowCt = findings.filter(f=>f.sev==="low").length;
+
+  // Filter + search
+  function matches(f){
+    if(gapSevFilter!=="all" && f.sev!==gapSevFilter) return false;
+    if(gapSearchTerm){
+      const q=gapSearchTerm.toLowerCase();
+      return (f.title||"").toLowerCase().includes(q)||(f.detail||"").toLowerCase().includes(q)||(f.rule||"").toLowerCase().includes(q)||(f.cat||"").toLowerCase().includes(q)||(f.part||"").toLowerCase().includes(q);
+    }
+    return true;
+  }
+
+  const filtered = findings.filter(matches);
+
+  // For Case D: group by part
+  let bodyHtml = "";
+
+  if(isMulti){
+    // Summary table
+    const parts = [...new Set(findings.map(f=>f.part))];
+    const summaryRows = parts.map(pt=>{
+      const pf = findings.filter(f=>f.part===pt);
+      return `<tr>
+        <td>${esc(pt)}</td>
+        <td class="num" style="text-align:center;color:var(--bad)">${pf.filter(f=>f.sev==="high").length}</td>
+        <td class="num" style="text-align:center;color:var(--warn)">${pf.filter(f=>f.sev==="medium").length}</td>
+        <td class="num" style="text-align:center;color:var(--ok)">${pf.filter(f=>f.sev==="low").length}</td>
+        <td class="num" style="text-align:center;font-weight:700">${pf.length}</td>
+      </tr>`;
+    }).join("");
+
+    bodyHtml = `
+      <div style="overflow-x:auto">
+      <table class="gap-summary-table">
+        <thead>
+          <tr>
+            <th>Sub-Part</th>
+            <th style="text-align:center">High</th>
+            <th style="text-align:center">Medium</th>
+            <th style="text-align:center">Low</th>
+            <th style="text-align:center">Total</th>
+          </tr>
+        </thead>
+        <tbody>${summaryRows}</tbody>
+      </table>
+      </div>
+    `;
+
+    // Group filtered findings by part
+    const groupedParts = parts;
+    let globalN = 0;
+    bodyHtml += groupedParts.map(pt=>{
+      const partFindings = filtered.filter(f=>f.part===pt);
+      if(partFindings.length===0) return "";
+      const allPartFindings = findings.filter(f=>f.part===pt);
+      const partHigh = allPartFindings.filter(f=>f.sev==="high").length;
+      const partMed = allPartFindings.filter(f=>f.sev==="medium").length;
+      const partLow = allPartFindings.filter(f=>f.sev==="low").length;
+      let rows = "";
+      partFindings.forEach(f=>{
+        globalN++;
+        rows += renderFinding(f, globalN);
+      });
+      return `
+        <div class="part-group-heading">
+          <span class="part-group-title">${esc(pt)}</span>
+          <span class="part-group-count">${partHigh>0?`<span style="color:var(--bad)">${partHigh}H</span> `:""}${partMed>0?`<span style="color:var(--warn)">${partMed}M</span> `:""}${partLow>0?`<span style="color:var(--ok)">${partLow}L</span>`:""}</span>
+        </div>
+        ${rows}
+      `;
+    }).join("");
+  } else {
+    let n=0;
+    bodyHtml = filtered.map(f=>{ n++; return renderFinding(f,n); }).join("");
+  }
+
+  if(filtered.length===0){
+    bodyHtml += `<div class="no-results">No findings match the current filter.</div>`;
+  }
+
+  return `
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+      <div style="font-size:13px;color:var(--ink2)">${findings.length} total findings — <span style="color:var(--bad);font-weight:700">${highCt} high</span> · <span style="color:var(--warn);font-weight:700">${medCt} medium</span> · <span style="color:var(--ok);font-weight:700">${lowCt} low</span></div>
+    </div>
+
+    <div class="gap-toolbar">
+      <div class="gap-search">
+        <svg class="gap-search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5l3 3"/>
+        </svg>
+        <input type="text" placeholder="Search findings…" value="${esc(gapSearchTerm)}" oninput="onGapSearch(event)" aria-label="Search gap findings">
+      </div>
+      <div class="sev-filter">
+        <button class="sev-btn on all${gapSevFilter==="all"?"":" off"}" onclick="setGapFilter('all')">All</button>
+        <button class="sev-btn${gapSevFilter==="high"?" on high":""}" onclick="setGapFilter('high')">High</button>
+        <button class="sev-btn${gapSevFilter==="medium"?" on medium":""}" onclick="setGapFilter('medium')">Medium</button>
+        <button class="sev-btn${gapSevFilter==="low"?" on low":""}" onclick="setGapFilter('low')">Low</button>
+      </div>
+    </div>
+
+    <div id="gap-body">${bodyHtml}</div>
+  `;
+}
+
+function renderFinding(f, n){
+  const sevLabel = f.sev==="high"?"High":f.sev==="medium"?"Medium":"Low";
+  const histHtml = f.hist?`
+    <div class="hist-compare">
+      <div class="hist-compare-h">Historical Comparison — ${esc(f.hist.label)}</div>
+      <div class="hist-compare-row">
+        <div class="hist-compare-cell">
+          <div class="cl">Historical</div>
+          <div class="cv">${esc(f.hist.hist_val)}</div>
+        </div>
+        <div class="hist-compare-cell">
+          <div class="cl">This RFQ</div>
+          <div class="cv" style="color:var(--bad)">${esc(f.hist.curr_val)}</div>
+        </div>
+        <div class="hist-compare-cell">
+          <div class="cl">Projects</div>
+          <div class="cv" style="font-size:11.5px">${(f.hist.projects||[]).join(", ")}</div>
+        </div>
+      </div>
+    </div>
+  `:"";
+
+  return `
+    <div class="finding" id="finding-${n}">
+      <div class="finding-header" onclick="toggleFinding(${n})" role="button" aria-expanded="false">
+        <span class="finding-num">${n}.</span>
+        <span class="finding-title">${esc(f.title)}</span>
+        <span class="sev-tag ${f.sev}">${sevLabel}</span>
+        <span class="cat-tag">${esc(f.cat)}</span>
+        <span class="cat-tag" style="font-family:var(--mono);font-size:10.5px">${esc(f.rule)}</span>
+        <svg class="finding-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+          <path d="M2 4l4 4 4-4"/>
+        </svg>
+      </div>
+      <div class="finding-body">
+        <p class="finding-detail">${esc(f.detail)}</p>
+        <div class="finding-meta">
+          <div class="finding-meta-item">
+            <div class="fl">Impact</div>
+            <div class="fv" style="color:var(--bad)">${esc(f.impact)}</div>
+          </div>
+          <div class="finding-meta-item">
+            <div class="fl">Evidence</div>
+            <div class="fv">${esc(f.evidence)}</div>
+          </div>
+        </div>
+        <div class="action-note">
+          <div class="al">Recommended Action</div>
+          ${esc(f.action)}
+        </div>
+        ${histHtml}
+      </div>
+    </div>
+  `;
+}
+
+function renderQuote(c){
+  const q = c.quote;
+  if(!q) return `<p style="color:var(--ink3);font-style:italic">No quote data available.</p>`;
+
+  const lines = q.lines||[];
+  const cb = q.cost_breakdown||{};
+  const totalCost = Object.values(cb).reduce((s,v)=>typeof v==="number"?s+v:s,0)-(cb.total||0);
+
+  // Quote header KPIs
+  const totalPiece = lines.reduce((s,l)=>s+(l.price||0),0);
+  const avgMargin = lines.length>0?(lines.reduce((s,l)=>s+(l.margin||0),0)/lines.length).toFixed(1):null;
+  const rc = riskClass(q.risk_score);
+
+  // Hist match details
+  const histItems = (q.hist_match||[]).map(id=>HISTORICAL.find(h=>h.id===id)).filter(Boolean);
+
+  // Line items table
+  const linesHtml = `
+    <div style="overflow-x:auto">
+    <table class="ruled-table">
+      <thead>
+        <tr>
+          <th>Part No.</th>
+          <th>Description</th>
+          <th>Plant</th>
+          <th class="right">Volume</th>
+          <th class="right">Unit Price</th>
+          <th class="right">Tooling</th>
+          <th class="right">Pkg/pc</th>
+          <th class="right">Margin%</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${lines.map(l=>`
+          <tr>
+            <td class="mono">${esc(l.pn)}</td>
+            <td>${esc(l.name)}</td>
+            <td class="mono">${esc(l.plant)}</td>
+            <td class="right num">${fmtVol(l.vol)}</td>
+            <td class="right num">${fmt$(l.price)}</td>
+            <td class="right num">${fmtK(l.tooling)}</td>
+            <td class="right num${l.pkg===0?' flag-bad':''}" style="${l.pkg===0?'color:var(--bad)':''}">${fmt$(l.pkg)}</td>
+            <td class="right num">${l.margin!=null?l.margin+"%":"—"}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+      ${lines.length>1?`<tfoot><tr>
+        <td colspan="3" style="font-size:12px;color:var(--ink3);padding:9px 12px">Assembly total</td>
+        <td class="right num" style="font-weight:700;padding:9px 12px;border-top:2px solid var(--rule)">${fmtVol(lines[0].vol)}</td>
+        <td class="right num" style="font-weight:700;padding:9px 12px;border-top:2px solid var(--rule)">${fmt$(lines.reduce((s,l)=>s+(l.price||0),0))}</td>
+        <td class="right num" style="font-weight:700;padding:9px 12px;border-top:2px solid var(--rule)">${fmtK(q.total_tooling)}</td>
+        <td colspan="2" style="padding:9px 12px;border-top:2px solid var(--rule)"></td>
+      </tr></tfoot>`:""}
+    </table>
+    </div>
+  `;
+
+  // Cost breakdown
+  const cbEntries = Object.entries(cb).filter(([k])=>k!=="total");
+  const maxCb = Math.max(...cbEntries.map(([,v])=>v));
+  const cbHtml = `
+    <div class="cost-bar-list">
+      ${cbEntries.map(([k,v])=>`
+        <div class="cost-bar-row">
+          <span class="cbl-name" style="text-transform:capitalize">${k}</span>
+          <span class="cbl-bar"><span class="cbl-bar-fill" style="width:${maxCb>0?Math.round((v/maxCb)*100):0}%"></span></span>
+          <span class="cbl-val num">${fmt$(v)}</span>
+        </div>
+      `).join("")}
+      ${cb.total!=null?`<div class="cost-bar-row"><span class="cbl-name">Total</span><span class="cbl-bar"></span><span class="cbl-val num" style="font-weight:700">${fmt$(cb.total)}</span></div>`:""}
+    </div>
+  `;
+
+  // Historical benchmark
+  const bandLow = q.hist_price_band&&q.hist_price_band[0];
+  const bandHigh = q.hist_price_band&&q.hist_price_band[1];
+  const quotePrice = lines[0]&&lines[0].price;
+  let bandNote = "";
+  if(bandLow&&bandHigh&&quotePrice!=null){
+    if(quotePrice<bandLow) bandNote = `<span style="color:var(--ok)">Below historical band</span>`;
+    else if(quotePrice>bandHigh) bandNote = `<span style="color:var(--bad)">Above historical band</span>`;
+    else bandNote = `<span style="color:var(--ok)">Within historical band</span>`;
+  }
+
+  const histRows = histItems.map(h=>`
+    <tr>
+      <td class="mono">${esc(h.id)}</td>
+      <td>${esc(h.name)}</td>
+      <td class="mono">${esc(h.material)}</td>
+      <td class="right num">${fmtVol(h.vol)}</td>
+      <td class="right num">${fmt$(h.price)}</td>
+      <td class="right num">${fmtK(h.tooling)}</td>
+      <td class="right num">${esc(h.terms)}</td>
+      <td style="text-align:center;font-size:12px;color:${h.award==="Won"?"var(--ok)":"var(--bad)"}"><strong>${h.award}</strong></td>
+    </tr>
+  `).join("");
+
+  return `
+    <div class="quote-header-grid">
+      <div class="qhk">
+        <div class="ql">Version</div>
+        <div class="qv" style="font-size:13px;margin-top:4px">${esc(q.version)}</div>
+      </div>
+      <div class="qhk">
+        <div class="ql">Prepared By</div>
+        <div class="qv" style="font-size:13px;margin-top:4px">${esc(q.prepared_by)}</div>
+      </div>
+      <div class="qhk">
+        <div class="ql">Total Tooling</div>
+        <div class="qv">${fmtK(q.total_tooling)}</div>
+      </div>
+      <div class="qhk">
+        <div class="ql">Risk Score</div>
+        <div class="qv ${rc}">${q.risk_score}/100</div>
+      </div>
+    </div>
+
+    <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:10px">Line Items</p>
+    ${linesHtml}
+
+    <div class="cost-grid">
+      <div>
+        <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:10px;margin-top:20px">Cost Breakdown</p>
+        ${cbHtml}
+      </div>
+      <div>
+        <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:10px;margin-top:20px">Historical Benchmark</p>
+        <div class="bench-band">
+          <div class="band-item"><div class="bl">Price Band</div><div class="bv num">${fmt$(bandLow)} – ${fmt$(bandHigh)}</div></div>
+          <div class="band-arrow">→</div>
+          <div class="band-item"><div class="bl">This Quote</div><div class="bv num" style="color:var(--ox)">${fmt$(quotePrice)}</div></div>
+          <div class="band-item"><div class="bl">Position</div><div class="bv" style="font-size:13px;margin-top:4px">${bandNote}</div></div>
+        </div>
+        <div class="bench-band" style="border-top:1px solid var(--rule2)">
+          <div class="band-item"><div class="bl">Tooling Band</div><div class="bv num">${fmtK(q.hist_tooling_band&&q.hist_tooling_band[0])} – ${fmtK(q.hist_tooling_band&&q.hist_tooling_band[1])}</div></div>
+          <div class="band-arrow">→</div>
+          <div class="band-item"><div class="bl">Quoted</div><div class="bv num" style="color:var(--ox)">${fmtK(q.total_tooling)}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin:24px 0 10px">Matched Historical Cases</p>
+    <div style="overflow-x:auto">
+    <table class="ruled-table">
+      <thead>
+        <tr>
+          <th>Ref</th><th>Part Name</th><th>Material</th>
+          <th class="right">Volume</th><th class="right">Price</th>
+          <th class="right">Tooling</th><th>Terms</th><th style="text-align:center">Award</th>
+        </tr>
+      </thead>
+      <tbody>${histRows}</tbody>
+    </table>
+    </div>
+  `;
+}
+
+/* ════════ MAIN RENDER ════════ */
+function renderAll(){
+  const c = CASES[currentCase];
+  if(!c) return;
+
+  const inner = document.getElementById("main-inner");
+
+  // Document header
+  const sc = statusClass(c);
+  inner.innerHTML = `
+    <div class="doc-header">
+      <div class="doc-eyebrow">RFQ Engineering Review · ${esc(c.rfq_num)}</div>
+      <div class="doc-title">${esc(c.title)}</div>
+      <div class="doc-meta-row">
+        <div class="doc-meta-item"><strong>Customer:</strong> ${esc(c.customer)}</div>
+        <div class="doc-meta-item"><strong>Program:</strong> ${esc(c.program)}</div>
+        <div class="doc-meta-item"><strong>SOP:</strong> ${esc(c.sop)}</div>
+        <div class="doc-meta-item"><span class="status-badge ${sc}">${esc(c.status_label)}</span></div>
+      </div>
+    </div>
+
+    ${SECTIONS.map(s=>`
+      <section class="section" id="sec-${s.id}">
+        <div class="section-heading">
+          <span class="section-num">${s.num}.</span>
+          <h2 class="section-title">${s.label}</h2>
+        </div>
+        <div id="sec-content-${s.id}"></div>
+      </section>
+    `).join("")}
+  `;
+
+  // Render each section content
+  document.getElementById("sec-content-overview").innerHTML  = renderOverview(c);
+  document.getElementById("sec-content-documents").innerHTML = renderDocuments(c);
+  document.getElementById("sec-content-part").innerHTML      = renderPart(c);
+  document.getElementById("sec-content-gaps").innerHTML      = renderGaps(c);
+  document.getElementById("sec-content-quote").innerHTML     = renderQuote(c);
+
+  // Scroll to top
+  document.getElementById("main-scroll").scrollTop = 0;
+}
+
+function renderMain(){
+  renderAll();
+}
+
+/* ════════ INTERACTIONS ════════ */
+function toggleFinding(n){
+  const el = document.getElementById("finding-"+n);
+  if(!el) return;
+  const isOpen = el.classList.contains("open");
+  el.classList.toggle("open",!isOpen);
+  const header = el.querySelector(".finding-header");
+  if(header) header.setAttribute("aria-expanded",String(!isOpen));
+}
+
+function setGapFilter(sev){
+  gapSevFilter = sev;
+  // Update filter buttons
+  document.querySelectorAll(".sev-btn").forEach(btn=>{
+    const cls = btn.textContent.trim().toLowerCase();
+    const isOn = cls===sev||(sev==="all"&&cls==="all");
+    btn.className = "sev-btn"+(isOn?(" on "+cls):"");
+  });
+  // Re-render gap body
+  const c = CASES[currentCase];
+  const gapContent = document.getElementById("sec-content-gaps");
+  if(gapContent) gapContent.innerHTML = renderGaps(c);
+}
+
+function onGapSearch(ev){
+  gapSearchTerm = ev.target.value||"";
+  const c = CASES[currentCase];
+  const gapContent = document.getElementById("sec-content-gaps");
+  if(gapContent) gapContent.innerHTML = renderGaps(c);
+}
+
+/* ════════ INIT ════════ */
+(function init(){
+  buildCaseSwitcher();
+  buildTOC();
+  renderAll();
+  setupScrollSpy();
+})();
+</script>
+
+<!-- floating mockup nav -->
+<div class="mocknav" id="mocknav"></div>
+<style>
+.mocknav{position:fixed;right:18px;bottom:18px;z-index:99999;display:flex;align-items:center;gap:3px;background:#1b2430;color:#fff;padding:5px;border-radius:13px;box-shadow:0 8px 28px rgba(0,0,0,.28);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.mocknav .mn-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#7b8696;padding:0 9px 0 7px}
+.mocknav .mn-i{display:flex;align-items:center;gap:6px;text-decoration:none;color:#c7cfda;font-size:12.5px;font-weight:600;padding:7px 11px;border-radius:9px;transition:.12s;white-space:nowrap}
+.mocknav .mn-i:hover{background:#2a3342;color:#fff}
+.mocknav .mn-on{background:#fff;color:#1b2430}
+.mocknav .mn-home{color:#7b8696;font-size:15px;padding:7px 10px}
+.mocknav .mn-home:hover{color:#fff}
+</style>
+<script>(function(){var items=[['01','Atlas','01-atlas.html'],['02','Console','02-console.html'],['03','Dossier','03-dossier.html'],['04','Triage','04-triage.html'],['05','Cockpit','05-cockpit.html'],['06','Nova','06-nova.html']];var cur=(location.pathname.split('/').pop()||'').toLowerCase();var el=document.getElementById('mocknav');el.innerHTML='<span class="mn-lbl">Designs</span>'+items.map(function(i){var on=i[2]===cur;return '<a class="mn-i'+(on?' mn-on':'')+'" href="'+i[2]+'" title="'+i[1]+'">'+i[0]+(on?' '+i[1]:'')+'</a>';}).join('')+'<a class="mn-home" href="index.html" title="All designs">&#8617;</a>';})();</script>
+
+</body>
+</html>

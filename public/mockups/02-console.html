@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFQ Console · Workstation</title>
+<style>
+/* ── CONSOLE DESIGN TOKENS ── */
+:root{
+  --canvas:#f7f8fa;
+  --surface:#ffffff;
+  --raised:#f2f4f7;
+  --hover:#eef0f4;
+  --border:#dde1e7;
+  --border2:#c8cdd6;
+  --ink:#1c2330;
+  --ink2:#5b6576;
+  --ink3:#8e97a6;
+  --slate:#475569;
+  --slate-soft:#eef0f4;
+  --slate-line:#c5cad4;
+  --ok:#2f7d4f; --ok-soft:#edf7f2; --ok-line:#b0d9c3;
+  --warn:#b07b2f; --warn-soft:#fdf6ea; --warn-line:#e8c98a;
+  --bad:#a8443a; --bad-soft:#fdf0ef; --bad-line:#e4b0ac;
+  --low:#6b7280; --low-soft:#f3f4f6;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--canvas);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.4}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input{font-family:inherit}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* Case list sidebar */
+.sidebar{width:200px;min-width:200px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-hd{padding:14px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sidebar-hd .logo{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--slate);margin-bottom:1px}
+.sidebar-hd .sub{font-size:10px;color:var(--ink3);letter-spacing:.04em}
+.sidebar-cases{flex:1;overflow-y:auto;padding:6px 0}
+.case-row{padding:9px 14px;cursor:pointer;border-left:2px solid transparent;display:flex;flex-direction:column;gap:3px;transition:background .1s}
+.case-row:hover{background:var(--hover)}
+.case-row.active{background:var(--slate-soft);border-left-color:var(--slate)}
+.cr-top{display:flex;align-items:center;gap:6px}
+.cr-id{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--slate);letter-spacing:.05em}
+.cr-risk{margin-left:auto;font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 6px;border-radius:2px}
+.cr-name{font-size:11.5px;font-weight:600;color:var(--ink);line-height:1.3}
+.cr-meta{font-size:10px;color:var(--ink3)}
+.sidebar-footer{padding:10px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--ink3);flex-shrink:0}
+
+/* Main workspace */
+.workspace{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* Case header bar */
+.case-header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;flex-shrink:0}
+.ch-top{display:flex;align-items:center;gap:14px;padding:10px 0 0}
+.ch-title{font-size:15px;font-weight:700;letter-spacing:-.01em;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch-rfq{font-family:var(--mono);font-size:10px;color:var(--ink3);flex-shrink:0}
+.ch-kpis{display:flex;gap:0;flex-shrink:0}
+.kpi{padding:0 14px;text-align:right;border-left:1px solid var(--border)}
+.kpi:first-child{border-left:none}
+.kpi .kl{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.kpi .kv{font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:-.01em}
+
+/* Tab strip */
+.tab-strip{display:flex;gap:0;margin-top:8px}
+.tab-btn{padding:7px 14px;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;letter-spacing:.01em}
+.tab-btn:hover{color:var(--ink);background:var(--hover)}
+.tab-btn.active{color:var(--slate);border-bottom-color:var(--slate)}
+.tab-btn .tc{font-family:var(--mono);font-size:10px;margin-left:5px;color:var(--ink3);background:var(--raised);padding:1px 5px;border-radius:2px}
+.tab-btn.active .tc{background:var(--slate-soft);color:var(--slate)}
+
+/* Content area */
+.content{flex:1;overflow-y:auto;padding:0;min-width:0}
+.panel{display:none;padding:16px 20px}
+.panel.active{display:block}
+
+/* ── GENERIC TABLE ── */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:2px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);padding:7px 12px;text-align:left;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:1}
+thead th.r{text-align:right}
+tbody td{padding:7px 12px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--ink)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--hover)}
+tbody td.r{text-align:right;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+tbody td.mono{font-family:var(--mono);font-size:11px}
+
+/* ── SECTION STRUCTURE ── */
+.sec{margin-bottom:18px}
+.sec-head{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.row4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+
+/* ── KPI STAT TILES ── */
+.stat-tile{background:var(--surface);border:1px solid var(--border);padding:11px 14px}
+.st-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-bottom:5px}
+.st-val{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.st-sub{font-size:11px;color:var(--ink2);margin-top:5px}
+.st-bar{height:3px;background:var(--border);margin-top:8px;border-radius:1px;overflow:hidden}
+.st-bar i{display:block;height:100%}
+
+/* ── FIELD GRID (key-value pairs) ── */
+.field-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border)}
+.field{background:var(--surface);padding:8px 12px}
+.field .fl{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.field .fv{font-size:12px;font-weight:600;color:var(--ink)}
+.field .fv.warn{color:var(--warn)}
+.field .fv.bad{color:var(--bad)}
+.field .fv.ok{color:var(--ok)}
+.field.wide{grid-column:span 2}
+
+/* ── SEVERITY CHIPS ── */
+.sev{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:1px;text-transform:uppercase;white-space:nowrap}
+.sev-H{background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad-line)}
+.sev-M{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn-line)}
+.sev-L{background:var(--low-soft);color:var(--low);border:1px solid var(--border)}
+.sev-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sev-dot-H{background:var(--bad)}
+.sev-dot-M{background:var(--warn)}
+.sev-dot-L{background:var(--low)}
+
+/* ── STATUS CHIPS ── */
+.status-chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:1px;letter-spacing:.04em;white-space:nowrap}
+.sc-ok{background:var(--ok-soft);color:var(--ok)}
+.sc-warn{background:var(--warn-soft);color:var(--warn)}
+.sc-bad{background:var(--bad-soft);color:var(--bad)}
+.sc-slate{background:var(--slate-soft);color:var(--slate)}
+
+/* ── WORKFLOW STEPS ── */
+.wf-strip{display:flex;align-items:center;gap:0;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:2px;overflow-x:auto}
+.wf-step{display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0}
+.wf-num{width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border2);color:var(--ink3);background:var(--surface)}
+.wf-lbl{font-size:11px;font-weight:600;color:var(--ink3)}
+.wf-step.done .wf-num{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.wf-step.done .wf-lbl{color:var(--ink2)}
+.wf-step.active .wf-num{background:var(--slate);border-color:var(--slate);color:#fff}
+.wf-step.active .wf-lbl{color:var(--slate);font-weight:700}
+.wf-line{width:28px;height:1px;background:var(--border2);margin:0 4px;flex-shrink:0}
+.wf-line.done{background:var(--ok)}
+
+/* ── DOC STATUS ── */
+.doc-ok{color:var(--ok);font-weight:600}
+.doc-miss{color:var(--bad);font-weight:600}
+.conf-bar{display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.conf-track{width:44px;height:4px;background:var(--border);border-radius:1px;overflow:hidden;display:inline-block;vertical-align:middle}
+.conf-fill{height:100%;border-radius:1px}
+
+/* ── GAP TABLE ── */
+.gap-toolbar{display:flex;align-items:center;gap:8px;padding:8px 0 10px;flex-wrap:wrap}
+.gap-search{padding:5px 9px;border:1px solid var(--border);border-radius:2px;font-size:12px;width:200px;background:var(--surface);color:var(--ink);outline:none}
+.gap-search:focus{border-color:var(--slate)}
+.gap-select{padding:5px 8px;border:1px solid var(--border);border-radius:2px;font-size:12px;background:var(--surface);color:var(--ink);cursor:pointer;outline:none}
+.gap-select:focus{border-color:var(--slate)}
+.gap-count{font-size:11px;color:var(--ink3);margin-left:auto;font-variant-numeric:tabular-nums}
+
+/* Gap accordion table */
+.gap-tbl-wrap{border:1px solid var(--border);border-radius:2px;overflow:hidden}
+.gap-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.gap-tbl thead th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);padding:7px 10px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;z-index:2}
+.gap-tbl thead th:hover{background:var(--hover)}
+.gap-tbl thead th .sort-ind{font-size:9px;color:var(--ink3);margin-left:3px}
+.gap-tbl tbody .gap-row{cursor:pointer}
+.gap-tbl tbody .gap-row:hover td{background:var(--hover)}
+.gap-tbl tbody .gap-row.expanded{background:var(--slate-soft)}
+.gap-tbl tbody .gap-row.expanded td{border-bottom:none}
+.gap-tbl tbody td{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.gap-tbl .gap-detail-row{display:none}
+.gap-tbl .gap-detail-row.open{display:table-row}
+.gap-tbl .gap-detail-row td{padding:0;border-bottom:1px solid var(--border)}
+.gap-detail-inner{padding:12px 14px 14px;background:var(--slate-soft);border-top:1px solid var(--slate-line);display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.gd-block .gdl{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
+.gd-block .gdt{font-size:12px;color:var(--ink);line-height:1.55}
+.gd-hist{grid-column:span 2;display:flex;gap:24px;padding-top:10px;border-top:1px solid var(--slate-line);margin-top:4px}
+.gd-hist .gh-item{display:flex;flex-direction:column;gap:2px}
+.gd-hist .ghl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3)}
+.gd-hist .ghv{font-size:12px;font-weight:600;color:var(--ink)}
+.ghv.diff{color:var(--bad)}
+.row-expand-icon{font-size:9px;color:var(--ink3);margin-right:4px;display:inline-block;transition:transform .15s}
+.expanded .row-expand-icon{transform:rotate(90deg)}
+
+/* ── QUOTE PANEL ── */
+.quote-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.cost-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.hist-table .price-band{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:1px;background:var(--slate-soft);color:var(--slate)}
+.band-ok{background:var(--ok-soft)!important;color:var(--ok)!important}
+.band-warn{background:var(--warn-soft)!important;color:var(--warn)!important}
+.band-bad{background:var(--bad-soft)!important;color:var(--bad)!important}
+
+/* ── PART DETAIL ── */
+.process-chain{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0}
+.proc-step{font-size:11px;font-weight:600;padding:4px 10px;border:1px solid var(--border2);border-radius:2px;background:var(--surface);color:var(--ink2);display:flex;align-items:center;gap:6px}
+.proc-arrow{color:var(--border2);font-size:12px}
+.subpart-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.subpart-card{border:1px solid var(--border);padding:9px 12px;background:var(--surface)}
+.spc-idx{font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:3px;font-variant-numeric:tabular-nums}
+.spc-name{font-size:12px;font-weight:600;color:var(--ink)}
+
+/* ── RISK INDICATOR ── */
+.risk-bar-wrap{display:flex;align-items:center;gap:10px}
+.risk-track{flex:1;height:6px;background:var(--border);border-radius:1px;overflow:hidden;max-width:120px}
+.risk-fill{height:100%}
+
+/* ── SCROLLBAR STYLE ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── MISC ── */
+.tag{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:1px;background:var(--raised);color:var(--ink2);border:1px solid var(--border)}
+.rule-tag{font-family:var(--mono);font-size:10px;color:var(--slate);font-weight:600}
+.flag-inline{font-size:10px;font-weight:700;padding:2px 7px;border-radius:1px;border:1px solid}
+.fi-ok{background:var(--ok-soft);color:var(--ok);border-color:var(--ok-line)}
+.fi-warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn-line)}
+.fi-bad{background:var(--bad-soft);color:var(--bad);border-color:var(--bad-line)}
+.empty{text-align:center;padding:32px;font-size:12px;color:var(--ink3)}
+.inline-rule{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--slate)}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-hd">
+      <div class="logo">RFQ CONSOLE</div>
+      <div class="sub">Supplier Workstation</div>
+    </div>
+    <div class="sidebar-cases" id="caseList"></div>
+    <div class="sidebar-footer">NorthBridge Automotive · 2025</div>
+  </div>
+
+  <!-- WORKSPACE -->
+  <div class="workspace">
+    <div class="case-header">
+      <div class="ch-top">
+        <div>
+          <div class="ch-title" id="hdrTitle"></div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:2px">
+            <span class="ch-rfq" id="hdrRfq"></span>
+            <span id="hdrStatus"></span>
+          </div>
+        </div>
+        <div class="ch-kpis" id="hdrKpis"></div>
+      </div>
+      <div class="tab-strip" id="tabStrip">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="documents">Documents <span class="tc" id="tc-documents"></span></button>
+        <button class="tab-btn" data-tab="part">Part Detail</button>
+        <button class="tab-btn" data-tab="gaps">Gap Analysis <span class="tc" id="tc-gaps"></span></button>
+        <button class="tab-btn" data-tab="quote">Quote &amp; Benchmark</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="panel active" id="panel-overview"></div>
+      <div class="panel" id="panel-documents"></div>
+      <div class="panel" id="panel-part"></div>
+      <div class="panel" id="panel-gaps"></div>
+      <div class="panel" id="panel-quote"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   RFQ ASSISTANT — CANONICAL MOCKUP DATA  (shared across all 5 designs)
+   Inline this whole block into each mockup so every file is self-contained.
+   Cases A/B/C carried from the v2.1 mock; Case D added as a 45+ gap stress test.
+═══════════════════════════════════════════════════════════════════════ */
+
+const RULE_CATALOG = {
+  RULE_001:{name:"Missing packaging specification",cat:"completeness",sev:"high"},
+  RULE_002:{name:"Missing test standard",cat:"completeness",sev:"high"},
+  RULE_003:{name:"PPAP level above historical baseline",cat:"quality",sev:"high"},
+  RULE_004:{name:"General tolerance tighter than historical family",cat:"technical",sev:"high"},
+  RULE_005:{name:"Critical tolerance at or below 0.03 mm",cat:"technical",sev:"high"},
+  RULE_007:{name:"Supplier-funded gauges required",cat:"quality",sev:"high"},
+  RULE_008:{name:"100% appearance inspection required",cat:"quality",sev:"high"},
+  RULE_009:{name:"Payment terms extended beyond historical norm",cat:"commercial",sev:"medium"},
+  RULE_010:{name:"Annual price reduction above historical norm",cat:"commercial",sev:"medium"},
+  RULE_011:{name:"DDP or supplier-managed freight required",cat:"commercial",sev:"high"},
+  RULE_012:{name:"Returnable packaging required",cat:"logistics",sev:"medium"},
+  RULE_013:{name:"Premium freight recovery excluded",cat:"commercial",sev:"medium"},
+  RULE_015:{name:"Special surface or burr requirement below family norm",cat:"technical",sev:"medium"},
+  RULE_016:{name:"Cpk target above family baseline",cat:"quality",sev:"medium"},
+  RULE_017:{name:"Run-at-rate required beyond normal PPAP",cat:"quality",sev:"medium"},
+  RULE_018:{name:"Annual revalidation / corrosion retention required",cat:"quality",sev:"low"},
+  RULE_019:{name:"No explicit packaging cost line in quote template",cat:"quote",sev:"high"},
+  RULE_021:{name:"Material grade not in historical database",cat:"technical",sev:"high"},
+  RULE_022:{name:"Weld / joining spec referenced but not supplied",cat:"completeness",sev:"high"},
+  RULE_023:{name:"Capacity below requested annual volume",cat:"commercial",sev:"high"},
+  RULE_024:{name:"Tooling ownership unspecified",cat:"commercial",sev:"medium"},
+  RULE_025:{name:"Secondary coating / e-coat requirement",cat:"technical",sev:"medium"},
+  RULE_027:{name:"Appearance approval required prior to PPAP",cat:"quality",sev:"medium"},
+  RULE_028:{name:"Customer specification reference unresolved",cat:"completeness",sev:"medium"},
+  RULE_029:{name:"Traceability / lot marking required",cat:"quality",sev:"low"},
+  RULE_030:{name:"Sub-part interface tolerance stack-up unverified",cat:"technical",sev:"medium"},
+};
+
+const HISTORICAL = [
+  {id:"H015",pn:"NB-SI-2519",name:"Seat Side Impact Reinf.",material:"SPFC980Y",vol:152000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 90",apd:2.5,price:6.08,tooling:69000,pkg:0.15,award:"Won"},
+  {id:"H016",pn:"NB-SI-2586",name:"Seat Side Impact Reinf.",material:"SPFC980Y",vol:148000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 90",apd:2.5,price:6.15,tooling:70000,pkg:0.15,award:"Lost"},
+  {id:"H017",pn:"NB-SI-2633",name:"Seat Side Impact Reinf.",material:"SPFC980Y",vol:150000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 90",apd:2.5,price:6.22,tooling:70500,pkg:0.16,award:"Lost"},
+  {id:"H001",pn:"NB-SS-1101",name:"Front Seat Reinf. Bracket",material:"SPCC",vol:190000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 60",apd:2.0,price:4.05,tooling:38000,pkg:0.08,award:"Won"},
+  {id:"H002",pn:"NB-SS-1178",name:"Front Seat Reinf. Bracket",material:"SPCC",vol:175000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 60",apd:2.0,price:4.12,tooling:39500,pkg:0.07,award:"Won"},
+  {id:"H003",pn:"NB-RF-1204",name:"Rear Floor Mounting Bracket",material:"SPHC",vol:210000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 75",apd:2.0,price:4.42,tooling:42000,pkg:0.10,award:"Won"},
+  {id:"H004",pn:"NB-RF-1229",name:"Rear Floor Mounting Bracket",material:"SPHC",vol:240000,ppap:3,incoterm:"FOB Shanghai",terms:"Net 75",apd:2.0,price:4.35,tooling:41000,pkg:0.09,award:"Lost"},
+  {id:"H020",pn:"NB-BT-3010",name:"Battery Tray Base Pan",material:"AA5754",vol:90000,ppap:4,incoterm:"FOB Shanghai",terms:"Net 90",apd:3.0,price:18.40,tooling:240000,pkg:0.55,award:"Won"},
+  {id:"H021",pn:"NB-BT-3044",name:"Battery Tray Base Pan",material:"AA5754",vol:88000,ppap:4,incoterm:"FOB Shanghai",terms:"Net 90",apd:3.0,price:18.90,tooling:245000,pkg:0.57,award:"Lost"},
+];
+
+const CASES = {
+  A: {
+    id:"CASE-A", rfq_num:"RFQ-2025-0437", title:"Front Seat Reinforcement Bracket",
+    customer:"NorthBridge Automotive", program:"NB-EV Crossover",
+    part_number:"NB-SS-2147", sop:"2027-03-01", annual_vol:180000,
+    material:"SPCC", thickness:1.20, tolerance:"±0.10 mm", critical_tol:"±0.05 mm burr height",
+    ppap:3, cpk:"≥ 1.67", surface:["oil-free","burr < 0.05 mm","no red rust"],
+    incoterm:"FOB Shanghai", payment:"Net 60", apd:2.0, currency:"USD", tooling_owner:"Customer",
+    process:["progressive die stamping","forming"],
+    risk_score:24, completeness:"complete", status_label:"Nominal",
+    docs:[
+      {name:"RFQ_Main_Document.pdf",type:"rfq",status:"ok",conf:0.97,note:"Core header and commercial terms extracted"},
+      {name:"Cost_Template.xlsx",type:"cost",status:"ok",conf:0.93,note:"Pricing template parsed — packaging cost line is zero"},
+      {name:"Part_Drawing.pdf",type:"draw",status:"ok",conf:0.90,note:"Tolerance and surface finish extracted"},
+      {name:"Packaging_Spec.pdf",type:"pkg",status:"ok",conf:0.88,note:"Packaging type confirmed — tray pack"},
+      {name:"Supplier_Questionnaire.xlsx",type:"q",status:"ok",conf:0.95,note:"Capacity and lead time captured"},
+    ],
+    triggered_rules:["RULE_015","RULE_019"],
+    gap_findings:[
+      {rule:"RULE_015",sev:"medium",cat:"technical",title:"Burr requirement below family norm",
+       detail:"The drawing requires burr height < 0.05 mm, tighter than the standard SPHC/SPCC family spec of < 0.08 mm. A secondary deburr step may be required; the current quote has no deburr operation in the process route.",
+       impact:"Secondary op cost ~$0.05–0.08/pc",evidence:"Drawing §2, surface notes",action:"Confirm deburr operation with process engineering. Add cost if a secondary step is required."},
+      {rule:"RULE_019",sev:"high",cat:"quote",title:"Packaging cost line is zero in cost template",
+       detail:"Packaging spec is present but the packaging cost line in Cost_Template.xlsx is $0.00. The tray pack typically costs $0.06–0.10/pc at this volume. Completable gap — spec exists, number just needs entering.",
+       impact:"Cost omission ~$0.06–0.10/pc",evidence:"Cost_Template.xlsx — packaging_cost_per_pc = 0",action:"Enter packaging cost from spec before release. RULE_019 clears once populated."},
+    ],
+    quote:{
+      version:"v1 Draft", prepared_by:"K. Whitmore", validity:90,
+      total_value:null, total_tooling:38000, risk_score:24,
+      lines:[{pn:"NB-SS-2147",name:"Front Seat Reinf. Bracket",plant:"PLT-01",vol:180000,price:4.08,tooling:38000,pkg:0.00,quality:0.12,freight:0.05,margin:16.2}],
+      cost_breakdown:{material:2.58,labor:0.41,machine:0.52,overhead:0.32,scrap:0.07,quality:0.12,logistics:0.05,packaging:0.00,total:4.07},
+      hist_match:["H001","H002"],hist_price_band:[4.05,4.12],hist_tooling_band:[38000,39500]
+    }
+  },
+
+  B: {
+    id:"CASE-B", rfq_num:"RFQ-2025-0438", title:"Rear Floor Mounting Bracket",
+    customer:"NorthBridge Automotive", program:"NB-EV Crossover",
+    part_number:"NB-RF-2388", sop:"2027-05-15", annual_vol:220000,
+    material:"SPHC", thickness:1.60, tolerance:"±0.10 mm", critical_tol:"Deburr to spec",
+    ppap:3, cpk:"Not specified", surface:["e-coat ready","oil-free","no visible edge burrs"],
+    incoterm:"FOB Shanghai", payment:"Net 75", apd:2.0, currency:"USD", tooling_owner:"Not specified",
+    process:["stamping","restrike","deburr"],
+    risk_score:62, completeness:"incomplete", status_label:"Incomplete",
+    docs:[
+      {name:"RFQ_Main_Document.pdf",type:"rfq",status:"ok",conf:0.96,note:"Header and commercial terms extracted"},
+      {name:"Cost_Template.xlsx",type:"cost",status:"ok",conf:0.91,note:"Pricing template parsed"},
+      {name:"Part_Drawing.pdf",type:"draw",status:"ok",conf:0.89,note:"General tolerance extracted — no critical feature detail"},
+      {name:"Packaging_Spec.pdf",type:"pkg",status:"miss",conf:null,note:"Referenced in RFQ §5 but not included in package"},
+      {name:"DV_PV_Test_Standard.pdf",type:"test",status:"miss",conf:null,note:"Referenced as NB-QA-118 in quality section — not received"},
+    ],
+    triggered_rules:["RULE_001","RULE_002","RULE_027","RULE_028"],
+    gap_findings:[
+      {rule:"RULE_001",sev:"high",cat:"completeness",title:"Missing packaging specification",
+       detail:"Packaging_Spec.pdf is listed in the RFQ attachment list (§5, Attachment B3) but was not included. Packaging cost in the template is $0.00. For a 220K/yr floor bracket, packaging is typically $0.09–0.12/pc. Must resolve before release.",
+       impact:"Cost omission $0.09–0.12/pc",evidence:"RFQ §5: 'Attachment B3 — Packaging_Spec.pdf'",action:"Request packaging spec from buyer immediately. If not received before quote-ready date, apply provisional $0.10/pc and document."},
+      {rule:"RULE_002",sev:"high",cat:"completeness",title:"Test standard NB-QA-118 not received",
+       detail:"§3 references 'DV and PV test requirements per NB-QA-118' but the document was not included. Without test scope, DV/PV validation cost cannot be estimated — typically $15K–$35K NRE for this program.",
+       impact:"Unknown NRE — est. $15K–35K",evidence:"RFQ §3 quality requirement",action:"Request NB-QA-118 before finalizing quality cost. Escalate if not received within 5 business days."},
+      {rule:"RULE_027",sev:"medium",cat:"quality",title:"Appearance approval required prior to PPAP",
+       detail:"§3 requires 'appearance sample approval prior to PPAP.' A two-stage approval milestone not reflected in the program plan; could add 4–8 weeks pre-PPAP.",
+       impact:"Program timing risk — 4–8 weeks",evidence:"RFQ §3",action:"Add appearance sample milestone to program plan and confirm customer review cycle time."},
+      {rule:"RULE_028",sev:"medium",cat:"completeness",title:"Customer spec reference NB-QA-118 unresolved",
+       detail:"NB-QA-118 is referenced for DV/PV but no file received and it is not in the historical database. Separate tracking item from RULE_002 — the reference itself must be acknowledged.",
+       impact:"Compliance and tracking risk",evidence:"RFQ §3 reference",action:"Create clarification tracker item and assign an owner to follow up with the buyer."},
+    ],
+    quote:{
+      version:"v1 Draft — Blocked", prepared_by:"K. Whitmore", validity:null,
+      total_value:null, total_tooling:42000, risk_score:62,
+      lines:[{pn:"NB-RF-2388",name:"Rear Floor Mounting Bracket",plant:"PLT-02",vol:220000,price:4.38,tooling:42000,pkg:0.00,quality:0.12,freight:0.05,margin:14.6}],
+      cost_breakdown:{material:2.82,labor:0.46,machine:0.58,overhead:0.36,scrap:0.08,quality:0.12,logistics:0.05,packaging:0.00,total:4.47},
+      hist_match:["H003","H004"],hist_price_band:[4.35,4.47],hist_tooling_band:[41000,42500]
+    }
+  },
+
+  C: {
+    id:"CASE-C", rfq_num:"RFQ-2025-0439", title:"Seat Side Impact Reinforcement",
+    customer:"NorthBridge Automotive", program:"NB-EV Premium",
+    part_number:"NB-SI-3411", sop:"2027-02-01", annual_vol:150000,
+    material:"SPFC980Y", thickness:1.80, tolerance:"±0.03 mm (hole pitch)", critical_tol:"Flatness ≤ 0.15 mm",
+    ppap:5, cpk:"≥ 1.67 at SOP / ≥ 1.33 ongoing", surface:["100% appearance inspection","burr < 0.03 mm","no edge crack"],
+    incoterm:"DDP Monterrey", payment:"Net 120", apd:4.0, currency:"USD", tooling_owner:"Supplier",
+    process:["progressive die stamping","forming","in-line camera inspection"],
+    supplier_funded_gauges:true,
+    risk_score:89, completeness:"complete", status_label:"High Risk",
+    docs:[
+      {name:"RFQ_Main_Document.pdf",type:"rfq",status:"ok",conf:0.98,note:"Full commercial and technical data extracted"},
+      {name:"Cost_Template.xlsx",type:"cost",status:"ok",conf:0.94,note:"Pricing template parsed — multiple cost gaps detected"},
+      {name:"Part_Drawing.pdf",type:"draw",status:"ok",conf:0.92,note:"Critical tolerances and SC/CC extracted"},
+      {name:"Packaging_Spec.pdf",type:"pkg",status:"ok",conf:0.87,note:"Returnable rack requirement confirmed"},
+      {name:"Supplier_Questionnaire.xlsx",type:"q",status:"ok",conf:0.93,note:"Capacity and gauge requirements captured"},
+    ],
+    triggered_rules:["RULE_003","RULE_004","RULE_005","RULE_007","RULE_008","RULE_009","RULE_010","RULE_011","RULE_012","RULE_013","RULE_015","RULE_016","RULE_017","RULE_018"],
+    gap_findings:[
+      {rule:"RULE_003",sev:"high",cat:"quality",title:"PPAP Level 5 — above historical norm of Level 3",
+       detail:"Requires PPAP Level 5 vs. family baseline Level 3. Adds full customer review, documentation, and ~$8K–$18K NRE in PPAP labor and document management.",
+       impact:"NRE +$8K–18K vs historical",evidence:"RFQ §3: 'PPAP Level 5 required'",action:"Add explicit PPAP L5 NRE line item; include run-at-rate and customer sign-off timeline.",
+       hist:{projects:["H015","H016","H017"],label:"Historical PPAP Level",hist_val:"Level 3",curr_val:"Level 5"}},
+      {rule:"RULE_004",sev:"high",cat:"technical",title:"Hole pitch tolerance ±0.03 mm — tighter than family",
+       detail:"Critical hole position tolerance ±0.03 mm vs historical ±0.05 mm. Requires enhanced die build, extra tryout iterations, and 100% go/no-go gauge inspection on the critical feature.",
+       impact:"Scrap +1.5–2× / extra die trials",evidence:"RFQ §2",action:"Request feasibility review from manufacturing engineering; increase scrap allowance and tryout contingency.",
+       hist:{projects:["H015","H016","H017"],label:"Historical Tolerance",hist_val:"±0.05 mm",curr_val:"±0.03 mm"}},
+      {rule:"RULE_005",sev:"high",cat:"technical",title:"Critical tolerance at process capability limit",
+       detail:"±0.03 mm approaches the boundary of repeatable progressive die stamping for 1.8 mm SPFC980Y. Slight die wear could cause 100% rejection. Needs explicit feasibility sign-off.",
+       impact:"Capability risk — may require CNC secondary op",evidence:"Drawing critical feature callout",action:"Do not quote final price until manufacturing engineering confirms ±0.03 mm is achievable in-process."},
+      {rule:"RULE_007",sev:"high",cat:"quality",title:"Supplier-funded check gauges with customer approval",
+       detail:"Supplier-funded gauges required for the critical hole pitch; gauge design needs customer approval before production. Gauge investment ~$12K–$22K, separate from base tooling.",
+       impact:"Gauge NRE $12K–22K unquoted",evidence:"RFQ §2",action:"Add separate gauge/check-fixture line; clarify amortization and approval timeline."},
+      {rule:"RULE_008",sev:"high",cat:"quality",title:"100% appearance inspection required",
+       detail:"100% appearance inspection (plus camera) needs a dedicated station or significant operator time. ~820 units/day at 150K/yr. Labor impact ~$0.10–0.18/pc.",
+       impact:"Inspection labor $0.10–0.18/pc",evidence:"RFQ §2",action:"Add inspection station labor, floor space, consumables. Do not absorb in overhead."},
+      {rule:"RULE_009",sev:"medium",cat:"commercial",title:"Net 120 payment terms exceed historical norm",
+       detail:"Net 120 vs historical Net 90. At ~$930K annual revenue, the extra 30 days adds ~$7.7K/yr financing at 10% working capital.",
+       impact:"~$7.7K/yr incremental financing",evidence:"RFQ §4",action:"Escalate to Finance. Add financing surcharge (~$0.05/pc) or negotiate to Net 90.",
+       hist:{projects:["H015","H016","H017"],label:"Historical Terms",hist_val:"Net 90",curr_val:"Net 120"}},
+      {rule:"RULE_010",sev:"medium",cat:"commercial",title:"Annual price reduction 4% — above norm of 2.5%",
+       detail:"4% APD vs family norm 2.5%. Over 5 years compounds to 18.5% vs 11.6%. At $6.20 launch, year-5 effective ~$5.06 — a $1.14/pc erosion.",
+       impact:"Year-5 margin erosion",evidence:"RFQ §4",action:"Model full price curve; confirm floor margin positive at year 5. Flag for management.",
+       hist:{projects:["H015","H016","H017"],label:"Historical APD",hist_val:"2.5%/yr",curr_val:"4.0%/yr"}},
+      {rule:"RULE_011",sev:"high",cat:"commercial",title:"DDP Monterrey — freight and customs not in quote",
+       detail:"DDP Monterrey makes the supplier absorb freight, customs, brokerage, delivery. Historical was FOB Shanghai. Freight delta ~$0.28–0.42/pc plus customs volatility.",
+       impact:"Logistics gap ~$0.28–0.42/pc",evidence:"RFQ §4",action:"Rebuild logistics for DDP; engage forwarder; add customs/brokerage line.",
+       hist:{projects:["H015","H016","H017"],label:"Historical Incoterm",hist_val:"FOB Shanghai",curr_val:"DDP Monterrey"}},
+      {rule:"RULE_012",sev:"medium",cat:"logistics",title:"Returnable rack required — not quoted",
+       detail:"Spec: 'Returnable rack required; one-way not accepted.' Adds rack acquisition, cycle count, loss allowance. Rack investment ~$18K–$35K + $0.04–0.07/pc cycle-loss.",
+       impact:"Rack $18K–35K + $0.04–0.07/pc",evidence:"RFQ §5",action:"Add returnable rack line to NRE and per-piece cycle-loss allowance."},
+      {rule:"RULE_013",sev:"medium",cat:"commercial",title:"Premium freight recovery excluded after nomination",
+       detail:"'Premium freight recovery not allowed after nomination.' Removes the safety valve for expediting during launch; cost fully absorbed by supplier.",
+       impact:"Launch freight risk unquoted",evidence:"RFQ §5",action:"Add launch freight buffer ($8K–$15K) and document the restriction."},
+      {rule:"RULE_015",sev:"medium",cat:"technical",title:"Burr spec below family norm — edge crack prohibition",
+       detail:"Burr < 0.03 mm and 'edge crack not allowed' are stricter than family (< 0.05 mm). Likely requires an inline deburr/finishing step not in historical routes.",
+       impact:"Secondary op ~$0.05–0.10/pc",evidence:"RFQ §2",action:"Confirm deburr/edge finishing with process engineering and add to cost model."},
+      {rule:"RULE_016",sev:"medium",cat:"quality",title:"Cpk ≥ 1.67 at SOP — above family baseline",
+       detail:"Cpk ≥ 1.67 at SOP vs family ≥ 1.33. Requires extended process qualification, extra measurement runs, adjusted parameters before first PPAP.",
+       impact:"Extended qualification timeline",evidence:"RFQ §3",action:"Assess added SPC effort and add to PPAP preparation budget."},
+      {rule:"RULE_017",sev:"medium",cat:"quality",title:"Run-at-rate required beyond standard PPAP",
+       detail:"Run-at-rate required as part of PPAP, above Level 3 expectation. Dedicates a production shift to customer observation; machine-time + labor cost ~$4K–$8K per event.",
+       impact:"Run-at-rate cost $4K–8K",evidence:"RFQ §3",action:"Add run-at-rate cost to PPAP NRE; coordinate machine availability."},
+      {rule:"RULE_018",sev:"low",cat:"quality",title:"Annual revalidation and corrosion retention required",
+       detail:"Annual revalidation and corrosion retention samples required ongoing. Typically not in unit price but belongs in the long-term cost model. ~$3K–$6K/yr.",
+       impact:"~$3K–6K/yr recurring",evidence:"RFQ §3",action:"Add recurring annual quality cost to the program financial model."},
+    ],
+    quote:{
+      version:"v1 Draft — High Risk", prepared_by:"K. Whitmore", validity:null,
+      total_value:null, total_tooling:70000, risk_score:89,
+      lines:[{pn:"NB-SI-3411",name:"Seat Side Impact Reinforcement",plant:"PLT-03",vol:150000,price:6.18,tooling:70000,pkg:0.00,quality:0.12,freight:0.05,margin:13.4}],
+      cost_breakdown:{material:3.86,labor:0.72,machine:0.88,overhead:0.56,scrap:0.12,quality:0.12,logistics:0.05,packaging:0.00,total:6.31},
+      hist_match:["H015","H016","H017"],hist_price_band:[6.08,6.22],hist_tooling_band:[69000,70500]
+    }
+  },
+
+  D: {
+    id:"CASE-D", rfq_num:"RFQ-2025-0451", title:"Battery Tray Assembly (Multi-Part)",
+    customer:"NorthBridge Automotive", program:"NB-EV Premium SUV",
+    part_number:"NB-BT-4100 (assembly)", sop:"2027-09-01", annual_vol:95000,
+    material:"AA5754 / AA6082-T6 (mixed)", thickness:2.50, tolerance:"±0.08 mm", critical_tol:"Coolant interface flatness ≤ 0.10 mm",
+    ppap:5, cpk:"≥ 1.67 at SOP / ≥ 1.33 ongoing", surface:["leak-tight welds","no porosity > 0.2 mm","class-A sealing face"],
+    incoterm:"DDP Stuttgart", payment:"Net 120", apd:3.5, currency:"USD", tooling_owner:"Supplier",
+    process:["stamping","CNC machining","MIG/laser welding","leak test","e-coat"],
+    supplier_funded_gauges:true, multi_part:true,
+    sub_parts:["Tray Base Pan","Side Rail (L)","Side Rail (R)","Cross Member","Mounting Bracket Set","Cooling-Plate Interface"],
+    risk_score:94, completeness:"incomplete", status_label:"Critical — Multi-Part",
+    docs:[
+      {name:"RFQ_Main_Document.pdf",type:"rfq",status:"ok",conf:0.97,note:"Assembly-level commercial terms extracted"},
+      {name:"Cost_Template_Assembly.xlsx",type:"cost",status:"ok",conf:0.90,note:"6 sub-part tabs parsed — several cost lines blank"},
+      {name:"Base_Pan_Drawing.pdf",type:"draw",status:"ok",conf:0.91,note:"Tray base pan tolerances extracted"},
+      {name:"Side_Rail_Drawing.pdf",type:"draw",status:"ok",conf:0.88,note:"L/R rail mirror parts extracted"},
+      {name:"Cross_Member_Drawing.pdf",type:"draw",status:"ok",conf:0.86,note:"Cross member extracted — weld callouts unclear"},
+      {name:"Welding_Spec_NB-WS-204.pdf",type:"test",status:"miss",conf:null,note:"Referenced for all weld joints — not received"},
+      {name:"Leak_Test_Standard.pdf",type:"test",status:"miss",conf:null,note:"Referenced in §3 — not received"},
+      {name:"Packaging_Spec_Assembly.pdf",type:"pkg",status:"miss",conf:null,note:"Returnable rack referenced — not received"},
+      {name:"Supplier_Questionnaire.xlsx",type:"q",status:"ok",conf:0.92,note:"Capacity flagged below requested volume"},
+    ],
+    triggered_rules:["RULE_001","RULE_002","RULE_003","RULE_004","RULE_005","RULE_007","RULE_008","RULE_011","RULE_012","RULE_021","RULE_022","RULE_023","RULE_025","RULE_030"],
+    gap_findings:[
+      {part:"Tray Base Pan",rule:"RULE_021",sev:"high",cat:"technical",title:"AA5754 aluminium not in historical database",detail:"The base pan is AA5754 aluminium; the historical family is steel (SPCC/SPHC/SPFC). No directly comparable cost basis exists. Forming behaviour, springback and weldability differ materially.",impact:"No historical price anchor",evidence:"Base_Pan_Drawing §1",action:"Build a bottom-up aluminium cost model; do not extrapolate from steel history.",hist:{projects:["H020","H021"],label:"Closest Aluminium History",hist_val:"AA5754 (limited)",curr_val:"AA5754"}},
+      {part:"Tray Base Pan",rule:"RULE_004",sev:"high",cat:"technical",title:"Forming tolerance ±0.08 mm tighter than aluminium norm",detail:"±0.08 mm general tolerance is tight for 2.5 mm AA5754 with springback. Requires die compensation iterations and possible restrike.",impact:"Extra tryout + scrap allowance",evidence:"Base_Pan_Drawing §2",action:"Add die-compensation iterations and scrap contingency to tooling/NRE."},
+      {part:"Tray Base Pan",rule:"RULE_005",sev:"high",cat:"technical",title:"Coolant interface flatness ≤ 0.10 mm at capability limit",detail:"Sealing face flatness ≤ 0.10 mm across a large pan is at the limit of stamping; likely needs a CNC finishing pass on the sealing face.",impact:"CNC secondary op required",evidence:"Base_Pan_Drawing critical callout",action:"Quote a CNC face-milling secondary operation; get feasibility sign-off."},
+      {part:"Tray Base Pan",rule:"RULE_025",sev:"medium",cat:"technical",title:"E-coat + sealing face masking required",detail:"E-coat specified with a masked class-A sealing face. Masking adds labour and fixturing not in the steel-family routes.",impact:"Masking labour ~$0.20–0.35/pc",evidence:"Base_Pan_Drawing surface notes",action:"Add masking fixture and labour to the coating cost line."},
+      {part:"Tray Base Pan",rule:"RULE_019",sev:"high",cat:"quote",title:"Base pan packaging cost line blank",detail:"Cost template base-pan tab has packaging at $0.00 despite a large aluminium part needing protective dunnage.",impact:"Cost omission",evidence:"Cost_Template_Assembly — Base Pan tab",action:"Enter packaging cost once spec received; do not release at $0.00."},
+      {part:"Tray Base Pan",rule:"RULE_029",sev:"low",cat:"quality",title:"Laser lot-marking / traceability required",detail:"Each base pan requires laser part + lot marking for battery traceability. Marking station and cycle time not in the route.",impact:"Marking station + cycle time",evidence:"RFQ §3 traceability",action:"Add laser-marking station cost and cycle-time allowance."},
+      {part:"Side Rail (L)",rule:"RULE_022",sev:"high",cat:"completeness",title:"Weld spec NB-WS-204 not supplied",detail:"All rail-to-pan joints reference welding spec NB-WS-204, which was not included. Weld process, wire, and inspection class are unknown, so weld cost and DV cannot be finalized.",impact:"Weld cost unquantifiable",evidence:"Side_Rail_Drawing weld callouts",action:"Request NB-WS-204 before quoting weld labour and inspection."},
+      {part:"Side Rail (L)",rule:"RULE_030",sev:"medium",cat:"technical",title:"Rail-to-pan interface stack-up unverified",detail:"The L rail mates to the base pan and cross member; combined stack-up tolerance is not called out. Risk of assembly interference at GD&T extremes.",impact:"Assembly fit risk",evidence:"Side_Rail_Drawing §3",action:"Request assembly-level GD&T or run a tolerance stack-up study."},
+      {part:"Side Rail (L)",rule:"RULE_025",sev:"medium",cat:"technical",title:"E-coat coverage on welded assembly",detail:"E-coat after weld means the rail must be coated as part of the assembly; rack/hanging design affects coverage in weld pockets.",impact:"Coating coverage risk",evidence:"RFQ §2 coating",action:"Confirm coat-after-weld sequence and rack design with coating supplier."},
+      {part:"Side Rail (L)",rule:"RULE_015",sev:"medium",cat:"technical",title:"Cut-edge burr spec on stamped rail",detail:"Rail cut edges require burr < 0.05 mm; an extra deburr pass is likely.",impact:"Deburr ~$0.04–0.07/pc",evidence:"Side_Rail_Drawing surface",action:"Add deburr operation to the rail route."},
+      {part:"Side Rail (R)",rule:"RULE_022",sev:"high",cat:"completeness",title:"Weld spec NB-WS-204 not supplied (mirror)",detail:"R rail mirrors the L rail and shares the same missing weld spec dependency; weld cost cannot be finalized.",impact:"Weld cost unquantifiable",evidence:"Side_Rail_Drawing weld callouts",action:"Resolve with the single NB-WS-204 request covering both rails."},
+      {part:"Side Rail (R)",rule:"RULE_030",sev:"medium",cat:"technical",title:"Mirror-part symmetry tooling note missing",detail:"L/R are mirror parts; the RFQ does not state whether a single mirrored die or two dies are expected, affecting tooling cost.",impact:"Tooling scope ambiguity",evidence:"Side_Rail_Drawing title block",action:"Clarify single-mirrored vs dual-die tooling expectation with the buyer."},
+      {part:"Side Rail (R)",rule:"RULE_015",sev:"medium",cat:"technical",title:"Cut-edge burr spec on stamped rail (mirror)",detail:"Same burr < 0.05 mm requirement as the L rail.",impact:"Deburr ~$0.04–0.07/pc",evidence:"Side_Rail_Drawing surface",action:"Add deburr operation; mirror of L rail line."},
+      {part:"Cross Member",rule:"RULE_022",sev:"high",cat:"completeness",title:"Weld callouts unclear + spec missing",detail:"Cross member drawing weld callouts were parsed at low confidence and the governing spec NB-WS-204 is missing. Weld length and class are uncertain.",impact:"Weld scope uncertain",evidence:"Cross_Member_Drawing §2 (conf 0.86)",action:"Request clarified weld callouts and NB-WS-204."},
+      {part:"Cross Member",rule:"RULE_021",sev:"high",cat:"technical",title:"AA6082-T6 extrusion grade — no history",detail:"Cross member is AA6082-T6 extrusion, a different grade/process (extrusion not stamping). No historical cost basis.",impact:"No historical anchor",evidence:"Cross_Member_Drawing §1",action:"Source extrusion quote and build dedicated cost line; this is not an in-house stamping."},
+      {part:"Cross Member",rule:"RULE_030",sev:"medium",cat:"technical",title:"Bolt-hole pattern stack-up to brackets",detail:"Cross member bolt pattern must align to the mounting bracket set; combined positional tolerance not specified.",impact:"Assembly fit risk",evidence:"Cross_Member_Drawing §3",action:"Request positional tolerance for the mating bolt pattern."},
+      {part:"Cross Member",rule:"RULE_024",sev:"medium",cat:"commercial",title:"Tooling ownership for extrusion die unspecified",detail:"The RFQ does not state who owns the extrusion die. Ownership affects amortization and unit price.",impact:"Amortization ambiguity",evidence:"RFQ §4",action:"Clarify extrusion die ownership and amortization terms."},
+      {part:"Mounting Bracket Set",rule:"RULE_003",sev:"high",cat:"quality",title:"PPAP Level 5 across all sub-parts",detail:"PPAP Level 5 required for every sub-part in the assembly, multiplying documentation and submission effort six-fold vs a single part.",impact:"NRE multiplied across 6 parts",evidence:"RFQ §3",action:"Quote PPAP L5 NRE per sub-part plus assembly-level submission."},
+      {part:"Mounting Bracket Set",rule:"RULE_007",sev:"high",cat:"quality",title:"Supplier-funded gauges for bracket positions",detail:"Supplier-funded check gauges required for bracket hole positions with customer approval. Gauge set ~$15K–$25K.",impact:"Gauge NRE $15K–25K",evidence:"RFQ §2",action:"Add a gauge/check-fixture line for the bracket set."},
+      {part:"Mounting Bracket Set",rule:"RULE_016",sev:"medium",cat:"quality",title:"Cpk ≥ 1.67 at SOP on bracket positions",detail:"Tight launch Cpk target on safety-critical mounting positions requires extended qualification.",impact:"Extended qualification",evidence:"RFQ §3",action:"Add SPC qualification effort to PPAP budget."},
+      {part:"Mounting Bracket Set",rule:"RULE_029",sev:"low",cat:"quality",title:"Per-bracket traceability marking",detail:"Each bracket requires individual traceability marking for safety recall capability.",impact:"Marking cycle time",evidence:"RFQ §3",action:"Add marking step to bracket route."},
+      {part:"Cooling-Plate Interface",rule:"RULE_005",sev:"high",cat:"technical",title:"Sealing-face flatness ≤ 0.10 mm — leak critical",detail:"The cooling-plate interface is leak-critical; flatness ≤ 0.10 mm with no porosity > 0.2 mm. At the limit of process capability; CNC finishing + 100% leak test required.",impact:"CNC + 100% leak test",evidence:"RFQ §2 critical feature",action:"Quote CNC finishing and inline leak-test station; feasibility sign-off required."},
+      {part:"Cooling-Plate Interface",rule:"RULE_002",sev:"high",cat:"completeness",title:"Leak-test standard not received",detail:"Leak_Test_Standard.pdf referenced in §3 but not supplied. Acceptance leak rate and method (pressure decay vs helium) unknown; equipment and cycle time cannot be sized.",impact:"Leak-test cost unquantifiable",evidence:"RFQ §3",action:"Request the leak-test standard before quoting test equipment and cycle time."},
+      {part:"Cooling-Plate Interface",rule:"RULE_008",sev:"high",cat:"quality",title:"100% leak + appearance inspection",detail:"Every assembly requires 100% leak test and class-A sealing-face appearance inspection. Dedicated stations and labour required.",impact:"Inspection labour + capex",evidence:"RFQ §2",action:"Add leak-test and appearance-inspection station capex and labour."},
+      {part:"Cooling-Plate Interface",rule:"RULE_025",sev:"medium",cat:"technical",title:"Sealing face must remain coating-free",detail:"Class-A sealing face must be masked from e-coat, adding masking complexity at a leak-critical surface.",impact:"Masking + rework risk",evidence:"RFQ §2",action:"Design masking fixture; add rework allowance for masking defects."},
+      {part:"Assembly",rule:"RULE_011",sev:"high",cat:"commercial",title:"DDP Stuttgart — freight, customs, duty absorbed",detail:"DDP Stuttgart requires the supplier to absorb ocean/air freight, EU customs, duty, and brokerage on a bulky aluminium assembly. Historical was FOB Shanghai. Large logistics delta plus FX/duty volatility.",impact:"Logistics gap — large, bulky part",evidence:"RFQ §4",action:"Rebuild DDP logistics with a forwarder quote; add duty and FX buffer."},
+      {part:"Assembly",rule:"RULE_023",sev:"high",cat:"commercial",title:"Quoted capacity below requested 95K/yr volume",detail:"The supplier questionnaire flags assembly/weld-cell capacity below the requested 95,000/yr at SOP ramp. Capacity shortfall risks an unmet commitment or capex.",impact:"Capacity shortfall — capex or risk",evidence:"Supplier_Questionnaire — capacity tab",action:"Confirm whether a second weld cell capex is in scope; reflect in NRE or decline volume."},
+      {part:"Assembly",rule:"RULE_001",sev:"high",cat:"completeness",title:"Assembly packaging spec missing",detail:"Packaging_Spec_Assembly.pdf referenced (returnable rack) but not supplied. A large EV battery tray needs custom returnable racking; cost unknown.",impact:"Packaging cost unknown — likely high",evidence:"RFQ §5",action:"Request the packaging spec; provisionally size custom returnable rack."},
+      {part:"Assembly",rule:"RULE_012",sev:"medium",cat:"logistics",title:"Returnable rack — large custom dunnage",detail:"Returnable rack required; for a battery tray this is large bespoke dunnage with significant per-rack cost and cycle-loss exposure.",impact:"Rack capex high + cycle-loss",evidence:"RFQ §5",action:"Quote custom returnable rack design and per-trip cycle-loss allowance."},
+      {part:"Assembly",rule:"RULE_009",sev:"medium",cat:"commercial",title:"Net 120 payment terms",detail:"Net 120 on a high-value assembly (~$1.7M+ annual) carries material financing cost vs the Net 90 norm.",impact:"Financing cost on high revenue",evidence:"RFQ §4",action:"Escalate to Finance; price in financing or negotiate Net 90.",hist:{projects:["H020","H021"],label:"Historical Terms",hist_val:"Net 90",curr_val:"Net 120"}},
+      {part:"Assembly",rule:"RULE_010",sev:"medium",cat:"commercial",title:"3.5% annual price-down on assembly",detail:"3.5% APD on a high-content aluminium assembly compounds to significant erosion; aluminium price volatility makes the floor harder to hold.",impact:"Margin erosion + Al price risk",evidence:"RFQ §4",action:"Model price curve with an aluminium-index clause; confirm year-5 floor."},
+      {part:"Assembly",rule:"RULE_013",sev:"medium",cat:"commercial",title:"Premium freight recovery excluded",detail:"No premium freight recovery after nomination; on a DDP intercontinental lane this is a real launch risk.",impact:"Launch freight risk unquoted",evidence:"RFQ §5",action:"Add a launch freight contingency to NRE."},
+      {part:"Assembly",rule:"RULE_024",sev:"medium",cat:"commercial",title:"Assembly tooling ownership unspecified",detail:"Ownership of welding fixtures and assembly jigs is not stated, affecting amortization across the program.",impact:"Amortization ambiguity",evidence:"RFQ §4",action:"Clarify ownership of weld fixtures and assembly jigs."},
+      {part:"Assembly",rule:"RULE_017",sev:"medium",cat:"quality",title:"Assembly-level run-at-rate required",detail:"Run-at-rate required at the assembly level, dedicating the full weld/leak cell to customer observation.",impact:"Run-at-rate cost $8K–15K",evidence:"RFQ §3",action:"Add assembly-level run-at-rate cost and schedule with production."},
+      {part:"Assembly",rule:"RULE_027",sev:"medium",cat:"quality",title:"Appearance approval before PPAP on sealing face",detail:"Class-A sealing face needs appearance approval prior to PPAP, adding a milestone before SOP.",impact:"Timing risk 4–8 weeks",evidence:"RFQ §3",action:"Add appearance approval milestone to the program plan."},
+      {part:"Assembly",rule:"RULE_028",sev:"medium",cat:"completeness",title:"Spec references NB-WS-204 / leak std unresolved",detail:"Two governing specs are referenced but unreceived; track as open clarifications independent of cost impact.",impact:"Compliance tracking",evidence:"RFQ §3",action:"Create clarification tracker entries with owners and due dates."},
+      {part:"Assembly",rule:"RULE_018",sev:"low",cat:"quality",title:"Annual revalidation + corrosion retention",detail:"Annual revalidation and corrosion retention required ongoing for the coated aluminium assembly.",impact:"~$5K–8K/yr recurring",evidence:"RFQ §3",action:"Add recurring revalidation cost to the program model."},
+      {part:"Assembly",rule:"RULE_030",sev:"medium",cat:"technical",title:"Full-assembly stack-up to vehicle mounting unverified",detail:"The assembly mounts to the vehicle floor; the cumulative stack-up from 6 sub-parts to the vehicle interface is not specified.",impact:"Vehicle-fit risk",evidence:"RFQ §2",action:"Request vehicle-interface datums or run a full assembly stack-up study."},
+      {part:"Assembly",rule:"RULE_016",sev:"medium",cat:"quality",title:"Assembly Cpk on leak rate",detail:"Cpk target applied to leak-rate as a variable also requires capable measurement and SPC on the leak test.",impact:"Measurement system effort",evidence:"RFQ §3",action:"Add gauge R&R and SPC for the leak-test measurement system."},
+      {part:"Assembly",rule:"RULE_021",sev:"medium",cat:"technical",title:"Mixed-alloy galvanic corrosion risk",detail:"AA5754 pan + AA6082 cross member + steel fasteners create galvanic couples; corrosion protection at joints is unspecified.",impact:"Corrosion design risk",evidence:"RFQ §2 / DFMEA gap",action:"Request joint corrosion-protection requirements; raise in DFMEA."},
+      {part:"Assembly",rule:"RULE_029",sev:"low",cat:"quality",title:"Assembly-level barcode / data-matrix",detail:"Finished assembly requires a data-matrix label linking all sub-part lots for traceability.",impact:"Labelling station",evidence:"RFQ §3",action:"Add assembly labelling + data aggregation step."},
+      {part:"Assembly",rule:"RULE_022",sev:"high",cat:"completeness",title:"Weld inspection class undefined (no spec)",detail:"Without NB-WS-204, the weld inspection class (visual vs CT vs cross-section frequency) is undefined, blocking quality-cost estimation for all welds.",impact:"Weld quality cost blocked",evidence:"RFQ §3 + missing spec",action:"Resolve NB-WS-204 to define weld inspection frequency and method."},
+      {part:"Assembly",rule:"RULE_005",sev:"medium",cat:"technical",title:"Weld distortion vs flatness requirement",detail:"Welding the assembly induces distortion that conflicts with the ≤ 0.10 mm sealing-face flatness, likely forcing post-weld machining.",impact:"Post-weld machining needed",evidence:"Process analysis",action:"Sequence machining after weld; quote a post-weld CNC pass."},
+      {part:"Assembly",rule:"RULE_004",sev:"medium",cat:"technical",title:"Cumulative tolerance vs single-part tolerances",detail:"Individual ±0.08 mm sub-part tolerances will not guarantee the assembly interface tolerance without controlled fixturing.",impact:"Fixturing precision cost",evidence:"Stack-up analysis",action:"Quote precision welding/assembly fixtures to control cumulative tolerance."},
+      {part:"Assembly",rule:"RULE_025",sev:"low",cat:"technical",title:"Coating thickness on sealing-adjacent areas",detail:"E-coat thickness near the sealing face must be controlled to avoid affecting the gasket seal.",impact:"Coating control",evidence:"RFQ §2",action:"Define coating thickness limits near the sealing face."},
+      {part:"Assembly",rule:"RULE_023",sev:"medium",cat:"commercial",title:"Ramp curve steeper than capacity plan",detail:"Volume ramps to 95K/yr faster than the stated weld-cell ramp; early-year shortfall risk.",impact:"Early-year supply risk",evidence:"Supplier_Questionnaire ramp tab",action:"Align ramp plan with customer SOP curve; flag capex timing."},
+    ],
+    quote:{
+      version:"v1 Draft — Multi-Part / Blocked", prepared_by:"K. Whitmore", validity:null,
+      total_value:null, total_tooling:520000, risk_score:94,
+      lines:[
+        {pn:"NB-BT-4100-01",name:"Tray Base Pan",plant:"PLT-05",vol:95000,price:7.90,tooling:240000,pkg:0.00,quality:0.30,freight:0.00,margin:11.0},
+        {pn:"NB-BT-4100-02",name:"Side Rail (L)",plant:"PLT-05",vol:95000,price:3.20,tooling:64000,pkg:0.00,quality:0.18,freight:0.00,margin:12.5},
+        {pn:"NB-BT-4100-03",name:"Side Rail (R)",plant:"PLT-05",vol:95000,price:3.20,tooling:64000,pkg:0.00,quality:0.18,freight:0.00,margin:12.5},
+        {pn:"NB-BT-4100-04",name:"Cross Member",plant:"PLT-05",vol:95000,price:4.10,tooling:52000,pkg:0.00,quality:0.16,freight:0.00,margin:10.8},
+        {pn:"NB-BT-4100-05",name:"Mounting Bracket Set",plant:"PLT-05",vol:95000,price:2.40,tooling:48000,pkg:0.00,quality:0.20,freight:0.00,margin:13.0},
+        {pn:"NB-BT-4100-06",name:"Cooling-Plate Interface",plant:"PLT-05",vol:95000,price:5.60,tooling:52000,pkg:0.00,quality:0.34,freight:0.00,margin:9.5},
+      ],
+      cost_breakdown:{material:14.80,labor:3.20,machine:3.90,overhead:2.40,scrap:0.90,quality:1.36,logistics:0.00,packaging:0.00,total:26.56},
+      hist_match:["H020","H021"],hist_price_band:[18.40,18.90],hist_tooling_band:[240000,245000]
+    }
+  }
+};
+
+const DOC_TYPE_LABEL = {rfq:"RFQ Main",cost:"Cost Template",draw:"Drawing",pkg:"Packaging",test:"Test Spec",q:"Questionnaire"};
+const CASE_ORDER = ["A","B","C","D"];
+
+/* ══════════════════════════════════════════════
+   CONSOLE RENDER ENGINE
+══════════════════════════════════════════════ */
+
+let currentCase = "A";
+let gapSortCol = "sev";
+let gapSortDir = 1; // 1=asc, -1=desc
+let gapFilter = {sev:"all", part:"all", search:""};
+
+const SEV_ORDER = {high:0, medium:1, low:2};
+const SEV_LABEL = {high:"HIGH", medium:"MED", low:"LOW"};
+const SEV_CLASS = {high:"sev-H", medium:"sev-M", low:"sev-L"};
+const SEV_DOT   = {high:"sev-dot-H", medium:"sev-dot-M", low:"sev-dot-L"};
+
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function fmt$(n){ return n==null?"—":"$"+Number(n).toFixed(2); }
+function fmtK(n){ return n==null?"—":"$"+Math.round(n/1000)+"K"; }
+function fmtPct(n){ return n==null?"—":n+"%"; }
+function fmtVol(n){ return n==null?"—":Number(n).toLocaleString(); }
+
+function riskClass(r){
+  if(r>=80) return "fi-bad";
+  if(r>=50) return "fi-warn";
+  return "fi-ok";
+}
+function riskColor(r){
+  if(r>=80) return "var(--bad)";
+  if(r>=50) return "var(--warn)";
+  return "var(--ok)";
+}
+
+/* ── Build sidebar case list ── */
+function buildSidebar(){
+  const el = document.getElementById("caseList");
+  el.innerHTML = CASE_ORDER.map(k=>{
+    const c = CASES[k];
+    const rc = riskClass(c.risk_score);
+    return `<div class="case-row${currentCase===k?" active":""}" data-case="${k}" onclick="selectCase('${k}')">
+      <div class="cr-top">
+        <span class="cr-id">${esc(c.id)}</span>
+        <span class="cr-risk ${rc} status-chip num">${c.risk_score}</span>
+      </div>
+      <div class="cr-name">${esc(c.title)}</div>
+      <div class="cr-meta">${esc(c.part_number)}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ── Build case header ── */
+function buildHeader(){
+  const c = CASES[currentCase];
+  document.getElementById("hdrTitle").textContent = c.title;
+  document.getElementById("hdrRfq").textContent = c.rfq_num;
+
+  const scClass = c.risk_score>=80?"sc-bad": c.risk_score>=50?"sc-warn":"sc-ok";
+  document.getElementById("hdrStatus").innerHTML =
+    `<span class="status-chip ${scClass}">${esc(c.status_label)}</span>`;
+
+  const gaps = c.gap_findings.length;
+  const highGaps = c.gap_findings.filter(g=>g.sev==="high").length;
+  const missing = c.docs.filter(d=>d.status==="miss").length;
+
+  document.getElementById("hdrKpis").innerHTML = `
+    <div class="kpi">
+      <div class="kl">Completeness</div>
+      <div class="kv num" style="color:${c.completeness==='complete'?'var(--ok)':'var(--warn)'}">${c.completeness==='complete'?'100%':Math.round((c.docs.filter(d=>d.status==='ok').length/c.docs.length)*100)+'%'}</div>
+    </div>
+    <div class="kpi">
+      <div class="kl">Open Findings</div>
+      <div class="kv num" style="color:${gaps>10?'var(--bad)':gaps>4?'var(--warn)':'var(--ok)'}">${gaps}</div>
+    </div>
+    <div class="kpi">
+      <div class="kl">High Severity</div>
+      <div class="kv num" style="color:${highGaps>0?'var(--bad)':'var(--ok)'}">${highGaps}</div>
+    </div>
+    <div class="kpi">
+      <div class="kl">Risk Score</div>
+      <div class="kv num" style="color:${riskColor(c.risk_score)}">${c.risk_score}</div>
+    </div>
+    <div class="kpi">
+      <div class="kl">Missing Docs</div>
+      <div class="kv num" style="color:${missing>0?'var(--bad)':'var(--ok)'}">${missing}</div>
+    </div>`;
+
+  // Tab counts
+  document.getElementById("tc-documents").textContent = c.docs.length;
+  document.getElementById("tc-gaps").textContent = gaps;
+}
+
+/* ── OVERVIEW TAB ── */
+function renderOverview(){
+  const c = CASES[currentCase];
+  const gaps = c.gap_findings;
+  const highN = gaps.filter(g=>g.sev==="high").length;
+  const medN  = gaps.filter(g=>g.sev==="medium").length;
+  const lowN  = gaps.filter(g=>g.sev==="low").length;
+  const pctDocs = Math.round((c.docs.filter(d=>d.status==="ok").length/c.docs.length)*100);
+
+  // Workflow steps
+  const steps = ["RFQ Received","Document Extraction","Gap Analysis","Quote Build","Review & Release"];
+  const doneCount = c.risk_score<30 ? 4 : c.completeness==="complete" ? 3 : 2;
+  const wfHTML = steps.map((s,i)=>{
+    const cls = i<doneCount?"done": i===doneCount?"active":"";
+    return `${i>0?`<div class="wf-line${i<=doneCount?' done':''}"></div>`:""}
+    <div class="wf-step ${cls}">
+      <div class="wf-num">${i<doneCount?'✓':(i+1)}</div>
+      <div class="wf-lbl">${esc(s)}</div>
+    </div>`;
+  }).join("");
+
+  const el = document.getElementById("panel-overview");
+  el.innerHTML = `
+    <div class="sec">
+      <div class="sec-head">Workflow Status</div>
+      <div class="wf-strip">${wfHTML}</div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-head">KPI Summary</div>
+      <div class="row4">
+        <div class="stat-tile">
+          <div class="st-label">Completeness</div>
+          <div class="st-val num" style="color:${pctDocs===100?'var(--ok)':'var(--warn)'}">${pctDocs}%</div>
+          <div class="st-sub">${c.docs.filter(d=>d.status==='ok').length}/${c.docs.length} docs received</div>
+          <div class="st-bar"><i style="width:${pctDocs}%;background:${pctDocs===100?'var(--ok)':'var(--warn)'}"></i></div>
+        </div>
+        <div class="stat-tile">
+          <div class="st-label">Open Findings</div>
+          <div class="st-val num" style="color:${gaps.length>10?'var(--bad)':gaps.length>4?'var(--warn)':'var(--ok)'}">${gaps.length}</div>
+          <div class="st-sub"><span style="color:var(--bad)">${highN}H</span> · <span style="color:var(--warn)">${medN}M</span> · <span style="color:var(--low)">${lowN}L</span></div>
+        </div>
+        <div class="stat-tile">
+          <div class="st-label">Risk Score</div>
+          <div class="st-val num" style="color:${riskColor(c.risk_score)}">${c.risk_score}</div>
+          <div class="st-sub">${c.risk_score>=80?"Critical":c.risk_score>=50?"Elevated":"Low"} risk level</div>
+          <div class="st-bar"><i style="width:${c.risk_score}%;background:${riskColor(c.risk_score)}"></i></div>
+        </div>
+        <div class="stat-tile">
+          <div class="st-label">Rules Triggered</div>
+          <div class="st-val num">${c.triggered_rules.length}</div>
+          <div class="st-sub">of ${Object.keys(RULE_CATALOG).length} rules evaluated</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="sec">
+        <div class="sec-head">RFQ Header</div>
+        <div class="field-grid">
+          <div class="field"><div class="fl">Customer</div><div class="fv">${esc(c.customer)}</div></div>
+          <div class="field"><div class="fl">Program</div><div class="fv">${esc(c.program)}</div></div>
+          <div class="field"><div class="fl">Part Number</div><div class="fv mono">${esc(c.part_number)}</div></div>
+          <div class="field"><div class="fl">SOP</div><div class="fv">${esc(c.sop)}</div></div>
+          <div class="field"><div class="fl">Annual Volume</div><div class="fv num">${fmtVol(c.annual_vol)}</div></div>
+          <div class="field"><div class="fl">Material</div><div class="fv">${esc(c.material)}</div></div>
+          <div class="field"><div class="fl">Thickness</div><div class="fv num">${c.thickness} mm</div></div>
+          <div class="field"><div class="fl">PPAP Level</div><div class="fv${c.ppap>=5?' bad':c.ppap>=4?' warn':''}">${c.ppap}</div></div>
+          <div class="field"><div class="fl">Incoterm</div><div class="fv${c.incoterm.startsWith('DDP')?' bad':''}">${esc(c.incoterm)}</div></div>
+          <div class="field"><div class="fl">Payment</div><div class="fv${c.payment==='Net 120'?' bad':c.payment==='Net 75'?' warn':''}">${esc(c.payment)}</div></div>
+          <div class="field"><div class="fl">APD</div><div class="fv${c.apd>=3.5?' bad':c.apd>=3?' warn':''} num">${c.apd}%</div></div>
+          <div class="field"><div class="fl">Tooling Owner</div><div class="fv${c.tooling_owner==='Supplier'?' warn':''}">${esc(c.tooling_owner||'Unspecified')}</div></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head">Risk Flags (${highN} High · ${medN} Medium · ${lowN} Low)</div>
+        <div class="tbl-wrap" style="max-height:220px;overflow-y:auto">
+          <table>
+            <thead><tr>
+              <th>Sev</th><th>Rule</th><th>Finding</th><th>Category</th>
+            </tr></thead>
+            <tbody>
+              ${gaps.slice(0,8).map(g=>`<tr>
+                <td><span class="sev ${SEV_CLASS[g.sev]}">${SEV_LABEL[g.sev]}</span></td>
+                <td class="mono">${esc(g.rule)}</td>
+                <td>${esc(g.title)}</td>
+                <td><span class="tag">${esc(g.cat)}</span></td>
+              </tr>`).join("")}
+              ${gaps.length>8?`<tr><td colspan="4" style="text-align:center;color:var(--ink3);font-size:11px;padding:8px">+${gaps.length-8} more findings — see Gap Analysis tab</td></tr>`:""}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    ${c.triggered_rules.length>0?`
+    <div class="sec">
+      <div class="sec-head">Triggered Rules</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0">
+        ${c.triggered_rules.map(r=>{
+          const rc=RULE_CATALOG[r];
+          return `<span class="tag" title="${esc(rc?rc.name:'')}">${esc(r)}</span>`;
+        }).join("")}
+      </div>
+    </div>`:""}
+  `;
+}
+
+/* ── DOCUMENTS TAB ── */
+function renderDocuments(){
+  const c = CASES[currentCase];
+  const ok = c.docs.filter(d=>d.status==="ok").length;
+  const miss = c.docs.filter(d=>d.status==="miss").length;
+
+  const el = document.getElementById("panel-documents");
+  el.innerHTML = `
+    <div class="sec">
+      <div class="sec-head">Document Package — ${ok} of ${c.docs.length} received, ${miss} missing</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Filename</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th class="r">Confidence</th>
+            <th>Notes</th>
+          </tr></thead>
+          <tbody>
+            ${c.docs.map(d=>{
+              const confBar = d.conf!=null
+                ? `<div class="conf-bar">
+                    <span class="num" style="font-size:11px">${Math.round(d.conf*100)}%</span>
+                    <span class="conf-track"><i class="conf-fill" style="width:${Math.round(d.conf*100)}%;background:${d.conf>=0.9?'var(--ok)':d.conf>=0.8?'var(--warn)':'var(--bad)'}"></i></span>
+                  </div>`
+                : `<span style="color:var(--ink3);font-size:11px">—</span>`;
+              return `<tr>
+                <td class="mono" style="font-size:11px">${esc(d.name)}</td>
+                <td><span class="tag">${esc(DOC_TYPE_LABEL[d.type]||d.type)}</span></td>
+                <td><span class="${d.status==='ok'?'doc-ok':'doc-miss'}">${d.status==='ok'?'Received':'Missing'}</span></td>
+                <td class="r">${confBar}</td>
+                <td style="font-size:11px;color:var(--ink2)">${esc(d.note)}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    ${miss>0?`
+    <div class="sec">
+      <div class="sec-head">Action Required — Missing Documents</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Document</th><th>Type</th><th>Impact</th></tr></thead>
+          <tbody>
+            ${c.docs.filter(d=>d.status==='miss').map(d=>`<tr>
+              <td class="mono" style="font-size:11px">${esc(d.name)}</td>
+              <td><span class="tag">${esc(DOC_TYPE_LABEL[d.type]||d.type)}</span></td>
+              <td style="font-size:11px;color:var(--bad)">${esc(d.note)}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>`:""}
+  `;
+}
+
+/* ── PART DETAIL TAB ── */
+function renderPart(){
+  const c = CASES[currentCase];
+  const el = document.getElementById("panel-part");
+
+  const processHTML = c.process.map((p,i)=>
+    `${i>0?'<span class="proc-arrow">›</span>':''}<div class="proc-step">${esc(p)}</div>`
+  ).join("");
+
+  const surfHTML = c.surface.map(s=>`<span class="tag">${esc(s)}</span>`).join(" ");
+
+  const subPartsHTML = c.multi_part && c.sub_parts ? `
+    <div class="sec">
+      <div class="sec-head">Sub-Parts (${c.sub_parts.length})</div>
+      <div class="subpart-grid">
+        ${c.sub_parts.map((sp,i)=>`<div class="subpart-card">
+          <div class="spc-idx">#${i+1}</div>
+          <div class="spc-name">${esc(sp)}</div>
+        </div>`).join("")}
+      </div>
+    </div>` : "";
+
+  el.innerHTML = `
+    <div class="row2">
+      <div>
+        <div class="sec">
+          <div class="sec-head">Technical Specification</div>
+          <div class="field-grid">
+            <div class="field wide"><div class="fl">Part Number</div><div class="fv mono">${esc(c.part_number)}</div></div>
+            <div class="field"><div class="fl">Material</div><div class="fv">${esc(c.material)}</div></div>
+            <div class="field"><div class="fl">Thickness</div><div class="fv num">${c.thickness} mm</div></div>
+            <div class="field wide"><div class="fl">General Tolerance</div><div class="fv num">${esc(c.tolerance)}</div></div>
+            <div class="field wide"><div class="fl">Critical Tolerance</div><div class="fv num${c.critical_tol.includes('0.03')||c.critical_tol.includes('0.10')?' bad':''}">${esc(c.critical_tol)}</div></div>
+            <div class="field"><div class="fl">Cpk Requirement</div><div class="fv">${esc(c.cpk||'Not specified')}</div></div>
+            <div class="field"><div class="fl">PPAP Level</div><div class="fv${c.ppap>=5?' bad':c.ppak>=4?' warn':''}">${c.ppap}</div></div>
+            <div class="field"><div class="fl">SOP Date</div><div class="fv">${esc(c.sop)}</div></div>
+            <div class="field"><div class="fl">Annual Volume</div><div class="fv num">${fmtVol(c.annual_vol)}</div></div>
+            <div class="field"><div class="fl">Currency</div><div class="fv">${esc(c.currency)}</div></div>
+            ${c.supplier_funded_gauges?`<div class="field wide"><div class="fl">Supplier Gauges</div><div class="fv bad">Required — supplier-funded</div></div>`:""}
+            ${c.multi_part?`<div class="field wide"><div class="fl">Assembly Type</div><div class="fv warn">Multi-part assembly (${c.sub_parts.length} sub-parts)</div></div>`:""}
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-head">Surface Requirements</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0">${surfHTML}</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec">
+          <div class="sec-head">Commercial Terms</div>
+          <div class="field-grid">
+            <div class="field wide"><div class="fl">Incoterm</div><div class="fv${c.incoterm.startsWith('DDP')?' bad':''}">${esc(c.incoterm)}</div></div>
+            <div class="field wide"><div class="fl">Payment Terms</div><div class="fv${c.payment==='Net 120'?' bad':c.payment==='Net 75'?' warn':''}">${esc(c.payment)}</div></div>
+            <div class="field"><div class="fl">APD Rate</div><div class="fv num${c.apd>=3.5?' bad':c.apd>=3?' warn':''}">${c.apd}% / yr</div></div>
+            <div class="field"><div class="fl">Tooling Owner</div><div class="fv${c.tooling_owner==='Supplier'?' warn':c.tooling_owner==='Not specified'?' bad':''}">${esc(c.tooling_owner||'Unspecified')}</div></div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-head">Compliance Flags</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Flag</th><th>Value</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>PPAP Level</td><td class="num">${c.ppap}</td><td>${c.ppap>=5?'<span class="sev sev-H">HIGH</span>':c.ppap>=4?'<span class="sev sev-M">MED</span>':'<span class="status-chip sc-ok">OK</span>'}</td></tr>
+                <tr><td>Incoterm</td><td>${esc(c.incoterm)}</td><td>${c.incoterm.startsWith('DDP')?'<span class="sev sev-H">HIGH</span>':'<span class="status-chip sc-ok">OK</span>'}</td></tr>
+                <tr><td>Payment</td><td>${esc(c.payment)}</td><td>${c.payment==='Net 120'?'<span class="sev sev-H">HIGH</span>':c.payment==='Net 75'?'<span class="sev sev-M">MED</span>':'<span class="status-chip sc-ok">OK</span>'}</td></tr>
+                <tr><td>APD Rate</td><td class="num">${c.apd}%</td><td>${c.apd>=3.5?'<span class="sev sev-H">HIGH</span>':c.apd>=3?'<span class="sev sev-M">MED</span>':'<span class="status-chip sc-ok">OK</span>'}</td></tr>
+                <tr><td>Supplier Gauges</td><td>${c.supplier_funded_gauges?"Yes":"No"}</td><td>${c.supplier_funded_gauges?'<span class="sev sev-H">HIGH</span>':'<span class="status-chip sc-ok">OK</span>'}</td></tr>
+                <tr><td>Multi-Part</td><td>${c.multi_part?"Yes":"No"}</td><td>${c.multi_part?'<span class="sev sev-M">COMPLEX</span>':'<span class="status-chip sc-ok">OK</span>'}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-head">Process Route</div>
+      <div class="process-chain">${processHTML}</div>
+    </div>
+
+    ${subPartsHTML}
+  `;
+}
+
+/* ── GAP ANALYSIS TAB ── */
+function renderGaps(){
+  const c = CASES[currentCase];
+  const isMulti = !!c.multi_part;
+  const el = document.getElementById("panel-gaps");
+
+  // Collect unique parts for filter
+  const parts = isMulti ? [...new Set(c.gap_findings.map(g=>g.part).filter(Boolean))] : [];
+
+  el.innerHTML = `
+    <div class="gap-toolbar">
+      <input class="gap-search" id="gapSearch" type="search" placeholder="Search findings…" value="${esc(gapFilter.search)}" oninput="updateGapFilter('search',this.value)">
+      <select class="gap-select" id="gapSev" onchange="updateGapFilter('sev',this.value)">
+        <option value="all"${gapFilter.sev==='all'?' selected':''}>All severities</option>
+        <option value="high"${gapFilter.sev==='high'?' selected':''}>High only</option>
+        <option value="medium"${gapFilter.sev==='medium'?' selected':''}>Medium only</option>
+        <option value="low"${gapFilter.sev==='low'?' selected':''}>Low only</option>
+      </select>
+      ${isMulti?`<select class="gap-select" id="gapPart" onchange="updateGapFilter('part',this.value)">
+        <option value="all"${gapFilter.part==='all'?' selected':''}>All parts</option>
+        ${parts.map(p=>`<option value="${esc(p)}"${gapFilter.part===p?' selected':''}>${esc(p)}</option>`).join("")}
+      </select>`:""}
+      <span class="gap-count" id="gapCountLabel"></span>
+    </div>
+    <div class="gap-tbl-wrap">
+      <table class="gap-tbl" id="gapTable">
+        <thead>
+          <tr>
+            <th style="width:28px"></th>
+            <th onclick="sortGaps('sev')" title="Sort by severity">Sev <span class="sort-ind" id="si-sev"></span></th>
+            <th onclick="sortGaps('rule')" title="Sort by rule">Rule <span class="sort-ind" id="si-rule"></span></th>
+            <th onclick="sortGaps('title')" title="Sort by title">Finding <span class="sort-ind" id="si-title"></span></th>
+            ${isMulti?`<th onclick="sortGaps('part')" title="Sort by part">Part <span class="sort-ind" id="si-part"></span></th>`:""}
+            <th onclick="sortGaps('cat')" title="Sort by category">Category <span class="sort-ind" id="si-cat"></span></th>
+            <th>Impact</th>
+            <th style="width:28px"></th>
+          </tr>
+        </thead>
+        <tbody id="gapTbody"></tbody>
+      </table>
+    </div>
+  `;
+
+  renderGapRows();
+}
+
+function updateGapFilter(field, val){
+  gapFilter[field] = val;
+  renderGapRows();
+}
+
+function sortGaps(col){
+  if(gapSortCol===col){ gapSortDir*=-1; }
+  else { gapSortCol=col; gapSortDir=1; }
+  renderGapRows();
+}
+
+function renderGapRows(){
+  const c = CASES[currentCase];
+  const isMulti = !!c.multi_part;
+  let findings = [...c.gap_findings];
+
+  // Filter
+  if(gapFilter.sev!=="all") findings = findings.filter(g=>g.sev===gapFilter.sev);
+  if(gapFilter.part!=="all") findings = findings.filter(g=>g.part===gapFilter.part);
+  if(gapFilter.search){
+    const q = gapFilter.search.toLowerCase();
+    findings = findings.filter(g=>
+      g.title.toLowerCase().includes(q)||
+      g.rule.toLowerCase().includes(q)||
+      g.cat.toLowerCase().includes(q)||
+      (g.part&&g.part.toLowerCase().includes(q))||
+      g.detail.toLowerCase().includes(q)
+    );
+  }
+
+  // Sort
+  findings.sort((a,b)=>{
+    let av,bv;
+    if(gapSortCol==="sev"){ av=SEV_ORDER[a.sev]??9; bv=SEV_ORDER[b.sev]??9; }
+    else { av=(a[gapSortCol]||"").toLowerCase(); bv=(b[gapSortCol]||"").toLowerCase(); }
+    if(av<bv) return -gapSortDir;
+    if(av>bv) return gapSortDir;
+    return 0;
+  });
+
+  // Update sort indicators
+  ["sev","rule","title","cat","part"].forEach(col=>{
+    const el=document.getElementById("si-"+col);
+    if(!el) return;
+    el.textContent = gapSortCol===col ? (gapSortDir===1?"▲":"▼") : "";
+  });
+
+  // Count label
+  const lbl = document.getElementById("gapCountLabel");
+  if(lbl) lbl.textContent = `${findings.length} of ${c.gap_findings.length} findings`;
+
+  const tbody = document.getElementById("gapTbody");
+  if(!tbody) return;
+
+  if(findings.length===0){
+    tbody.innerHTML = `<tr><td colspan="${isMulti?8:7}" class="empty">No findings match the current filters.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = findings.map((g,i)=>{
+    const rowId = "gr-"+i;
+    const detId = "gd-"+i;
+
+    const histHTML = g.hist ? `
+      <div class="gd-hist">
+        <div class="gh-item"><div class="ghl">Historical Projects</div><div class="ghv">${esc(g.hist.projects.join(", "))}</div></div>
+        <div class="gh-item"><div class="ghl">${esc(g.hist.label)}</div><div class="ghv">${esc(g.hist.hist_val)}</div></div>
+        <div class="gh-item"><div class="ghl">This RFQ</div><div class="ghv diff">${esc(g.hist.curr_val)}</div></div>
+      </div>` : "";
+
+    const detailHTML = `<tr class="gap-detail-row" id="${detId}">
+      <td colspan="${isMulti?8:7}">
+        <div class="gap-detail-inner">
+          <div class="gd-block">
+            <div class="gdl">Detail</div>
+            <div class="gdt">${esc(g.detail)}</div>
+          </div>
+          <div class="gd-block">
+            <div class="gdl">Impact</div>
+            <div class="gdt" style="color:var(--bad)">${esc(g.impact)}</div>
+            <div class="gdl" style="margin-top:10px">Evidence</div>
+            <div class="gdt" style="font-family:var(--mono);font-size:11px">${esc(g.evidence)}</div>
+          </div>
+          <div class="gd-block" style="grid-column:span 2">
+            <div class="gdl">Recommended Action</div>
+            <div class="gdt">${esc(g.action)}</div>
+          </div>
+          ${histHTML}
+        </div>
+      </td>
+    </tr>`;
+
+    const row = `<tr class="gap-row" id="${rowId}" onclick="toggleGapRow('${rowId}','${detId}')">
+      <td style="width:28px;color:var(--ink3);font-size:10px;padding-left:6px">
+        <span class="row-expand-icon">▶</span>
+      </td>
+      <td><span class="sev ${SEV_CLASS[g.sev]}">${SEV_LABEL[g.sev]}</span></td>
+      <td class="mono" style="font-size:10px;color:var(--slate)">${esc(g.rule)}</td>
+      <td style="font-size:12px;font-weight:600;max-width:280px">${esc(g.title)}</td>
+      ${isMulti?`<td style="font-size:11px;color:var(--ink2);white-space:nowrap">${esc(g.part||"—")}</td>`:""}
+      <td><span class="tag">${esc(g.cat)}</span></td>
+      <td style="font-size:11px;color:var(--ink2);max-width:200px">${esc(g.impact)}</td>
+      <td style="width:28px;color:var(--ink3);font-size:11px">
+        ${g.hist?'<span title="Has historical comparison" style="color:var(--slate)">H</span>':""}
+      </td>
+    </tr>`;
+
+    return row + detailHTML;
+  }).join("");
+}
+
+function toggleGapRow(rowId, detId){
+  const row = document.getElementById(rowId);
+  const det = document.getElementById(detId);
+  if(!row||!det) return;
+  const isOpen = det.classList.contains("open");
+  // Close all open rows first
+  document.querySelectorAll(".gap-detail-row.open").forEach(el=>el.classList.remove("open"));
+  document.querySelectorAll(".gap-row.expanded").forEach(el=>el.classList.remove("expanded"));
+  if(!isOpen){
+    det.classList.add("open");
+    row.classList.add("expanded");
+  }
+}
+
+/* ── QUOTE & BENCHMARK TAB ── */
+function renderQuote(){
+  const c = CASES[currentCase];
+  const q = c.quote;
+  const el = document.getElementById("panel-quote");
+
+  const totalPiece = q.lines.reduce((s,l)=>s+(l.price*l.vol),0);
+  const histMatches = (q.hist_match||[]).map(id=>HISTORICAL.find(h=>h.id===id)).filter(Boolean);
+
+  // Price band indicator
+  const [pLo,pHi] = q.hist_price_band||[null,null];
+  const quotedPrice = q.lines[0]?.price;
+  let priceBandClass = "";
+  if(pLo&&pHi&&quotedPrice){
+    priceBandClass = quotedPrice<pLo?"band-ok":quotedPrice>pHi?"band-bad":"band-ok";
+  }
+
+  const cb = q.cost_breakdown;
+
+  el.innerHTML = `
+    <div class="sec">
+      <div class="sec-head">Quote Summary — ${esc(q.version)}</div>
+      <div class="quote-kpis">
+        <div class="stat-tile">
+          <div class="st-label">Prepared By</div>
+          <div class="st-val" style="font-size:16px">${esc(q.prepared_by)}</div>
+        </div>
+        <div class="stat-tile">
+          <div class="st-label">Total Tooling NRE</div>
+          <div class="st-val num">${fmtK(q.total_tooling)}</div>
+        </div>
+        <div class="stat-tile">
+          <div class="st-label">Quoted Unit Rev.</div>
+          <div class="st-val num">${totalPiece>0?'$'+Math.round(totalPiece/1000)+'K/yr':'—'}</div>
+        </div>
+        <div class="stat-tile">
+          <div class="st-label">Risk Score</div>
+          <div class="st-val num" style="color:${riskColor(q.risk_score)}">${q.risk_score}</div>
+        </div>
+        <div class="stat-tile">
+          <div class="st-label">Validity</div>
+          <div class="st-val num" style="font-size:16px">${q.validity?q.validity+" days":"Blocked"}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-head">Line Items</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Part Number</th>
+            <th>Description</th>
+            <th>Plant</th>
+            <th class="r">Volume</th>
+            <th class="r">Unit Price</th>
+            <th class="r">Tooling</th>
+            <th class="r">Pkg/pc</th>
+            <th class="r">Quality/pc</th>
+            <th class="r">Margin %</th>
+          </tr></thead>
+          <tbody>
+            ${q.lines.map(l=>`<tr>
+              <td class="mono" style="font-size:11px">${esc(l.pn)}</td>
+              <td style="font-size:12px">${esc(l.name)}</td>
+              <td class="mono" style="font-size:11px">${esc(l.plant)}</td>
+              <td class="r num">${fmtVol(l.vol)}</td>
+              <td class="r num">${fmt$(l.price)}</td>
+              <td class="r num">${fmtK(l.tooling)}</td>
+              <td class="r num${l.pkg===0?' bad':''}">${fmt$(l.pkg)}</td>
+              <td class="r num">${fmt$(l.quality)}</td>
+              <td class="r num${l.margin<12?' bad':l.margin<15?' warn':''}">${l.margin}%</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="cost-grid">
+      <div class="sec">
+        <div class="sec-head">Cost Breakdown</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Element</th><th class="r">$/pc</th><th class="r">% of Total</th></tr></thead>
+            <tbody>
+              ${Object.entries(cb).filter(([k])=>k!=="total").map(([k,v])=>{
+                const pct = cb.total>0?Math.round((v/cb.total)*100):0;
+                return `<tr>
+                  <td style="text-transform:capitalize">${esc(k)}</td>
+                  <td class="r num${k==='packaging'&&v===0?' bad':''}">${fmt$(v)}</td>
+                  <td class="r num" style="color:var(--ink3)">${pct}%</td>
+                </tr>`;
+              }).join("")}
+              <tr style="font-weight:700;background:var(--raised)">
+                <td>Total</td>
+                <td class="r num">${fmt$(cb.total)}</td>
+                <td class="r num">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head">Historical Benchmark</div>
+        <div class="tbl-wrap hist-table">
+          <table>
+            <thead><tr>
+              <th>ID</th><th>Part Name</th>
+              <th class="r">Price</th><th class="r">Tooling</th>
+              <th>Award</th>
+            </tr></thead>
+            <tbody>
+              ${histMatches.map(h=>`<tr>
+                <td class="mono" style="font-size:10px">${esc(h.id)}</td>
+                <td style="font-size:11px">${esc(h.name)}</td>
+                <td class="r num">${fmt$(h.price)}</td>
+                <td class="r num">${fmtK(h.tooling)}</td>
+                <td><span class="status-chip ${h.award==='Won'?'sc-ok':'sc-bad'}">${esc(h.award)}</span></td>
+              </tr>`).join("")}
+              ${pLo!=null?`<tr style="background:var(--raised)">
+                <td colspan="2" style="font-weight:700;font-size:11px">Historical Price Band</td>
+                <td class="r"><span class="price-band ${priceBandClass} num">${fmt$(pLo)} – ${fmt$(pHi)}</span></td>
+                <td class="r"><span class="price-band num">${fmtK(q.hist_tooling_band[0])} – ${fmtK(q.hist_tooling_band[1])}</span></td>
+                <td></td>
+              </tr>`:""}
+              ${quotedPrice!=null?`<tr style="font-weight:700">
+                <td colspan="2" style="font-weight:700">This Quote</td>
+                <td class="r num">${fmt$(quotedPrice)}</td>
+                <td class="r num">${fmtK(q.total_tooling)}</td>
+                <td></td>
+              </tr>`:""}
+            </tbody>
+          </table>
+        </div>
+
+        ${q.risk_score>=80?`<div style="margin-top:10px;padding:10px 12px;background:var(--bad-soft);border:1px solid var(--bad-line);font-size:12px;color:var(--bad)">
+          <strong>Risk Flag:</strong> Risk score ${q.risk_score} — this quote cannot be released until all high-severity gaps are resolved.
+        </div>`:q.risk_score>=50?`<div style="margin-top:10px;padding:10px 12px;background:var(--warn-soft);border:1px solid var(--warn-line);font-size:12px;color:var(--warn)">
+          <strong>Caution:</strong> Risk score ${q.risk_score} — review all open findings before release.
+        </div>`:`<div style="margin-top:10px;padding:10px 12px;background:var(--ok-soft);border:1px solid var(--ok-line);font-size:12px;color:var(--ok)">
+          <strong>Cleared:</strong> Risk score ${q.risk_score} — quote is releasable pending final sign-off.
+        </div>`}
+      </div>
+    </div>
+  `;
+}
+
+/* ── CASE + TAB SWITCHING ── */
+function selectCase(k){
+  currentCase = k;
+  gapFilter = {sev:"all", part:"all", search:""};
+  gapSortCol = "sev";
+  gapSortDir = 1;
+  buildSidebar();
+  buildHeader();
+  renderAll();
+}
+
+let activeTab = "overview";
+function switchTab(tab){
+  activeTab = tab;
+  document.querySelectorAll(".tab-btn").forEach(b=>{
+    b.classList.toggle("active", b.dataset.tab===tab);
+  });
+  document.querySelectorAll(".panel").forEach(p=>{
+    p.classList.toggle("active", p.id==="panel-"+tab);
+  });
+  // Lazy render on switch
+  switch(tab){
+    case "overview":   renderOverview(); break;
+    case "documents":  renderDocuments(); break;
+    case "part":       renderPart(); break;
+    case "gaps":       renderGaps(); break;
+    case "quote":      renderQuote(); break;
+  }
+}
+
+function renderAll(){
+  renderOverview();
+  renderDocuments();
+  renderPart();
+  renderGaps();
+  renderQuote();
+}
+
+/* ── INIT ── */
+document.addEventListener("DOMContentLoaded", function(){
+  buildSidebar();
+  buildHeader();
+  renderAll();
+
+  // Tab strip click handler
+  document.getElementById("tabStrip").addEventListener("click", function(e){
+    const btn = e.target.closest(".tab-btn");
+    if(btn && btn.dataset.tab) switchTab(btn.dataset.tab);
+  });
+});
+</script>
+
+<!-- floating mockup nav -->
+<div class="mocknav" id="mocknav"></div>
+<style>
+.mocknav{position:fixed;right:18px;bottom:18px;z-index:99999;display:flex;align-items:center;gap:3px;background:#1b2430;color:#fff;padding:5px;border-radius:13px;box-shadow:0 8px 28px rgba(0,0,0,.28);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.mocknav .mn-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#7b8696;padding:0 9px 0 7px}
+.mocknav .mn-i{display:flex;align-items:center;gap:6px;text-decoration:none;color:#c7cfda;font-size:12.5px;font-weight:600;padding:7px 11px;border-radius:9px;transition:.12s;white-space:nowrap}
+.mocknav .mn-i:hover{background:#2a3342;color:#fff}
+.mocknav .mn-on{background:#fff;color:#1b2430}
+.mocknav .mn-home{color:#7b8696;font-size:15px;padding:7px 10px}
+.mocknav .mn-home:hover{color:#fff}
+</style>
+<script>(function(){var items=[['01','Atlas','01-atlas.html'],['02','Console','02-console.html'],['03','Dossier','03-dossier.html'],['04','Triage','04-triage.html'],['05','Cockpit','05-cockpit.html'],['06','Nova','06-nova.html']];var cur=(location.pathname.split('/').pop()||'').toLowerCase();var el=document.getElementById('mocknav');el.innerHTML='<span class="mn-lbl">Designs</span>'+items.map(function(i){var on=i[2]===cur;return '<a class="mn-i'+(on?' mn-on':'')+'" href="'+i[2]+'" title="'+i[1]+'">'+i[0]+(on?' '+i[1]:'')+'</a>';}).join('')+'<a class="mn-home" href="index.html" title="All designs">&#8617;</a>';})();</script>
+
+</body>
+</html>
