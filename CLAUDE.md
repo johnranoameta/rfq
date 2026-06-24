@@ -30,6 +30,7 @@
 - Commits: plain messages, no Claude co-author/footer.
 
 ## graphify
+Setup: see `GRAPHIFY.md`.
 
 Knowledge graph at `graphify-out/` (god nodes, community structure, cross-file relationships).
 
