@@ -3,17 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RFQ Assistant · Cockpit</title>
+<title>RFQ Assistant · Sleek</title>
 <style>
-/* ════════ COCKPIT — guided decision dashboard · light neutral · forest-green accent ════════ */
+/* ════════ SLEEK — typeui.sh design system · deep navy · pill controls · auto dark mode ════════ */
 :root{
-  --bg:#f1f3f2; --surface:#ffffff; --raised:#f6f8f7; --hover:#eef3f0;
-  --line:#e2e7e4; --line2:#cdd5d0;
-  --ink:#18241d; --ink2:#525e57; --ink3:#869089;
-  --accent:#2f7d4f; --accent-d:#246340; --accent-soft:#e7f2eb; --accent-line:#b9ddc7;
-  --high:#a8443a; --high-soft:#f8ebe9; --med:#b07b2f; --med-soft:#f7f0e4; --low:#5a6573; --low-soft:#eef0f2;
+  /* neutrals */
+  --bg:#F9FAFB; --surface:#FFFFFF; --raised:#F3F4F6; --hover:#F3F4F6;
+  --line:#E5E7EB; --line2:#D1D5DC;
+  --ink:#111828; --ink2:#4B5563; --ink3:#6B7280;
+  /* brand (navy) */
+  --accent:#111828; --accent-d:#0C111D; --accent-soft:#F1F3F7; --accent-line:#CFD5E1;
+  /* status */
+  --high:#C70036; --high-soft:#FEF0F2; --med:#C2410C; --med-soft:#FFF7ED; --low:#6B7280; --low-soft:#F3F4F6;
+  /* shadows */
+  --sh-xs:0 1px 2px 0 #0000000d; --sh-sm:0 1px 3px 0 #0000001a,0 1px 2px -1px #0000001a;
+  --sh-md:0 4px 6px -1px #0000001a,0 2px 4px -2px #0000001a; --sh-lg:0 10px 15px -3px #0000001a,0 4px 6px -4px #0000001a;
+  --glint:inset rgba(255,255,255,.25) 0 6px 0 -5px, rgba(0,0,0,.12) 0 4px 10px -5px;
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --sans:"Lotus Eden",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+/* forced dark via toggle */
+:root[data-theme="dark"]{
+  --bg:#030712; --surface:#101828; --raised:#1E2939; --hover:#1E2939;
+  --line:#1F2937; --line2:#374151;
+  --ink:#FFFFFF; --ink2:#9CA3AF; --ink3:#9CA3AF;
+  --accent:#3F5071; --accent-d:#CFD5E1; --accent-soft:#1A2236; --accent-line:#232D48;
+  --high:#C70036; --high-soft:#4D0218; --med:#F97316; --med-soft:#7C2D12; --low:#9CA3AF; --low-soft:#1E2939;
+  --glint:inset rgba(255,255,255,.12) 0 6px 0 -5px, rgba(0,0,0,.25) 0 4px 10px -5px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#030712; --surface:#101828; --raised:#1E2939; --hover:#1E2939;
+    --line:#1F2937; --line2:#374151;
+    --ink:#FFFFFF; --ink2:#9CA3AF; --ink3:#9CA3AF;
+    --accent:#3F5071; --accent-d:#CFD5E1; --accent-soft:#1A2236; --accent-line:#232D48;
+    --high:#C70036; --high-soft:#4D0218; --med:#F97316; --med-soft:#7C2D12; --low:#9CA3AF; --low-soft:#1E2939;
+    --glint:inset rgba(255,255,255,.12) 0 6px 0 -5px, rgba(0,0,0,.25) 0 4px 10px -5px;
+  }
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13.5px}
@@ -139,6 +165,84 @@ table.tbl{width:100%;border-collapse:collapse;background:var(--surface)}
 .bm-out{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:20px}.won{background:var(--accent-soft);color:var(--accent-d)}.lost{background:var(--high-soft);color:var(--high)}
 ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#c6d0ca;border-radius:6px;border:2px solid var(--bg)}
 .empty{padding:40px;text-align:center;color:var(--ink3)}
+
+/* ════════ SLEEK polish — pill controls · 24px radii · shadow tokens · auto dark ════════ */
+body{font-size:14px;-webkit-font-smoothing:antialiased}
+.hdr{padding:16px 30px;background:var(--surface);border-bottom:1px solid var(--line)}
+.hdr-top{margin-bottom:0}
+.hdr-title{font-weight:800;font-size:19px;letter-spacing:-.4px;color:var(--ink)}
+.hdr-sub{color:var(--ink3)}
+.logo{border-radius:9999px;background:var(--accent);color:#fff;box-shadow:var(--sh-xs),var(--glint);font-weight:800}
+/* theme toggle — pill icon button */
+.theme-toggle{margin-left:12px;width:40px;height:40px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);box-shadow:var(--sh-xs);cursor:pointer;transition:all .2s}
+.theme-toggle:hover{background:var(--hover);color:var(--ink);border-color:var(--line2)}
+.theme-toggle .ic-moon{display:none}
+:root[data-theme="dark"] .theme-toggle .ic-sun{display:none}
+:root[data-theme="dark"] .theme-toggle .ic-moon{display:inline}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .theme-toggle .ic-sun{display:none}
+  :root:not([data-theme="light"]) .theme-toggle .ic-moon{display:inline}
+}
+/* case switcher → pill segmented */
+.cs{border-radius:9999px;padding:8px 16px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);box-shadow:var(--sh-xs);font-weight:500}
+.cs:hover{background:var(--hover);color:var(--ink);border-color:var(--line2)}
+.cs.on{background:var(--accent);border-color:transparent;color:#fff;box-shadow:var(--sh-xs),var(--glint)}
+.cs.on .rk{color:#fff;opacity:.75}
+/* tabs → pill */
+.tabbar{padding:12px 30px;background:var(--surface);border-bottom:1px solid var(--line);gap:6px}
+.tab{border-bottom:none;border-radius:9999px;padding:10px 18px;font-size:14px;font-weight:500;color:var(--ink2);transition:all .2s}
+.tab:hover{background:var(--hover);color:var(--ink)}
+.tab.on{background:var(--accent);color:#fff;box-shadow:var(--sh-sm)}
+.tab.on .cnt{background:rgba(255,255,255,.22);color:#fff}
+.tab .cnt{border-radius:9999px;background:var(--hover);color:var(--ink2)}
+.content{padding:30px;background:var(--bg)}
+.sec-lab{letter-spacing:.4px;text-transform:uppercase;font-weight:500;color:var(--ink3);margin:30px 0 14px}
+/* containers → 24px + shadow-sm */
+.card,.kpi,.ig{border-radius:24px;border:1px solid var(--line);box-shadow:var(--sh-sm)}
+.card{background:var(--surface)} .kpi{background:var(--surface);padding:22px 24px}
+.card-h{padding:16px 24px;font-weight:500;color:var(--ink);font-size:15px;border-bottom:1px solid var(--line)}
+.kpi .l{letter-spacing:.4px;color:var(--ink3)} .kpi .v{font-weight:800;letter-spacing:-.5px;color:var(--ink)}
+.hero{gap:24px}
+.ig{overflow:hidden} .if{background:var(--surface);padding:16px 20px} .if .l{letter-spacing:.3px;color:var(--ink3)} .if .v{color:var(--ink)}
+.note{border-radius:24px;border:1px solid var(--line);border-left-width:3px;padding:16px 20px;box-shadow:var(--sh-xs);background:var(--surface)}
+.note .ti{color:var(--ink)} .note .tx{color:var(--ink2)}
+/* badges / sev pills → pill + status tokens */
+.sv,.bk-count,.grp-pill,.ptag,.dtag,.flag,.bm-out{border-radius:9999px}
+.flag{padding:4px 12px;font-weight:500;border:1px solid var(--line)}
+.flag.y{background:var(--accent-soft);color:var(--accent-d);border-color:var(--accent-line)}
+.flag.n{background:var(--high-soft);color:var(--high);border-color:var(--high-soft)}
+.flag.w{background:var(--med-soft);color:var(--med);border-color:var(--med-soft)}
+.dtag{background:var(--accent-soft);color:var(--accent-d)}
+.won{background:var(--accent-soft);color:var(--accent-d)} .lost{background:var(--high-soft);color:var(--high)}
+/* tables → 24px wrapper, pill nothing, head tint */
+.tbl th{background:var(--bg);color:var(--ink2);font-weight:500;letter-spacing:.2px;border-bottom:1px solid var(--line)}
+.tbl td{border-bottom:1px solid var(--line);color:var(--ink2)} .tbl tr:hover td{background:var(--bg)}
+.pst.ok{color:var(--accent-d)} .pst.ok .d{background:var(--accent)}
+/* gap controls → pill */
+.fchip{border-radius:9999px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);box-shadow:var(--sh-xs);padding:8px 14px;font-weight:500}
+.fchip:hover{background:var(--hover);color:var(--ink);border-color:var(--line2)}
+.fchip.on{background:var(--accent);border-color:transparent;color:#fff;box-shadow:var(--sh-xs),var(--glint)}
+.gsearch input{border-radius:9999px;border:1px solid var(--line2);background:var(--surface);box-shadow:var(--sh-sm);color:var(--ink);padding:10px 14px 10px 36px}
+.gsearch input::placeholder{color:var(--ink3)} .gsearch svg{left:13px;color:var(--ink3)}
+.seg{border-radius:9999px;border:1px solid var(--line);overflow:hidden;box-shadow:var(--sh-xs)}
+.seg button{background:var(--surface);color:var(--ink2);border-color:var(--line)} .seg button.on{background:var(--accent);color:#fff}
+/* gap buckets / items → 24px airy, status accents */
+.bucket{border-radius:24px;border:1px solid var(--line);box-shadow:var(--sh-sm);background:var(--surface);margin-bottom:14px;overflow:hidden}
+.bucket-h{padding:16px 22px;background:var(--surface)} .bucket-h:hover{background:var(--hover)}
+.bk-title{color:var(--ink);font-weight:500} .bk-bar{border-radius:9999px;width:4px;height:26px}
+.bucket-body{border-top:1px solid var(--line)}
+.fitem{border-bottom:1px solid var(--line)} .fitem-h{padding:14px 22px} .fitem-h:hover{background:var(--hover)}
+.fitem .ttl{color:var(--ink);font-weight:500} .fitem .rcode{background:var(--bg);border:1px solid var(--line);color:var(--ink3);border-radius:9999px}
+.fitem-body{padding:4px 22px 20px 46px} .fitem-body .det{color:var(--ink2)}
+.fmeta .l{color:var(--ink3)} .fmeta .v{color:var(--ink)}
+.actbox{border-radius:18px;background:var(--accent-soft);border:1px solid var(--accent-line);padding:14px 18px}
+.actbox .l{color:var(--accent-d)} .actbox p{color:var(--ink2)}
+.histcmp{border-radius:18px;overflow:hidden;border:1px solid var(--line)} .histcmp>div{background:var(--surface)} .histcmp .l{color:var(--ink3)}
+/* quote */
+.qhead{border-radius:24px;padding:20px 24px} .qk .l{color:var(--ink3)} .qk .v{color:var(--ink)} .qk .v.big{color:var(--accent-d)}
+.cb-row{border-color:var(--line)} .cb-row .l{color:var(--ink2)} .cb-row .track{background:var(--hover);border-radius:9999px} .cb-row .track>i{background:var(--accent)}
+.bm-row{border-color:var(--line)} .bm-row .pj{color:var(--accent-d)} .bm-row .meta{color:var(--ink2)}
+::-webkit-scrollbar-thumb{background:var(--line2)}
 </style>
 </head>
 <body>
@@ -148,8 +252,11 @@ table.tbl{width:100%;border-collapse:collapse;background:var(--surface)}
       <div class="logo">R</div>
       <div><div class="hdr-title" id="h-title">—</div><div class="hdr-sub" id="h-sub">—</div></div>
       <div class="case-sel" id="case-sel"></div>
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light / dark" title="Toggle theme">
+        <svg class="ic-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="ic-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
     </div>
-    <div class="spine" id="spine"></div>
   </div>
   <div class="tabbar" id="tabbar">
     <div class="tab on" data-t="overview" onclick="switchTab('overview',this)">Overview</div>
@@ -491,11 +598,7 @@ function renderAll(){
   const miss=c.docs.filter(d=>d.status==='miss').length;
   document.getElementById('cnt-doc').textContent=c.docs.length+(miss?' · '+miss+'!':'');
   document.getElementById('cnt-gap').textContent=c.gap_findings.length;
-  renderSpine(c);renderOverview(c);renderDocs(c);renderParts(c);renderGap(c);renderQuote(c);
-}
-function renderSpine(c){
-  const steps=[['Upload','done'],['Parse','done'],['Normalize','done'],['Gap Review','active'],['Quote','idle'],['Submit','idle'],['Outcome','idle']];
-  document.getElementById('spine').innerHTML=steps.map((s,i)=>`<div class="sp-s sp-${s[1]}"><div class="sp-n">${i+1}</div><div class="sp-l">${s[0]}</div></div>${i<steps.length-1?`<div class="sp-line ${s[1]==='done'?'done':''}"></div>`:''}`).join('');
+  renderOverview(c);renderDocs(c);renderParts(c);renderGap(c);renderQuote(c);
 }
 function ifield(l,v,cls){return `<div class="if"><div class="l">${l}</div><div class="v ${cls||''}">${esc(v)}</div></div>`;}
 
@@ -690,6 +793,25 @@ const NOTES={
      {sev:'high',ti:'No historical cost anchor',tx:'AA5754 pan and AA6082 cross member are new materials/processes vs the steel family. Cost must be built bottom-up.'},
      {sev:'high',ti:'DDP Stuttgart + Net 120 on high-value assembly',tx:'Intercontinental DDP on a bulky aluminium tray plus Net 120 on ~$1.7M+ annual revenue — material logistics and financing exposure.'}]
 };
+
+/* ── theme toggle ── */
+(function(){
+  var ls=(window&&window.localStorage)?window.localStorage:null;
+  var mm=(window&&window.matchMedia)?window.matchMedia('(prefers-color-scheme:dark)'):null;
+  var saved=ls?ls.getItem('sleek-theme'):null;
+  if(saved==='dark'||saved==='light')document.documentElement.setAttribute('data-theme',saved);
+  function effective(){
+    var a=document.documentElement.getAttribute('data-theme');
+    if(a)return a;
+    return (mm&&mm.matches)?'dark':'light';
+  }
+  var btn=document.getElementById('themeToggle');
+  if(btn)btn.addEventListener('click',function(){
+    var next=effective()==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',next);
+    if(ls)ls.setItem('sleek-theme',next);
+  });
+})();
 
 renderCaseSel();
 renderAll();
