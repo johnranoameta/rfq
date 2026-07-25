@@ -133,6 +133,36 @@ function ensureKbCategoriesTable(db: Database.Database): void {
   db.exec(KB_CATEGORIES_DDL);
 }
 
+/**
+ * `part_number` is the manufacturer part number (MPN) — the stable identifier used
+ * to compare a part's cost across sources (internal quotes vs. Trustedparts.com),
+ * not a BOM-line-local ref designator.
+ */
+const SUPPLIER_PARTS_DDL = `
+CREATE TABLE IF NOT EXISTS supplier_parts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  part_number TEXT NOT NULL,
+  supplier_id TEXT NOT NULL,
+  source TEXT NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  unit_cost REAL,
+  price_breaks_json TEXT,
+  quote_date TEXT,
+  fetched_at TEXT,
+  lead_time TEXT,
+  approval_status TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_supplier_parts_supplier_part ON supplier_parts(supplier_id, part_number);
+`;
+
+function ensureSupplierPartsTable(db: Database.Database): void {
+  if (!tableExists(db, "supplier_parts")) {
+    db.exec(SUPPLIER_PARTS_DDL);
+  }
+}
+
 function seedCanonicalKbCategories(db: Database.Database): void {
   const n = db.prepare(`SELECT COUNT(*) AS c FROM kb_categories`).get() as { c: number };
   if (n.c > 0) return;
@@ -249,6 +279,7 @@ export function getRfqDb(): Database.Database {
   ensureKbUploadedRfqsTable(dbSingleton);
   ensureMatchSettingsTable(dbSingleton);
   ensureKbCategoriesTable(dbSingleton);
+  ensureSupplierPartsTable(dbSingleton);
   seedCanonicalKbCategories(dbSingleton);
   ensureRfqProjectsKbSlugColumn(dbSingleton);
   ensureParseSessionKbColumns(dbSingleton);

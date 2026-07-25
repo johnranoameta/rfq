@@ -22,6 +22,41 @@ type GapFilterKey =
   | "sev-low"
   | `cat-${string}`;
 
+type SortKey = "severity" | "cost" | "status";
+
+const SEV_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const WF_ORDER: Record<string, number> = { open: 0, in_review: 1, resolved: 2, accepted_risk: 3 };
+
+function parseImpactDollars(impact: string): { perPc?: [number, number]; nre?: [number, number] } {
+  const pcRange = impact.match(/\$([\d.]+)[–\-]([\d.]+)\/pc/);
+  if (pcRange) return { perPc: [parseFloat(pcRange[1]), parseFloat(pcRange[2])] };
+  const pcSingle = impact.match(/\$([\d.]+)\/pc/);
+  if (pcSingle) { const v = parseFloat(pcSingle[1]); return { perPc: [v, v] }; }
+  const nreRange = impact.match(/\$([\d.]+)K[–\-]([\d.]+)K/i);
+  if (nreRange) return { nre: [parseFloat(nreRange[1]) * 1000, parseFloat(nreRange[2]) * 1000] };
+  const nreSingle = impact.match(/\$([\d.]+)K/i);
+  if (nreSingle) { const v = parseFloat(nreSingle[1]) * 1000; return { nre: [v, v] }; }
+  return {};
+}
+
+function computeCostExposure(
+  findings: GapFinding[],
+  workflow: Partial<Record<string, GapWorkflowStatus>> | undefined,
+): { perPc: [number, number] | null; nre: [number, number] | null } {
+  let pcLo = 0, pcHi = 0, nreLo = 0, nreHi = 0;
+  for (const f of findings) {
+    const wf = workflow?.[f.rule] ?? "open";
+    if (wf === "resolved" || wf === "accepted_risk") continue;
+    const p = parseImpactDollars(f.impact);
+    if (p.perPc) { pcLo += p.perPc[0]; pcHi += p.perPc[1]; }
+    if (p.nre) { nreLo += p.nre[0]; nreHi += p.nre[1]; }
+  }
+  return {
+    perPc: pcLo > 0 || pcHi > 0 ? [pcLo, pcHi] : null,
+    nre: nreLo > 0 || nreHi > 0 ? [nreLo, nreHi] : null,
+  };
+}
+
 function gapDocumentStatusLabel(status: ReturnType<typeof gapDocumentStatus>, doc?: DocEntry): string {
   if (status === "missing") return "Document missing";
   if (status === "pending") return "Document pending";
@@ -160,6 +195,8 @@ export function RfqWorkbookGapsPanel({
 }: RfqWorkbookGapsPanelProps) {
   const supplyInputBaseId = useId();
   const [deptFilter, setDeptFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortKey>("severity");
+  const [search, setSearch] = useState("");
   const openGapCount = caseData.gap_findings.filter((f) => isGapOpenInCase(caseData, f)).length;
   const finalizedFindings = caseData.gap_findings.filter((f) => isGapFinalized(caseData, f));
   const visibleFindings = caseData.gap_findings.filter((f) => !isGapFinalized(caseData, f));
@@ -170,6 +207,7 @@ export function RfqWorkbookGapsPanel({
   // is never stranded in an empty grid with no visible pill to clear (e.g. after switching to Finalized).
   const effectiveDeptFilter =
     deptFilter === "all" || deptCountBase.some((f) => f.cat === deptFilter) ? deptFilter : "all";
+  const costExposure = computeCostExposure(caseData.gap_findings, caseData.gap_workflow);
   const activeKbLabel = caseData.kb_category_label?.trim() || null;
 
   const riskCls =
@@ -210,6 +248,22 @@ export function RfqWorkbookGapsPanel({
                   Risk {caseData.risk_score}
                   {caseData.risk_score < 35 ? " · Good" : caseData.risk_score < 55 ? " · Improving" : " · Review"}
                 </div>
+                {(costExposure.perPc || costExposure.nre) ? (
+                  <div className="rounded-lg border border-orange-500/30 bg-orange-500/8 px-2.5 py-1 text-[11px] font-mono dark:text-orange-200 text-orange-700">
+                    {[
+                      costExposure.perPc
+                        ? costExposure.perPc[0] === costExposure.perPc[1]
+                          ? `$${costExposure.perPc[0].toFixed(2)}/pc`
+                          : `$${costExposure.perPc[0].toFixed(2)}–${costExposure.perPc[1].toFixed(2)}/pc`
+                        : null,
+                      costExposure.nre
+                        ? costExposure.nre[0] === costExposure.nre[1]
+                          ? `$${(costExposure.nre[0] / 1000).toFixed(0)}K NRE`
+                          : `$${(costExposure.nre[0] / 1000).toFixed(0)}K–${(costExposure.nre[1] / 1000).toFixed(0)}K NRE`
+                        : null,
+                    ].filter(Boolean).join(" · ")} exposure
+                  </div>
+                ) : null}
                 <div className="text-[12px] text-muted-foreground font-mono">
                   {openGapCount} open · {visibleFindings.length} total
                 </div>
@@ -320,11 +374,68 @@ export function RfqWorkbookGapsPanel({
               </div>
             </div>
 
+            <div className="flex items-center gap-3 flex-wrap">
+              <input
+                type="search"
+                placeholder="Search gaps…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-8 flex-1 min-w-[160px] rounded-lg border border-border bg-background/20 px-3 text-[12px] placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+              />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">Sort</span>
+                {(["severity", "cost", "status"] as SortKey[]).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSortBy(key)}
+                    className={[
+                      "h-7 px-2.5 rounded-lg border font-mono text-[10px] transition capitalize",
+                      sortBy === key
+                        ? "border-accent/60 bg-card ring-1 ring-accent/30 text-foreground"
+                        : "border-border bg-background/20 text-muted-foreground hover:bg-background/30",
+                    ].join(" ")}
+                  >
+                    {key === "cost" ? "Cost impact" : key.charAt(0).toUpperCase() + key.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              {gapFindingsFiltered.filter((f) => effectiveDeptFilter === "all" || f.cat === effectiveDeptFilter).length === 0 ? (
-                <div className="text-muted-foreground text-[12px]">No findings match this filter.</div>
-              ) : (
-                gapFindingsFiltered.filter((f) => effectiveDeptFilter === "all" || f.cat === effectiveDeptFilter).map((f) => {
+              {(() => {
+                const q = search.trim().toLowerCase();
+                const visible = gapFindingsFiltered
+                  .filter((f) => effectiveDeptFilter === "all" || f.cat === effectiveDeptFilter)
+                  .filter((f) =>
+                    !q ||
+                    f.title.toLowerCase().includes(q) ||
+                    f.detail.toLowerCase().includes(q) ||
+                    f.evidence.toLowerCase().includes(q) ||
+                    f.action.toLowerCase().includes(q) ||
+                    f.rule.toLowerCase().includes(q),
+                  )
+                  .slice()
+                  .sort((a, b) => {
+                    if (sortBy === "severity") return (SEV_ORDER[a.sev] ?? 9) - (SEV_ORDER[b.sev] ?? 9);
+                    if (sortBy === "status") {
+                      const wa = caseData.gap_workflow?.[a.rule] ?? "open";
+                      const wb = caseData.gap_workflow?.[b.rule] ?? "open";
+                      return (WF_ORDER[wa] ?? 0) - (WF_ORDER[wb] ?? 0);
+                    }
+                    if (sortBy === "cost") {
+                      const pa = parseImpactDollars(a.impact);
+                      const pb = parseImpactDollars(b.impact);
+                      const aVal = pa.perPc ? pa.perPc[1] * 1000 : pa.nre ? pa.nre[1] : -1;
+                      const bVal = pb.perPc ? pb.perPc[1] * 1000 : pb.nre ? pb.nre[1] : -1;
+                      return bVal - aVal;
+                    }
+                    return 0;
+                  });
+                if (visible.length === 0) {
+                  return <div className="text-muted-foreground text-[12px]">{q ? "No findings match your search." : "No findings match this filter."}</div>;
+                }
+                return visible.map((f) => {
                   const wf = caseData.gap_workflow?.[f.rule] ?? "open";
                   const docStatus = gapDocumentStatus(f, caseData.docs);
                   const linkedDoc = f.doc_slot ? caseData.docs.find((d) => d.name === f.doc_slot) : undefined;
@@ -543,8 +654,8 @@ export function RfqWorkbookGapsPanel({
                       </div>
                     </div>
                   );
-                })
-              )}
+                });
+              })()}
             </div>
         </CardContent>
       </Card>
