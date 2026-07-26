@@ -125,6 +125,7 @@ Optional:
 - `NEXT_PUBLIC_SHOW_PORTFOLIO=true` — show Portfolio workspace module
 - `NEXT_PUBLIC_SHOW_QUOTE_HISTORY=true` — show Quote & history sub-tab
 - `RFQ_MATCH_W_*`, `RFQ_MATCH_T_*` — scoring weight/threshold overrides (see `matchScoringConfig.example.env`)
+- `TRUSTEDPARTS_COMPANY_ID`, `TRUSTEDPARTS_API_KEY` — TrustedParts.com Inventory API credentials (free, but access requires signup + approval at trustedparts.com — see `docs/api`), used by `scripts/refresh-trustedparts-price.mjs` to populate the external side of the dual-source cost lookup (`supplier_parts` table). Not set → external price lookups return no data rather than failing.
 
 ### Styling
 

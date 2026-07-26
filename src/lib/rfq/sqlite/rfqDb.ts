@@ -135,7 +135,7 @@ function ensureKbCategoriesTable(db: Database.Database): void {
 
 /**
  * `part_number` is the manufacturer part number (MPN) — the stable identifier used
- * to compare a part's cost across sources (internal quotes vs. Trustedparts.com),
+ * to compare a part's cost across sources (internal quotes vs. an external distributor),
  * not a BOM-line-local ref designator.
  */
 const SUPPLIER_PARTS_DDL = `
@@ -160,6 +160,39 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_supplier_parts_supplier_part ON supplier_p
 function ensureSupplierPartsTable(db: Database.Database): void {
   if (!tableExists(db, "supplier_parts")) {
     db.exec(SUPPLIER_PARTS_DDL);
+  }
+}
+
+/**
+ * One row per BOM line from an uploaded suppliers/parts workbook (see
+ * docs/sample_supplier_and_part_data.xlsx) — a distinct upload from the RFQ package
+ * itself, scoped to the RFQ (`rfq_file_id`) it was uploaded against. `mfr_part_number`
+ * is extracted from `extended_attributes_json` at parse time and is the join key the
+ * Costing agent uses against `supplier_parts` for the dual-source cost lookup.
+ */
+const BOM_PARTS_DDL = `
+CREATE TABLE IF NOT EXISTS bom_parts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rfq_file_id TEXT NOT NULL,
+  supplier_id TEXT,
+  customer_program TEXT,
+  sub_assembly TEXT,
+  ref_designator TEXT NOT NULL,
+  description TEXT,
+  quantity REAL,
+  unit_cost REAL,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  mfr_part_number TEXT,
+  extended_attributes_json TEXT,
+  raw_source_ref TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_bom_parts_rfq_file ON bom_parts(rfq_file_id);
+`;
+
+function ensureBomPartsTable(db: Database.Database): void {
+  if (!tableExists(db, "bom_parts")) {
+    db.exec(BOM_PARTS_DDL);
   }
 }
 
@@ -280,6 +313,7 @@ export function getRfqDb(): Database.Database {
   ensureMatchSettingsTable(dbSingleton);
   ensureKbCategoriesTable(dbSingleton);
   ensureSupplierPartsTable(dbSingleton);
+  ensureBomPartsTable(dbSingleton);
   seedCanonicalKbCategories(dbSingleton);
   ensureRfqProjectsKbSlugColumn(dbSingleton);
   ensureParseSessionKbColumns(dbSingleton);

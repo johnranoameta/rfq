@@ -10,6 +10,8 @@ import {
   OverviewTopReferenceCard,
   RfqReferenceMatchPanel,
 } from "@/components/rfq/RfqReferenceMatchPanel";
+import { RfqWorkbookBomPanel } from "@/components/rfq/RfqWorkbookBomPanel";
+import { RfqWorkbookCostingPanel } from "@/components/rfq/RfqWorkbookCostingPanel";
 import { RfqWorkbookQuotePanel } from "@/components/rfq/RfqWorkbookQuotePanel";
 import { RfqWorkbookReusePanel } from "@/components/rfq/RfqWorkbookReusePanel";
 import { RfqWorkbookSummaryPanel } from "@/components/rfq/RfqWorkbookSummaryPanel";
@@ -17,7 +19,7 @@ import { isAnalysisSubModuleEnabled } from "@/lib/rfq/workspaceModules";
 
 const showQuoteHistory = isAnalysisSubModuleEnabled("quoteHistory");
 
-export type AnalysisSubMode = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "quote";
+export type AnalysisSubMode = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "bom" | "costing" | "quote";
 
 export type AnalysisSelection =
   | { kind: "word"; packageKey: string; label: string }
@@ -125,7 +127,13 @@ export function RfqAnalysisShell({
         </AnalysisPageLayout>
       );
     }
-    if (subMode === "coverage" || subMode === "reuse" || (showQuoteHistory && subMode === "quote")) {
+    if (
+      subMode === "coverage" ||
+      subMode === "reuse" ||
+      subMode === "bom" ||
+      subMode === "costing" ||
+      (showQuoteHistory && subMode === "quote")
+    ) {
       return (
         <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
           <p className="text-sm text-[var(--ra-muted)]">
@@ -133,7 +141,11 @@ export function RfqAnalysisShell({
               ? "Coverage matrix applies to multi-line workbook analyses."
               : subMode === "reuse"
                 ? "Reuse guidance applies to analyzed workbooks."
-                : "Quote & history applies to analyzed workbooks."}{" "}
+                : subMode === "bom"
+                  ? "BOM Intelligence applies to analyzed workbooks."
+                  : subMode === "costing"
+                    ? "Costing agent applies to analyzed workbooks with BOM lines."
+                    : "Quote & history applies to analyzed workbooks."}{" "}
             For Word packages, use <strong className="text-[var(--ra-text)]">Matching</strong> to compare against other
             Word uploads.
           </p>
@@ -240,6 +252,36 @@ export function RfqAnalysisShell({
           caseData={caseData}
           onOpenMatches={() => onNavigateSubMode?.("matching")}
           onOpenQuote={showQuoteHistory ? () => onNavigateSubMode?.("quote") : undefined}
+        />
+      </AnalysisPageLayout>
+    );
+  }
+
+  if (subMode === "bom") {
+    return (
+      <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
+        {isDemoWorkbook ? <DemoWorkbookBanner /> : null}
+        <div className="ra-canvas-top !pt-0 !pb-2">
+          <div className="ra-canvas-title truncate">BOM Intelligence</div>
+          <div className="ra-canvas-sub truncate">{caseData.title}</div>
+        </div>
+        <RfqWorkbookBomPanel fileId={selection.fileId} />
+      </AnalysisPageLayout>
+    );
+  }
+
+  if (subMode === "costing") {
+    return (
+      <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
+        {isDemoWorkbook ? <DemoWorkbookBanner /> : null}
+        <div className="ra-canvas-top !pt-0 !pb-2">
+          <div className="ra-canvas-title truncate">Costing agent</div>
+          <div className="ra-canvas-sub truncate">{caseData.title}</div>
+        </div>
+        <RfqWorkbookCostingPanel
+          caseData={caseData}
+          fileId={selection.fileId}
+          onOpenBom={() => onNavigateSubMode?.("bom")}
         />
       </AnalysisPageLayout>
     );

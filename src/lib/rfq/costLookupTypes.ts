@@ -19,6 +19,23 @@ export type SupplierPartRow = {
   updated_at: string;
 };
 
+export type BomPartRow = {
+  id: number;
+  rfq_file_id: string;
+  supplier_id: string | null;
+  customer_program: string | null;
+  sub_assembly: string | null;
+  ref_designator: string;
+  description: string | null;
+  quantity: number | null;
+  unit_cost: number | null;
+  currency: string;
+  mfr_part_number: string | null;
+  extended_attributes_json: string | null;
+  raw_source_ref: string | null;
+  created_at: string;
+};
+
 export type ResolvedUnitCost = {
   unitCost: number;
   currency: string;
@@ -26,22 +43,24 @@ export type ResolvedUnitCost = {
   belowMinTier: boolean;
 };
 
-export type TrustedpartsFetchResult = {
+export type ExternalPriceFetchResult = {
   tiers: PriceBreakTier[];
   fetchedAt: string;
 };
 
-export type CostSourceLabel = "internal" | "trustedparts";
+export type CostSourceLabel = "internal" | "external";
 
-export type CostSelectionStatus = "compared" | "internal_only" | "trustedparts_only" | "none";
+export type CostSelectionStatus = "compared" | "internal_only" | "external_only" | "none";
 
 export type CostSelectionResult = {
   status: CostSelectionStatus;
   selected: CostSourceLabel | null;
   quantity: number;
   internal: ResolvedUnitCost | null;
-  trustedparts: ResolvedUnitCost | null;
-  trustedpartsStale: boolean;
+  external: ResolvedUnitCost | null;
+  /** Display name of the external source that produced `external` (e.g. "Trustedparts.com"), when present. */
+  externalSourceLabel: string | null;
+  externalStale: boolean;
   disagreementPct: number | null;
   riskFlag: boolean;
   explanation: string;

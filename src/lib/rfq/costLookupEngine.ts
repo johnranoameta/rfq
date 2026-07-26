@@ -1,15 +1,16 @@
-import { getInternalCostRows, getTrustedpartsRow } from "@/lib/rfq/sqlite/supplierPartsDb";
+import { getInternalCostRows, getExternalCostRow } from "@/lib/rfq/sqlite/supplierPartsDb";
 import { parsePriceBreaksJson, resolveUnitCostAtQuantity } from "@/lib/rfq/costLookupPriceBreaks";
 import { compareCostSources } from "@/lib/rfq/costLookupSelection";
-import { isSupplierPartStale } from "@/lib/rfq/trustedpartsFetcher";
+import { isSupplierPartStale } from "@/lib/rfq/externalPriceFetcher";
 import type { CostSelectionResult, ResolvedUnitCost } from "@/lib/rfq/costLookupTypes";
 
 /**
  * Resolves the best unit cost for a part at a given quantity by comparing the
- * internal Supplier & Part DB against the cached Trustedparts.com row (if any).
- * Never fetches live — the Trustedparts fetch is a separate out-of-band worker
- * (see trustedpartsFetcher.ts); this only reads whatever row currently exists and
- * reports its staleness.
+ * internal Supplier & Part DB against the cached external distributor row (if
+ * any — see externalPriceFetcher.ts / trustedPartsApiFetcher.ts). Never fetches
+ * live; the external fetch is a separate out-of-band worker
+ * (scripts/refresh-trustedparts-price.mjs). This only reads whatever row currently
+ * exists and reports its staleness.
  */
 export function lookupPartCost(params: { partNumber: string; quantity: number }): CostSelectionResult {
   const { partNumber, quantity } = params;
@@ -28,21 +29,22 @@ export function lookupPartCost(params: { partNumber: string; quantity: number })
     }
   }
 
-  const trustedpartsRow = getTrustedpartsRow(partNumber);
-  const trustedparts = trustedpartsRow
+  const externalRow = getExternalCostRow(partNumber);
+  const external = externalRow
     ? resolveUnitCostAtQuantity(
-        parsePriceBreaksJson(trustedpartsRow.price_breaks_json),
-        trustedpartsRow.unit_cost,
-        trustedpartsRow.currency,
+        parsePriceBreaksJson(externalRow.price_breaks_json),
+        externalRow.unit_cost,
+        externalRow.currency,
         quantity,
       )
     : null;
-  const trustedpartsStale = trustedpartsRow ? isSupplierPartStale(trustedpartsRow.fetched_at) : false;
+  const externalStale = externalRow ? isSupplierPartStale(externalRow.fetched_at) : false;
 
   return compareCostSources({
     quantity,
     internal: bestInternal,
-    trustedparts,
-    trustedpartsStale,
+    external,
+    externalSourceLabel: externalRow?.source ?? null,
+    externalStale,
   });
 }

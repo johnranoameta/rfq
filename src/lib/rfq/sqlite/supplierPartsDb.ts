@@ -1,9 +1,16 @@
 import { getRfqDb } from "@/lib/rfq/sqlite/rfqDb";
-import { TRUSTEDPARTS_SUPPLIER_ID } from "@/lib/rfq/trustedpartsFetcher";
+import { EXTERNAL_SUPPLIER_ID } from "@/lib/rfq/externalPriceFetcher";
 import type { SupplierPartRow } from "@/lib/rfq/costLookupTypes";
 
 const SELECT_COLUMNS = `id, part_number, supplier_id, source, currency, unit_cost, price_breaks_json,
   quote_date, fetched_at, lead_time, approval_status, created_at, updated_at`;
+
+export function listSupplierParts(): SupplierPartRow[] {
+  const db = getRfqDb();
+  return db
+    .prepare(`SELECT ${SELECT_COLUMNS} FROM supplier_parts ORDER BY part_number ASC, supplier_id ASC`)
+    .all() as SupplierPartRow[];
+}
 
 export function getInternalCostRows(partNumber: string): SupplierPartRow[] {
   const db = getRfqDb();
@@ -11,14 +18,14 @@ export function getInternalCostRows(partNumber: string): SupplierPartRow[] {
     .prepare(
       `SELECT ${SELECT_COLUMNS} FROM supplier_parts WHERE part_number = ? AND supplier_id != ? ORDER BY id ASC`,
     )
-    .all(partNumber, TRUSTEDPARTS_SUPPLIER_ID) as SupplierPartRow[];
+    .all(partNumber, EXTERNAL_SUPPLIER_ID) as SupplierPartRow[];
 }
 
-export function getTrustedpartsRow(partNumber: string): SupplierPartRow | undefined {
+export function getExternalCostRow(partNumber: string): SupplierPartRow | undefined {
   const db = getRfqDb();
   return db
     .prepare(`SELECT ${SELECT_COLUMNS} FROM supplier_parts WHERE part_number = ? AND supplier_id = ?`)
-    .get(partNumber, TRUSTEDPARTS_SUPPLIER_ID) as SupplierPartRow | undefined;
+    .get(partNumber, EXTERNAL_SUPPLIER_ID) as SupplierPartRow | undefined;
 }
 
 export function upsertSupplierPart(record: {

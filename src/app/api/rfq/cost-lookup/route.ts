@@ -6,9 +6,9 @@ export const runtime = "nodejs";
 
 /**
  * Dual-source unit cost lookup for a part at a given quantity: compares the
- * internal Supplier & Part DB against a cached Trustedparts.com row (if any) and
- * returns the lower cost with a plain-language explanation. Never fetches
- * Trustedparts live — see src/lib/rfq/trustedpartsFetcher.ts.
+ * internal Supplier & Part DB against a cached external distributor row (if any)
+ * and returns the lower cost with a plain-language explanation. Never fetches
+ * live — see src/lib/rfq/externalPriceFetcher.ts and trustedPartsApiFetcher.ts.
  *
  * Query: ?partNumber=<manufacturer part number> (required)
  *        ?quantity=<integer > 0> (required)
