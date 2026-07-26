@@ -2,7 +2,7 @@ import type { AnalysisSelection, AnalysisSubMode } from "@/components/rfq/RfqAna
 
 const KEY = "rfq-agent-workspace-prefs-v1";
 
-export type WorkspaceMode = "kb" | "analysis" | "inquiry" | "library" | "portfolio";
+export type WorkspaceMode = "kb" | "analysis" | "inquiry" | "library" | "portfolio" | "supplierdb";
 
 export type WorkspacePrefs = {
   workspaceMode: WorkspaceMode;

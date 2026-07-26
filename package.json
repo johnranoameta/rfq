@@ -20,7 +20,9 @@
     "sample-multi-pdf": "node scripts/generate-multi-item-rfq-pdf.mjs",
     "sample-tech-spec-pdf": "node scripts/generate-tech-spec-sample-pdf.mjs",
     "sample-gap-demo": "node scripts/generate-gap-demo-pack.mjs",
-    "sample-workbooks": "node scripts/generate-rfq-sample-workbooks.mjs"
+    "sample-workbooks": "node scripts/generate-rfq-sample-workbooks.mjs",
+    "sample-supplier-parts": "node scripts/generate-supplier-parts-sample.mjs",
+    "refresh-trustedparts-price": "node scripts/refresh-trustedparts-price.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

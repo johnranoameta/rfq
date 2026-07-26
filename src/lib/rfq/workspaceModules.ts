@@ -2,7 +2,7 @@
  * Which workspace areas appear in the sidebar.
  * Set NEXT_PUBLIC_SHOW_PORTFOLIO=true at build time to show Portfolio again.
  */
-export type WorkspaceModuleId = "kb" | "inquiry" | "analysis" | "library" | "portfolio";
+export type WorkspaceModuleId = "kb" | "inquiry" | "analysis" | "library" | "portfolio" | "supplierdb";
 
 /** Analysis sub-views (tabs under Analysis). */
 export type AnalysisSubModuleId = "quoteHistory";
@@ -13,6 +13,7 @@ const MODULE_DEFAULTS: Record<WorkspaceModuleId, boolean> = {
   analysis: true,
   library: true,
   portfolio: process.env.NEXT_PUBLIC_SHOW_PORTFOLIO === "true",
+  supplierdb: true,
 };
 
 const ANALYSIS_SUB_MODULE_DEFAULTS: Record<AnalysisSubModuleId, boolean> = {

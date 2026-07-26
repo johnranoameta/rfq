@@ -39,6 +39,7 @@ import {
 import { RfqKbInquiryPanel } from "@/components/rfq/RfqKbInquiryPanel";
 import { RfqKbMainPanel } from "@/components/rfq/RfqKbMainPanel";
 import { RfqPortfolioPanel } from "@/components/rfq/RfqPortfolioPanel";
+import { RfqSupplierPartsPanel } from "@/components/rfq/RfqSupplierPartsPanel";
 import {
   RfqAnalysisShell,
   type AnalysisSelection,
@@ -65,8 +66,9 @@ import {
 import { isAnalysisSubModuleEnabled, isWorkspaceModuleEnabled } from "@/lib/rfq/workspaceModules";
 
 const showPortfolio = isWorkspaceModuleEnabled("portfolio");
+const showSupplierDb = isWorkspaceModuleEnabled("supplierdb");
 const showQuoteHistory = isAnalysisSubModuleEnabled("quoteHistory");
-type WorkspaceMode = "kb" | "inquiry" | "analysis" | "library" | "portfolio";
+type WorkspaceMode = "kb" | "inquiry" | "analysis" | "library" | "portfolio" | "supplierdb";
 type KbSubMode = "browse" | "training";
 type NewWorkspaceTab = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "documents" | "quote";
 
@@ -1111,6 +1113,15 @@ export default function RFQAgentDashboard() {
                 </button>
               </div>
             ) : null}
+            {showSupplierDb ? (
+              <button
+                type="button"
+                className={["ra-nav-item ra-nav-item-btn", workspaceMode === "supplierdb" ? "active" : ""].join(" ")}
+                onClick={() => setWorkspaceMode("supplierdb")}
+              >
+                <span className="ra-nav-text">Supplier &amp; Part DB</span>
+              </button>
+            ) : null}
             <button
               type="button"
               className={["ra-nav-item ra-nav-item-btn", workspaceMode === "analysis" ? "active" : ""].join(" ")}
@@ -1173,6 +1184,26 @@ export default function RFQAgentDashboard() {
                   }}
                 >
                   <span className="ra-nav-text">Reuse guidance</span>
+                </button>
+                <button
+                  type="button"
+                  className={["ra-nav-subitem", analysisSubMode === "bom" ? "active" : ""].join(" ")}
+                  onClick={() => {
+                    setWorkspaceMode("analysis");
+                    setAnalysisSubMode("bom");
+                  }}
+                >
+                  <span className="ra-nav-text">BOM Intelligence</span>
+                </button>
+                <button
+                  type="button"
+                  className={["ra-nav-subitem", analysisSubMode === "costing" ? "active" : ""].join(" ")}
+                  onClick={() => {
+                    setWorkspaceMode("analysis");
+                    setAnalysisSubMode("costing");
+                  }}
+                >
+                  <span className="ra-nav-text">Costing agent</span>
                 </button>
                 {showQuoteHistory ? (
                   <button
@@ -1683,6 +1714,10 @@ export default function RFQAgentDashboard() {
                   setKbSubMode("training");
                 }}
               />
+            </div>
+          ) : showSupplierDb && workspaceMode === "supplierdb" ? (
+            <div className="ra-canvas-content min-h-0 flex flex-col">
+              <RfqSupplierPartsPanel />
             </div>
           ) : isKbTraining ? (
             <RfqWordExtractWorkspace
