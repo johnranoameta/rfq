@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { failureResponse } from "@/lib/http/apiResponse";
 import { loadHistoricalKnowledge } from "@/lib/rfq/loadHistoricalKnowledge";
 
 export const runtime = "nodejs";
@@ -38,8 +39,7 @@ export async function GET(request: Request) {
       projects,
       gapFindings: includeGaps ? bundle.gapFindings : undefined,
     });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to load historical knowledge";
-    return NextResponse.json({ error: message }, { status: 503 });
+  } catch (error) {
+    return failureResponse(error, "Failed to load historical knowledge");
   }
 }

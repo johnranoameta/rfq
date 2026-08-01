@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { badRequest, failureResponse } from "@/lib/http/apiResponse";
 import { lookupPartCost } from "@/lib/rfq/costLookupEngine";
 
 export const runtime = "nodejs";
@@ -21,16 +22,15 @@ export async function GET(request: Request) {
     const quantity = quantityRaw ? Number(quantityRaw) : NaN;
 
     if (!partNumber) {
-      return NextResponse.json({ error: "partNumber is required" }, { status: 400 });
+      return badRequest("partNumber is required");
     }
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      return NextResponse.json({ error: "quantity must be a positive number" }, { status: 400 });
+      return badRequest("quantity must be a positive number");
     }
 
     const result = lookupPartCost({ partNumber, quantity });
     return NextResponse.json(result);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to look up part cost";
-    return NextResponse.json({ error: message }, { status: 503 });
+  } catch (error) {
+    return failureResponse(error, "Failed to look up part cost");
   }
 }

@@ -18,6 +18,8 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
+import { readJsonStorage, writeJsonStorage } from "@/lib/core/jsonStorage";
 import { GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -64,22 +66,11 @@ export function normalizeDashboardTabOrder(parsed: unknown): DashboardTabKey[] {
 }
 
 export function loadDashboardTabOrder(): DashboardTabKey[] {
-  if (typeof window === "undefined") return [...DEFAULT_TAB_ORDER];
-  try {
-    const raw = JSON.parse(localStorage.getItem(DASHBOARD_TAB_ORDER_STORAGE_KEY) || "null");
-    return normalizeDashboardTabOrder(raw);
-  } catch {
-    return [...DEFAULT_TAB_ORDER];
-  }
+  return normalizeDashboardTabOrder(readJsonStorage<unknown>(DASHBOARD_TAB_ORDER_STORAGE_KEY, null));
 }
 
 export function saveDashboardTabOrder(order: DashboardTabKey[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(DASHBOARD_TAB_ORDER_STORAGE_KEY, JSON.stringify(order));
-  } catch {
-    /* ignore quota */
-  }
+  writeJsonStorage(DASHBOARD_TAB_ORDER_STORAGE_KEY, order);
 }
 
 type SortableTabProps = {
@@ -92,8 +83,7 @@ type SortableTabProps = {
 
 function SortableTab({ tabKey, active, onSelect, pill, label }: SortableTabProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: tabKey,
-  });
+    id: tabKey });
 
   const style = {
     transform: CSS.Transform.toString(transform),

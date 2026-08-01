@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { badRequest, failureResponse } from "@/lib/http/apiResponse";
 import { getMatchScoringConfig, type MatchScoringConfig } from "@/lib/rfq/matchScoringConfig";
 import { clearStoredMatchScoringConfig, saveStoredMatchScoringConfig } from "@/lib/rfq/sqlite/matchSettings";
 
@@ -8,9 +9,8 @@ export const runtime = "nodejs";
 export async function GET() {
   try {
     return NextResponse.json({ config: getMatchScoringConfig() });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to load settings";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    return failureResponse(error, "Failed to load settings", 500);
   }
 }
 
@@ -19,17 +19,16 @@ export async function PUT(request: Request) {
   try {
     body = (await request.json()) as { config?: MatchScoringConfig };
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return badRequest("Invalid JSON body");
   }
   if (!body.config || typeof body.config !== "object") {
-    return NextResponse.json({ error: "Missing config object" }, { status: 400 });
+    return badRequest("Missing config object");
   }
   try {
     saveStoredMatchScoringConfig(body.config as unknown as Record<string, unknown>);
     return NextResponse.json({ ok: true, config: getMatchScoringConfig() });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to save settings";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    return failureResponse(error, "Failed to save settings", 500);
   }
 }
 
@@ -37,9 +36,8 @@ export async function DELETE() {
   try {
     clearStoredMatchScoringConfig();
     return NextResponse.json({ ok: true, config: getMatchScoringConfig() });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to reset settings";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    return failureResponse(error, "Failed to reset settings", 500);
   }
 }
 

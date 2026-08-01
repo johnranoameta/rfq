@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { CaseData } from "@/data/rfqTypes";
 import type { BomPartRow, CostSelectionResult } from "@/lib/rfq/costLookupTypes";
 import { useBomParts } from "@/lib/rfq/useBomParts";
+import { fetchJson } from "@/lib/http/fetchJson";
+import { errorMessage } from "@/lib/core/errors";
 
 type LineCostState = {
   row: BomPartRow;
@@ -90,11 +92,10 @@ export function RfqWorkbookCostingPanel({
       initial.map(async (s, idx) => {
         if (!s.row.mfr_part_number) return;
         try {
-          const res = await fetch(
+          const json = await fetchJson<CostSelectionResult>(
             `/api/rfq/cost-lookup?partNumber=${encodeURIComponent(s.row.mfr_part_number)}&quantity=${encodeURIComponent(String(s.requiredQty))}`,
+            "Lookup failed",
           );
-          const json = (await res.json()) as CostSelectionResult & { error?: string };
-          if (!res.ok) throw new Error(json.error || `Lookup failed (${res.status})`);
           if (cancelled) return;
           setStates((prev) => {
             const next = [...prev];
@@ -105,7 +106,7 @@ export function RfqWorkbookCostingPanel({
           if (cancelled) return;
           setStates((prev) => {
             const next = [...prev];
-            next[idx] = { ...s, result: null, loading: false, error: e instanceof Error ? e.message : "Lookup failed" };
+            next[idx] = { ...s, result: null, loading: false, error: errorMessage(e, "Lookup failed") };
             return next;
           });
         }

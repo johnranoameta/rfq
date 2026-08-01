@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { badRequest, failureResponse } from "@/lib/http/apiResponse";
 import { clearEngineOutput } from "@/lib/extraction/clearOutput";
 import { ENGINE_OUTPUT_DIR } from "@/lib/extraction/enginePaths";
 import { packageKey, readExtractionManifest, summarizePackage } from "@/lib/extraction/loadManifest";
@@ -33,17 +34,17 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as typeof body;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return badRequest("Invalid JSON body");
   }
 
   const storedName = typeof body.storedName === "string" ? body.storedName.trim() : "";
   if (!storedName) {
-    return NextResponse.json({ error: "Missing storedName" }, { status: 400 });
+    return badRequest("Missing storedName");
   }
 
   const diskPath = resolveUploadedWordPath(storedName);
   if (!diskPath) {
-    return NextResponse.json({ error: "Invalid or unknown Word file" }, { status: 400 });
+    return badRequest("Invalid or unknown Word file");
   }
 
   const clearFirst = body.clearFirst === true;
@@ -155,8 +156,7 @@ export async function POST(request: Request) {
         ),
       },
     });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Extraction failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    return failureResponse(error, "Extraction failed", 500);
   }
 }

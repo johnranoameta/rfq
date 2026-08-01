@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { FIELD_CATEGORIES, type RfqObjectPackage } from "@/lib/extraction/rfqObjectTypes";
 import "@/components/rfq/rfq-assistant.css";
+import { errorMessage } from "@/lib/core/errors";
 
 function blank(v: string | null | undefined) {
   if (v == null || !String(v).trim()) return "";
@@ -58,7 +59,7 @@ export default function BaselineRfqObjectPanel() {
         setSelectedId(base.package_id);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Load failed");
+      setError(errorMessage(e, "Load failed"));
       setList([]);
     } finally {
       setLoading(false);
@@ -73,7 +74,7 @@ export default function BaselineRfqObjectPanel() {
       if (!res.ok) throw new Error(data.error ?? "Object not found");
       setObj(data.object ?? null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Load failed");
+      setError(errorMessage(e, "Load failed"));
       setObj(null);
     }
   }, []);
@@ -93,14 +94,13 @@ export default function BaselineRfqObjectPanel() {
       const res = await fetch("/api/baseline/build", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baselineId: selectedId ?? undefined }),
-      });
+        body: JSON.stringify({ baselineId: selectedId ?? undefined }) });
       const data = (await res.json()) as { error?: string; detail?: string };
       if (!res.ok) throw new Error(data.detail ?? data.error ?? "Build failed");
       await loadList();
       if (selectedId) await loadObject(selectedId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Build failed");
+      setError(errorMessage(e, "Build failed"));
     } finally {
       setBuilding(false);
     }

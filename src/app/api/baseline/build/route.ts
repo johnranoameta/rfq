@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { failureResponse } from "@/lib/http/apiResponse";
 import { ENGINE_OUTPUT_DIR } from "@/lib/extraction/enginePaths";
 import { readRfqObjects } from "@/lib/extraction/loadRfqObject";
 import { runPythonEngine } from "@/lib/extraction/runPythonEngine";
@@ -52,8 +53,7 @@ export async function POST(request: Request) {
         filled_field_count: o.filled_field_count,
       })),
     });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Build failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    return failureResponse(error, "Build failed", 500);
   }
 }

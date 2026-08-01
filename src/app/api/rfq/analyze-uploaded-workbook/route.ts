@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import { NextResponse } from "next/server";
 
+import { badRequest, failureResponse, notFound } from "@/lib/http/apiResponse";
 import { assignKbCategoryForParsed, heuristicKbAssignment, partDisplayNameFromParsed } from "@/lib/rfq/assignKbCategoryForParsed";
 import { filterSelfKbProjects } from "@/lib/rfq/buildKbRecordFromParsed";
 import { buildGapAnalysisFromWorkbook } from "@/lib/rfq/gapFromWorkbook";
@@ -38,26 +39,26 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as { storedName?: string; uploadId?: string; originalName?: string };
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return badRequest("Invalid JSON body");
   }
 
   const storedName = typeof body.storedName === "string" ? body.storedName.trim() : "";
   const uploadId = typeof body.uploadId === "string" ? body.uploadId.trim() : "";
   const originalName = typeof body.originalName === "string" ? body.originalName.trim() : "";
   if (!storedName) {
-    return NextResponse.json({ error: "Missing storedName" }, { status: 400 });
+    return badRequest("Missing storedName");
   }
 
   const diskPath = resolveUploadedWorkbookPath(storedName);
   if (!diskPath) {
-    return NextResponse.json({ error: "Invalid or unknown .xlsx file" }, { status: 400 });
+    return badRequest("Invalid or unknown .xlsx file");
   }
 
   let buffer: Buffer;
   try {
     buffer = await readFile(diskPath);
   } catch {
-    return NextResponse.json({ error: "File not found" }, { status: 404 });
+    return notFound("File not found");
   }
 
   if (buffer.length > MAX_BYTES) {
@@ -187,9 +188,8 @@ export async function POST(request: Request) {
         source: kbAssignment.source,
       },
     });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Workbook analysis failed";
-    console.error("[analyze-uploaded-workbook]", e);
-    return NextResponse.json({ error: message }, { status: 400 });
+  } catch (error) {
+    console.error("[analyze-uploaded-workbook]", error);
+    return failureResponse(error, "Workbook analysis failed", 400);
   }
 }

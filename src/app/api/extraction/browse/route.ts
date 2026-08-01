@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { badRequest, notFound } from "@/lib/http/apiResponse";
 import { buildBrowsePayload } from "@/lib/extraction/browsePayload";
 import {
   packageKey,
@@ -13,13 +14,13 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const key = url.searchParams.get("package")?.trim();
   if (!key) {
-    return NextResponse.json({ error: "Missing package query parameter" }, { status: 400 });
+    return badRequest("Missing package query parameter");
   }
 
   const records = await readExtractionManifest();
   const record = records.find((r) => packageKey(r) === key);
   if (!record) {
-    return NextResponse.json({ error: "Package not found" }, { status: 404 });
+    return notFound("Package not found");
   }
 
   return NextResponse.json({

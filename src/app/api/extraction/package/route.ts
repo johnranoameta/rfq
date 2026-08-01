@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { errorMessage } from "@/lib/core/errors";
+import { badRequest, errorResponse } from "@/lib/http/apiResponse";
 import { deletePackageByKey } from "@/lib/extraction/packageOutput";
 import { packageKey, readExtractionManifest, summarizePackage } from "@/lib/extraction/loadManifest";
 
@@ -9,7 +11,7 @@ export async function DELETE(request: Request) {
   const url = new URL(request.url);
   const key = url.searchParams.get("package")?.trim();
   if (!key) {
-    return NextResponse.json({ error: "Missing package query parameter" }, { status: 400 });
+    return badRequest("Missing package query parameter");
   }
 
   try {
@@ -19,9 +21,8 @@ export async function DELETE(request: Request) {
       ok: true,
       packages: records.map((r) => ({ key: packageKey(r), ...summarizePackage(r) })),
     });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Delete failed";
-    const status = message === "Package not found" ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+  } catch (error) {
+    const message = errorMessage(error, "Delete failed");
+    return errorResponse(message, message === "Package not found" ? 404 : 500);
   }
 }

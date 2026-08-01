@@ -15,6 +15,8 @@ import {
 import { EXTERNAL_SUPPLIER_ID } from "@/lib/rfq/externalPriceFetcher";
 import type { CostSelectionResult } from "@/lib/rfq/costLookupTypes";
 import type { SupplierPartRow } from "@/lib/rfq/costLookupTypes";
+import { fetchJson, fetchJsonNoStore } from "@/lib/http/fetchJson";
+import { errorMessage } from "@/lib/core/errors";
 
 function isExternalSource(row: SupplierPartRow): boolean {
   return row.supplier_id === EXTERNAL_SUPPLIER_ID;
@@ -61,12 +63,13 @@ export function RfqSupplierPartsPanel() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/rfq/supplier-parts", { cache: "no-store" });
-      const json = (await res.json()) as { rows?: SupplierPartRow[]; error?: string };
-      if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+      const json = await fetchJsonNoStore<{ rows?: SupplierPartRow[] }>(
+        "/api/rfq/supplier-parts",
+        "Request failed",
+      );
       setRows(json.rows ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load supplier parts");
+      setError(errorMessage(e, "Failed to load supplier parts"));
       setRows([]);
     } finally {
       setLoading(false);
@@ -84,15 +87,17 @@ export function RfqSupplierPartsPanel() {
       try {
         const formData = new FormData();
         formData.append("file", file);
-        const res = await fetch("/api/rfq/supplier-parts/upload", { method: "POST", body: formData });
-        const json = (await res.json()) as { imported?: number; skipped?: number; error?: string };
-        if (!res.ok) throw new Error(json.error || `Upload failed (${res.status})`);
+        const json = await fetchJson<{ imported?: number; skipped?: number }>(
+          "/api/rfq/supplier-parts/upload",
+          "Upload failed",
+          { method: "POST", body: formData },
+        );
         setUploadMessage(
           `Imported ${json.imported ?? 0} row(s)${json.skipped ? `, skipped ${json.skipped} malformed row(s)` : ""}.`,
         );
         await load();
       } catch (e) {
-        setUploadMessage(e instanceof Error ? e.message : "Upload failed");
+        setUploadMessage(errorMessage(e, "Upload failed"));
       } finally {
         setUploadBusy(false);
       }
@@ -115,14 +120,13 @@ export function RfqSupplierPartsPanel() {
     setLookupError(null);
     setLookupResult(null);
     try {
-      const res = await fetch(
+      const json = await fetchJson<CostSelectionResult>(
         `/api/rfq/cost-lookup?partNumber=${encodeURIComponent(pn)}&quantity=${encodeURIComponent(String(qty))}`,
+        "Lookup failed",
       );
-      const json = (await res.json()) as CostSelectionResult & { error?: string };
-      if (!res.ok) throw new Error(json.error || `Lookup failed (${res.status})`);
       setLookupResult(json);
     } catch (e) {
-      setLookupError(e instanceof Error ? e.message : "Lookup failed");
+      setLookupError(errorMessage(e, "Lookup failed"));
     } finally {
       setLookupBusy(false);
     }

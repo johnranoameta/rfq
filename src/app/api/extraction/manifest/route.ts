@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { notFound } from "@/lib/http/apiResponse";
 import {
   packageKey,
   readExtractionManifest,
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
 
   const record = records.find((r) => packageKey(r) === key);
   if (!record) {
-    return NextResponse.json({ error: "Package not found" }, { status: 404 });
+    return notFound("Package not found");
   }
 
   // Full record only when explicitly requested (large). UI should use /api/extraction/browse.

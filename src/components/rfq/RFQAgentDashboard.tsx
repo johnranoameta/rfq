@@ -54,6 +54,8 @@ import {
   isPreloadedDemoUpload,
 } from "@/data/sampleRfqPipeline";
 import { isAnalysisSubModuleEnabled, isWorkspaceModuleEnabled } from "@/lib/rfq/workspaceModules";
+import { fetchJson } from "@/lib/http/fetchJson";
+import { errorMessage } from "@/lib/core/errors";
 
 const showPortfolio = isWorkspaceModuleEnabled("portfolio");
 const showSupplierDb = isWorkspaceModuleEnabled("supplierdb");
@@ -177,8 +179,7 @@ export default function RFQAgentDashboard() {
     setAnalysisSelection({
       kind: "workbook",
       fileId: DEFAULT_DEMO_UPLOAD.id,
-      label: DEFAULT_DEMO_UPLOAD.originalName,
-    });
+      label: DEFAULT_DEMO_UPLOAD.originalName });
     setUploadedRfqs((prev) => {
       if (prev.some((x) => x.id === DEFAULT_DEMO_UPLOAD.id)) return prev;
       return [DEFAULT_DEMO_UPLOAD, ...prev];
@@ -186,8 +187,7 @@ export default function RFQAgentDashboard() {
     const defaultSession = getDefaultDemoSession();
     setSession({
       file: defaultSession.file,
-      caseData: restoreGapSessionCaseData(DEFAULT_DEMO_UPLOAD.id, defaultSession.caseData),
-    });
+      caseData: restoreGapSessionCaseData(DEFAULT_DEMO_UPLOAD.id, defaultSession.caseData) });
     setSessionNotice(null);
     setSidebarLoadBusy(false);
     setPipelineBusy(false);
@@ -260,11 +260,11 @@ export default function RFQAgentDashboard() {
       const body = new FormData();
       body.set("file", file);
       body.set("purpose", "gap-doc");
-      const res = await fetch("/api/rfq/upload", { method: "POST", body });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; originalName?: string };
-      if (!res.ok) {
-        throw new Error(data.error || `Upload failed (${res.status})`);
-      }
+      const data = await fetchJson<{ originalName?: string }>(
+        "/api/rfq/upload",
+        "Upload failed",
+        { method: "POST", body },
+      );
       const uploadedLabel = data.originalName || label;
       setSession((prev) => {
         if (!prev?.caseData) return prev;
@@ -274,7 +274,7 @@ export default function RFQAgentDashboard() {
         };
       });
     } catch (e) {
-      setSupplyDocError(e instanceof Error ? e.message : "Upload failed");
+      setSupplyDocError(errorMessage(e, "Upload failed"));
     } finally {
       setSupplyDocBusySlot(null);
     }
@@ -380,8 +380,7 @@ export default function RFQAgentDashboard() {
       setAnalysisSelection({
         kind: "workbook",
         fileId: DEFAULT_DEMO_UPLOAD.id,
-        label: DEFAULT_DEMO_UPLOAD.originalName,
-      });
+        label: DEFAULT_DEMO_UPLOAD.originalName });
     }
 
     initialHydrationDoneRef.current = true;
@@ -420,8 +419,7 @@ export default function RFQAgentDashboard() {
         };
         setSession({
           file: fileDb,
-          caseData: restoreGapSessionCaseData(u.id, buildCaseDataFromPersisted(row, fileDb)),
-        });
+          caseData: restoreGapSessionCaseData(u.id, buildCaseDataFromPersisted(row, fileDb)) });
         setPipelineBusy(false);
         setGapFilter("all");
         return;
@@ -537,8 +535,7 @@ export default function RFQAgentDashboard() {
                 originalName: sel.label,
                 size: 0,
                 mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                storedName: STORED_NAME_DB_ONLY,
-              });
+                storedName: STORED_NAME_DB_ONLY });
         setSession({ file, caseData: cached });
       }
       return;
@@ -610,11 +607,11 @@ export default function RFQAgentDashboard() {
     if (!window.confirm(msg)) return;
 
     try {
-      const res = await fetch(`/api/extraction/package?package=${encodeURIComponent(p.key)}`, {
-        method: "DELETE",
-      });
-      const data = (await res.json()) as { error?: string; packages?: ExtractPackageSummary[] };
-      if (!res.ok) throw new Error(data.error || `Delete failed (${res.status})`);
+      const data = await fetchJson<{ packages?: ExtractPackageSummary[] }>(
+        `/api/extraction/package?package=${encodeURIComponent(p.key)}`,
+        "Delete failed",
+        { method: "DELETE" },
+      );
       const list = data.packages ?? [];
       setExtractPackages(list);
       setSelectedExtractKey((prev) => {
@@ -622,7 +619,7 @@ export default function RFQAgentDashboard() {
         return list[0]?.key ?? null;
       });
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : "Delete failed");
+      window.alert(errorMessage(e, "Delete failed"));
     }
   }
 

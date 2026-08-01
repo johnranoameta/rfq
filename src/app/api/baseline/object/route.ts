@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { notFound } from "@/lib/http/apiResponse";
 import { getRfqObject, readRfqObjects } from "@/lib/extraction/loadRfqObject";
 
 export const runtime = "nodejs";
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
   if (packageId) {
     const obj = await getRfqObject(packageId);
     if (!obj) {
-      return NextResponse.json({ error: "RFQ object not found" }, { status: 404 });
+      return notFound("RFQ object not found");
     }
     return NextResponse.json({ object: obj });
   }

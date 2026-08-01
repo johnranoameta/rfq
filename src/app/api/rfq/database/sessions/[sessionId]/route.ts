@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { badRequest, failureResponse, notFound } from "@/lib/http/apiResponse";
 import { deleteRfqParseSession, getRfqParseSession } from "@/lib/rfq/sqlite/parseSessions";
 
 export const runtime = "nodejs";
@@ -10,18 +11,17 @@ export async function GET(_request: Request, ctx: RouteParams) {
   const { sessionId } = await ctx.params;
   const id = decodeURIComponent(sessionId || "").trim();
   if (!id) {
-    return NextResponse.json({ error: "Missing session id" }, { status: 400 });
+    return badRequest("Missing session id");
   }
   try {
     const row = getRfqParseSession(id);
     if (!row) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return notFound("Not found");
     }
     return NextResponse.json(row);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Database read failed";
-    console.error("[database/sessions]", e);
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    console.error("[database/sessions]", error);
+    return failureResponse(error, "Database read failed", 500);
   }
 }
 
@@ -29,17 +29,16 @@ export async function DELETE(_request: Request, ctx: RouteParams) {
   const { sessionId } = await ctx.params;
   const id = decodeURIComponent(sessionId || "").trim();
   if (!id) {
-    return NextResponse.json({ error: "Missing session id" }, { status: 400 });
+    return badRequest("Missing session id");
   }
   try {
     const removed = deleteRfqParseSession(id);
     if (!removed) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return notFound("Not found");
     }
     return NextResponse.json({ ok: true });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Database delete failed";
-    console.error("[database/sessions DELETE]", e);
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    console.error("[database/sessions DELETE]", error);
+    return failureResponse(error, "Database delete failed", 500);
   }
 }

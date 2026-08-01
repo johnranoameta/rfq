@@ -6,6 +6,8 @@ import type { KbMainProjectRow } from "@/lib/rfq/kbBucketPartition";
 import type { KbCategoryRow } from "@/lib/rfq/sqlite/kbCategories";
 import type { MatchScoringConfig } from "@/lib/rfq/matchScoringConfig";
 import { SettingsMenu } from "@/components/settings/SettingsMenu";
+import { fetchJsonNoStore } from "@/lib/http/fetchJson";
+import { errorMessage } from "@/lib/core/errors";
 
 export type RfqKbMainPanelProps = {
   kbBucket: KbCategoryRow;
@@ -59,18 +61,23 @@ export function RfqKbMainPanel({ kbBucket, projects }: RfqKbMainPanelProps) {
   const loadCfg = useCallback(async () => {
     setCfgError(null);
     try {
-      const res = await fetch("/api/rfq/settings/match", { cache: "no-store" });
-      const json = (await res.json()) as { config?: MatchScoringConfig; error?: string };
-      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      const json = await fetchJsonNoStore<{ config?: MatchScoringConfig }>(
+        "/api/rfq/settings/match",
+        "Failed",
+      );
       setMatchCfg(json.config ?? null);
     } catch (e) {
-      setCfgError(e instanceof Error ? e.message : "Failed to load match settings");
+      setCfgError(errorMessage(e, "Failed to load match settings"));
       setMatchCfg(null);
     }
   }, []);
 
   useEffect(() => {
     if (tab !== "matching") return;
+    // `loadCfg` clears `cfgError` synchronously before it awaits, which this rule flags.
+    // Deferring the clear until after the request would leave a stale error on screen
+    // during a reload, so the ordering is kept as-is. See CONVENTIONS.md § Effects.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadCfg();
   }, [tab, loadCfg]);
 

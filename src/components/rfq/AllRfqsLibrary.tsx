@@ -5,6 +5,8 @@ import { Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { fetchJson, fetchJsonNoStore } from "@/lib/http/fetchJson";
+import { errorMessage } from "@/lib/core/errors";
 import {
   Table,
   TableBody,
@@ -98,14 +100,13 @@ export function AllRfqsLibrary() {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch("/api/rfq/database/catalog", { cache: "no-store" });
-      const json = (await res.json()) as CatalogResponse;
-      if (!res.ok) {
-        throw new Error(json.error || `Request failed (${res.status})`);
-      }
+      const json = await fetchJsonNoStore<CatalogResponse>(
+        "/api/rfq/database/catalog",
+        "Request failed",
+      );
       setData(json);
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Failed to load catalog");
+      setLoadError(errorMessage(e, "Failed to load catalog"));
       setData(null);
     } finally {
       setLoading(false);
@@ -127,8 +128,7 @@ export function AllRfqsLibrary() {
     setDeletingId(sessionId);
     try {
       const res = await fetch(`/api/rfq/database/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "DELETE",
-      });
+        method: "DELETE" });
       if (!res.ok && res.status !== 404) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(j.error || `Delete failed (${res.status})`);
@@ -138,7 +138,7 @@ export function AllRfqsLibrary() {
       }
       await loadCatalog();
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : "Delete failed");
+      window.alert(errorMessage(e, "Delete failed"));
     } finally {
       setDeletingId(null);
     }
@@ -150,17 +150,14 @@ export function AllRfqsLibrary() {
     try {
       const body = new FormData();
       body.set("file", file);
-      const res = await fetch("/api/rfq/database/historical", {
-        method: "POST",
-        body,
-      });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; inserted?: number };
-      if (!res.ok) {
-        throw new Error(json.error || `Upload failed (${res.status})`);
-      }
+      await fetchJson<{ inserted?: number }>(
+        "/api/rfq/database/historical",
+        "Upload failed",
+        { method: "POST", body },
+      );
       await loadCatalog();
     } catch (e) {
-      setHistUploadError(e instanceof Error ? e.message : "Historical upload failed");
+      setHistUploadError(errorMessage(e, "Historical upload failed"));
     } finally {
       setHistUploadBusy(false);
     }
@@ -171,15 +168,14 @@ export function AllRfqsLibrary() {
     setHistDeletingProjectId(projectId);
     try {
       const res = await fetch(`/api/rfq/database/historical/${encodeURIComponent(projectId)}`, {
-        method: "DELETE",
-      });
+        method: "DELETE" });
       if (!res.ok && res.status !== 404) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(j.error || `Delete failed (${res.status})`);
       }
       await loadCatalog();
     } catch (e) {
-      setHistUploadError(e instanceof Error ? e.message : "Historical delete failed");
+      setHistUploadError(errorMessage(e, "Historical delete failed"));
     } finally {
       setHistDeletingProjectId(null);
     }
@@ -203,7 +199,7 @@ export function AllRfqsLibrary() {
       .catch((e) => {
         if (!cancelled) {
           setDetail(null);
-          setDetailError(e instanceof Error ? e.message : "Detail load failed");
+          setDetailError(errorMessage(e, "Detail load failed"));
         }
       })
       .finally(() => {

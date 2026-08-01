@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/table";
 import NormalizedCleanView from "@/components/extraction/NormalizedCleanView";
 import type { NormalizedPackage } from "@/lib/extraction/normalizedTypes";
+import { fetchJson } from "@/lib/http/fetchJson";
+import { errorMessage } from "@/lib/core/errors";
 
 export type ExtractPackageSummary = {
   key: string;
@@ -166,7 +168,7 @@ export function RfqWordExtractWorkspace({
       setPending(data as UploadedWordFile);
       setMessage(`Uploaded ${file.name}. Click Run extraction to parse the package.`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
+      setError(errorMessage(e, "Upload failed"));
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -182,11 +184,11 @@ export function RfqWordExtractWorkspace({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/extraction/package?package=${encodeURIComponent(selectedKey)}`, {
-        method: "DELETE",
-      });
-      const data = (await res.json()) as { error?: string; packages?: ExtractPackageSummary[] };
-      if (!res.ok) throw new Error(data.error || `Delete failed (${res.status})`);
+      const data = await fetchJson<{ packages?: ExtractPackageSummary[] }>(
+        `/api/extraction/package?package=${encodeURIComponent(selectedKey)}`,
+        "Delete failed",
+        { method: "DELETE" },
+      );
       const list = data.packages ?? [];
       setPackages(list);
       onPackagesChange?.(list);
@@ -195,7 +197,7 @@ export function RfqWordExtractWorkspace({
       setMessage(list.length ? "Package removed." : "All packages removed.");
       onPackageDeleted?.();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed");
+      setError(errorMessage(e, "Delete failed"));
     } finally {
       setBusy(false);
     }
@@ -219,8 +221,7 @@ export function RfqWordExtractWorkspace({
           clearFirst,
           loadDb,
           normalize: doNormalize,
-        }),
-      });
+        }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? data.detail ?? "Extraction failed");
       const summary = data.summary as ExtractPackageSummary | undefined;
@@ -233,7 +234,7 @@ export function RfqWordExtractWorkspace({
       if (key) setSelectedKey(key);
       onExtractionComplete?.(key);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Extraction failed");
+      setError(errorMessage(e, "Extraction failed"));
     } finally {
       setBusy(false);
     }

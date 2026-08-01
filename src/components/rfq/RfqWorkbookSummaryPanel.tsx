@@ -131,15 +131,13 @@ export function RfqWorkbookSummaryPanel({
       items.push({
         title: g.title,
         body: g.action || g.detail,
-        severity: g.sev,
-      });
+        severity: g.sev });
     }
     if (items.length === 0) {
       items.push({
         title: "No open gaps",
         body: "All current findings are resolved or accepted.",
-        severity: "low",
-      });
+        severity: "low" });
     }
     return items;
   }, [openFindings]);

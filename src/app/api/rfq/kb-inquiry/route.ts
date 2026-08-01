@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { badRequest, failureResponse } from "@/lib/http/apiResponse";
 import { runKbInquiryChat, type KbInquiryMessage } from "@/lib/rfq/openaiKbInquiry";
 
 export const runtime = "nodejs";
@@ -27,12 +28,12 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as Body;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return badRequest("Invalid JSON body");
   }
 
   const raw = body.messages;
   if (!Array.isArray(raw) || raw.length === 0) {
-    return NextResponse.json({ error: "messages array is required" }, { status: 400 });
+    return badRequest("messages array is required");
   }
 
   const messages: KbInquiryMessage[] = [];
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
   }
 
   if (messages.length === 0 || messages[messages.length - 1]?.role !== "user") {
-    return NextResponse.json({ error: "Last message must be a non-empty user message" }, { status: 400 });
+    return badRequest("Last message must be a non-empty user message");
   }
 
   const sessionId =
@@ -56,9 +57,8 @@ export async function POST(request: Request) {
   try {
     const reply = await runKbInquiryChat({ apiKey, messages, sessionId, packageId });
     return NextResponse.json({ reply });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Inquiry failed";
-    console.error("[kb-inquiry]", e);
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    console.error("[kb-inquiry]", error);
+    return failureResponse(error, "Inquiry failed", 500);
   }
 }

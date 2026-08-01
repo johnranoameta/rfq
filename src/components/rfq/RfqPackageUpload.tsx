@@ -4,6 +4,8 @@ import { useCallback, useId, useRef, useState } from "react";
 import { RefreshCw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { fetchJson } from "@/lib/http/fetchJson";
+import { errorMessage } from "@/lib/core/errors";
 import {
   Table,
   TableBody,
@@ -189,19 +191,19 @@ export function RfqPackageUpload({
         throw new Error("Workbook-only mode: upload a 4-sheet .xlsx/.xls RFQ file.");
       }
       const endpoint = "/api/rfq/analyze-uploaded-workbook";
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          storedName: f.storedName,
-          uploadId: f.id,
-          originalName: f.originalName,
-        }),
-      });
-      const data = (await res.json().catch(() => ({}))) as FullAnalyzeOk & { error?: string };
-      if (!res.ok) {
-        throw new Error(data.error || `Analysis failed (${res.status})`);
-      }
+      const data = await fetchJson<FullAnalyzeOk>(
+        endpoint,
+        "Analysis failed",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storedName: f.storedName,
+            uploadId: f.id,
+            originalName: f.originalName,
+          }),
+        },
+      );
       if (!data.parse?.parsed || !data.historical || !data.gap) {
         throw new Error("Unexpected analysis response");
       }
@@ -215,7 +217,7 @@ export function RfqPackageUpload({
       onAnalysisStatusChange?.({ fileId: f.id, status: "done" });
       await Promise.resolve(onAnalyzed?.(f, data as FullAnalyzeOk));
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Analysis failed";
+      const message = errorMessage(e, "Analysis failed");
       setPdfPipeline((prev) => ({
         ...prev,
         [f.id]: { status: "error", message },
@@ -246,7 +248,7 @@ export function RfqPackageUpload({
           }
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Upload failed");
+        setError(errorMessage(e, "Upload failed"));
       } finally {
         setBusy(false);
       }

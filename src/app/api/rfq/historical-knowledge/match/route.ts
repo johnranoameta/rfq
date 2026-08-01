@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { badRequest, failureResponse } from "@/lib/http/apiResponse";
 import {
   loadHistoricalKnowledge,
   rankHistoricalMatches,
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
     try {
       body = (await request.json()) as MatchCriteria & { limit?: number };
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return badRequest("Invalid JSON body");
     }
 
     const limit =
@@ -36,8 +37,7 @@ export async function POST(request: Request) {
       },
       matches,
     });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Match failed";
-    return NextResponse.json({ error: message }, { status: 503 });
+  } catch (error) {
+    return failureResponse(error, "Match failed");
   }
 }
