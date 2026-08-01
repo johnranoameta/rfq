@@ -1031,6 +1031,27 @@
   vertical-align: middle;
 }
 
+.ra-cell-input {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ra-text);
+  font: inherit;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.ra-cell-input:hover,
+.ra-cell-input:focus {
+  border-color: var(--ra-border);
+  background: var(--ra-bg);
+  outline: none;
+}
+
+.ra-cell-input-error {
+  border-color: var(--ra-red);
+}
+
 .ra-mono {
   font-family: ui-monospace, "DM Mono", monospace;
   font-size: 12px;

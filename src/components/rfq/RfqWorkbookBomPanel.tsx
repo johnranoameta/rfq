@@ -1,12 +1,76 @@
 "use client";
 
-import { useId, useMemo, useRef } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import type { BomPartRow } from "@/lib/rfq/costLookupTypes";
+import type { EditableBomPartField } from "@/lib/rfq/bomPartFieldValidation";
 import { useBomParts } from "@/lib/rfq/useBomParts";
+
+function EditableCell({
+  value,
+  numeric = false,
+  onSave,
+}: {
+  value: string;
+  numeric?: boolean;
+  onSave: (raw: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  const commit = async () => {
+    if (draft === value) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(draft);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <input
+        type={numeric ? "number" : "text"}
+        className={["ra-cell-input", error ? "ra-cell-input-error" : ""].join(" ")}
+        value={draft}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+        }}
+      />
+      {error ? <div className="text-[11px] text-[var(--ra-red)] mt-1">{error}</div> : null}
+    </div>
+  );
+}
 
 export function RfqWorkbookBomPanel({ fileId }: { fileId: string }) {
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { rows, loading, error, uploadBusy, uploadMessage, upload } = useBomParts(fileId);
+  const { rows, loading, error, uploadBusy, uploadMessage, upload, reload } = useBomParts(fileId);
+
+  const saveField = useCallback(
+    async (id: number, field: EditableBomPartField, raw: string) => {
+      const res = await fetch(`/api/rfq/bom-parts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field, value: raw }),
+      });
+      const json = (await res.json()) as { row?: BomPartRow; error?: string };
+      if (!res.ok) throw new Error(json.error || `Save failed (${res.status})`);
+      await reload();
+    },
+    [reload],
+  );
 
   const stats = useMemo(() => {
     const total = rows.length;
@@ -121,18 +185,30 @@ export function RfqWorkbookBomPanel({ fileId }: { fileId: string }) {
                     <tr key={r.id}>
                       <td className="ra-mono">{i + 1}</td>
                       <td>
-                        <div className="font-medium">{r.description || r.ref_designator}</div>
-                        <div className="text-[11px] text-[var(--ra-muted)]">as supplied: &ldquo;{r.ref_designator}&rdquo;</div>
+                        <EditableCell value={r.description ?? ""} onSave={(v) => saveField(r.id, "description", v)} />
+                        <div className="text-[11px] text-[var(--ra-muted)] mt-1">
+                          as supplied: <EditableCell value={r.ref_designator} onSave={(v) => saveField(r.id, "ref_designator", v)} />
+                        </div>
                       </td>
                       <td className="text-[var(--ra-mid)]">
-                        {r.sub_assembly || "—"}
-                        {r.customer_program ? (
-                          <div className="text-[11px] text-[var(--ra-muted)]">{r.customer_program}</div>
-                        ) : null}
+                        <EditableCell value={r.sub_assembly ?? ""} onSave={(v) => saveField(r.id, "sub_assembly", v)} />
+                        <div className="mt-1">
+                          <EditableCell value={r.customer_program ?? ""} onSave={(v) => saveField(r.id, "customer_program", v)} />
+                        </div>
                       </td>
-                      <td className="ra-mono">{r.quantity ?? "—"}</td>
                       <td className="ra-mono">
-                        {r.unit_cost != null ? `${r.currency} ${r.unit_cost.toFixed(4)}` : "—"}
+                        <EditableCell
+                          value={r.quantity != null ? String(r.quantity) : ""}
+                          numeric
+                          onSave={(v) => saveField(r.id, "quantity", v)}
+                        />
+                      </td>
+                      <td className="ra-mono">
+                        <EditableCell
+                          value={r.unit_cost != null ? String(r.unit_cost) : ""}
+                          numeric
+                          onSave={(v) => saveField(r.id, "unit_cost", v)}
+                        />
                       </td>
                       <td>
                         {r.mfr_part_number ? (
@@ -140,6 +216,9 @@ export function RfqWorkbookBomPanel({ fileId }: { fileId: string }) {
                         ) : (
                           <span className="ra-badge ra-badge-r">No manufacturer part number</span>
                         )}
+                        <div className="mt-1">
+                          <EditableCell value={r.mfr_part_number ?? ""} onSave={(v) => saveField(r.id, "mfr_part_number", v)} />
+                        </div>
                       </td>
                     </tr>
                   ))}
