@@ -38,6 +38,18 @@ function num(v: unknown): number {
   return typeof v === "number" && !Number.isNaN(v) ? v : 0;
 }
 
+function extraInfoFromParsed(parsed: Record<string, unknown>): CaseData["extra_info"] {
+  const raw = parsed.extra_info;
+  if (!Array.isArray(raw)) return undefined;
+  return raw.filter(
+    (x): x is { sheet: string; rows: Record<string, string>[] } =>
+      typeof x === "object" &&
+      x !== null &&
+      typeof (x as { sheet?: unknown }).sheet === "string" &&
+      Array.isArray((x as { rows?: unknown }).rows),
+  );
+}
+
 function firstLineItem(parsed: Record<string, unknown>): Record<string, unknown> | null {
   const items = parsed.line_items;
   if (!Array.isArray(items) || items.length === 0) return null;
@@ -338,5 +350,6 @@ export function buildCaseDataFromPersisted(
           })),
         }))
       : undefined,
+    extra_info: extraInfoFromParsed(parsed),
   };
 }

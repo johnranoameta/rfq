@@ -176,4 +176,6 @@ export type CaseData = {
   quote: Quote;
   historical_benchmark: HistoricalEntry[];
   item_historical_comparison?: ItemHistoricalComparison[];
+  /** README/suppliers-style sheets from a BOM-parts-shaped RFQ upload — display only, not matched/gap-analyzed. */
+  extra_info?: { sheet: string; rows: Record<string, string>[] }[];
 };
