@@ -179,7 +179,8 @@ export default function RFQAgentDashboard() {
     setAnalysisSelection({
       kind: "workbook",
       fileId: DEFAULT_DEMO_UPLOAD.id,
-      label: DEFAULT_DEMO_UPLOAD.originalName });
+      label: DEFAULT_DEMO_UPLOAD.originalName,
+    });
     setUploadedRfqs((prev) => {
       if (prev.some((x) => x.id === DEFAULT_DEMO_UPLOAD.id)) return prev;
       return [DEFAULT_DEMO_UPLOAD, ...prev];
@@ -187,7 +188,8 @@ export default function RFQAgentDashboard() {
     const defaultSession = getDefaultDemoSession();
     setSession({
       file: defaultSession.file,
-      caseData: restoreGapSessionCaseData(DEFAULT_DEMO_UPLOAD.id, defaultSession.caseData) });
+      caseData: restoreGapSessionCaseData(DEFAULT_DEMO_UPLOAD.id, defaultSession.caseData),
+    });
     setSessionNotice(null);
     setSidebarLoadBusy(false);
     setPipelineBusy(false);
@@ -380,7 +382,8 @@ export default function RFQAgentDashboard() {
       setAnalysisSelection({
         kind: "workbook",
         fileId: DEFAULT_DEMO_UPLOAD.id,
-        label: DEFAULT_DEMO_UPLOAD.originalName });
+        label: DEFAULT_DEMO_UPLOAD.originalName,
+      });
     }
 
     initialHydrationDoneRef.current = true;
@@ -419,7 +422,8 @@ export default function RFQAgentDashboard() {
         };
         setSession({
           file: fileDb,
-          caseData: restoreGapSessionCaseData(u.id, buildCaseDataFromPersisted(row, fileDb)) });
+          caseData: restoreGapSessionCaseData(u.id, buildCaseDataFromPersisted(row, fileDb)),
+        });
         setPipelineBusy(false);
         setGapFilter("all");
         return;
@@ -535,7 +539,8 @@ export default function RFQAgentDashboard() {
                 originalName: sel.label,
                 size: 0,
                 mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                storedName: STORED_NAME_DB_ONLY });
+                storedName: STORED_NAME_DB_ONLY,
+              });
         setSession({ file, caseData: cached });
       }
       return;

@@ -83,7 +83,8 @@ type SortableTabProps = {
 
 function SortableTab({ tabKey, active, onSelect, pill, label }: SortableTabProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: tabKey });
+    id: tabKey,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),

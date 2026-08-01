@@ -94,7 +94,8 @@ export default function BaselineRfqObjectPanel() {
       const res = await fetch("/api/baseline/build", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baselineId: selectedId ?? undefined }) });
+        body: JSON.stringify({ baselineId: selectedId ?? undefined }),
+      });
       const data = (await res.json()) as { error?: string; detail?: string };
       if (!res.ok) throw new Error(data.detail ?? data.error ?? "Build failed");
       await loadList();

@@ -128,7 +128,8 @@ export function AllRfqsLibrary() {
     setDeletingId(sessionId);
     try {
       const res = await fetch(`/api/rfq/database/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "DELETE" });
+        method: "DELETE",
+      });
       if (!res.ok && res.status !== 404) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(j.error || `Delete failed (${res.status})`);
@@ -168,7 +169,8 @@ export function AllRfqsLibrary() {
     setHistDeletingProjectId(projectId);
     try {
       const res = await fetch(`/api/rfq/database/historical/${encodeURIComponent(projectId)}`, {
-        method: "DELETE" });
+        method: "DELETE",
+      });
       if (!res.ok && res.status !== 404) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(j.error || `Delete failed (${res.status})`);
