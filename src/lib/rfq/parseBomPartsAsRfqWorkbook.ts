@@ -7,7 +7,15 @@ export type RfqExtraInfoSheet = {
 };
 
 function normSheet(n: string): string {
-  return n.trim().toLowerCase();
+  return n.trim().replace(/\s+/g, "_").toLowerCase();
+}
+
+const HEADER_ALIASES = ["header", "rfq_header", "context"];
+const TECH_SPECS_ALIASES = ["technical_specs", "technicalspecs", "specs", "tech_specs"];
+const SUPPLIER_RESPONSES_ALIASES = ["supplier_responses", "supplierresponses", "quotes", "responses"];
+
+function hasAnySheet(names: Set<string>, aliases: string[]): boolean {
+  return aliases.some((a) => names.has(normSheet(a)));
 }
 
 function normCellKey(k: string): string {
@@ -69,7 +77,9 @@ export function looksLikeBomPartsRfqUpload(buffer: Buffer): boolean {
   const wb = XLSX.read(buffer, { type: "buffer" });
   const names = new Set(wb.SheetNames.map(normSheet));
   if (!names.has("parts")) return false;
-  if (names.has("header") || names.has("line_items")) return false;
+  if (hasAnySheet(names, HEADER_ALIASES)) return false;
+  if (hasAnySheet(names, TECH_SPECS_ALIASES)) return false;
+  if (hasAnySheet(names, SUPPLIER_RESPONSES_ALIASES)) return false;
   return true;
 }
 
@@ -96,12 +106,15 @@ function partsRecordsToLineItems(records: Record<string, string>[]): WorkbookLin
   return out;
 }
 
-function firstNonEmptyCustomerProgram(records: Record<string, string>[]): string {
+function programLabelFromParts(records: Record<string, string>[]): string {
+  const seen: string[] = [];
   for (const r of records) {
     const cp = pick(r, ["customer_program", "customer program", "program"]);
-    if (cp) return cp;
+    if (cp && !seen.includes(cp)) seen.push(cp);
   }
-  return "";
+  if (seen.length === 0) return "";
+  if (seen.length === 1) return seen[0]!;
+  return `${seen[0]} (+${seen.length - 1} more)`;
 }
 
 /**
@@ -122,7 +135,7 @@ export function parseBomPartsAsRfqWorkbook(buffer: Buffer): {
     : [];
 
   const header: WorkbookHeader = {
-    rfq_id: firstNonEmptyCustomerProgram(partsRecords),
+    rfq_id: programLabelFromParts(partsRecords),
     customer: "",
     region: "",
     annual_volume: 0,

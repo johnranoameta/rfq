@@ -34,12 +34,18 @@ export function buildGapAnalysisFromWorkbook(
 ): GapAnalysisResult {
   const missing_attachments: string[] = [];
 
-  for (const li of w.line_items) {
-    const spec = techSpecForPart(li.part_name, w.technical_specs);
-    if (!spec || !spec.spec_text.trim()) {
-      missing_attachments.push(`Technical_Specs: no usable spec for line ${li.item} (${li.part_name})`);
-    } else if (spec.spec_text.trim().length < 24) {
-      missing_attachments.push(`Technical_Specs: very thin spec for ${li.part_name} — review / infer requirements`);
+  if (w.technical_specs.length === 0) {
+    if (w.line_items.length > 0) {
+      missing_attachments.push("Technical_Specs: no specifications sheet provided for this upload");
+    }
+  } else {
+    for (const li of w.line_items) {
+      const spec = techSpecForPart(li.part_name, w.technical_specs);
+      if (!spec || !spec.spec_text.trim()) {
+        missing_attachments.push(`Technical_Specs: no usable spec for line ${li.item} (${li.part_name})`);
+      } else if (spec.spec_text.trim().length < 24) {
+        missing_attachments.push(`Technical_Specs: very thin spec for ${li.part_name} — review / infer requirements`);
+      }
     }
   }
 

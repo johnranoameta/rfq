@@ -41,13 +41,13 @@ describe("maybeSyncBomPartsFromRfqUpload", () => {
     expect(listBomParts("rfq-sync-2")).toEqual([]);
   });
 
-  it("replaces existing bom_parts rows for the same rfqFileId on re-sync", () => {
+  it("does not overwrite existing bom_parts rows on a second sync for the same rfqFileId", () => {
     const first = workbookBuffer({ parts: [{ ref_designator: "R1" }] });
     const second = workbookBuffer({ parts: [{ ref_designator: "R2" }] });
     maybeSyncBomPartsFromRfqUpload(first, "rfq-sync-3");
     maybeSyncBomPartsFromRfqUpload(second, "rfq-sync-3");
     const rows = listBomParts("rfq-sync-3");
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.ref_designator).toBe("R2");
+    expect(rows[0]?.ref_designator).toBe("R1");
   });
 });

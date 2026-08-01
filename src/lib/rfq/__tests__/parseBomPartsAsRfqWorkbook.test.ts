@@ -48,6 +48,20 @@ describe("looksLikeBomPartsRfqUpload", () => {
     const buf = workbookBuffer({ README: [{ Field: "x", Explanation: "y" }] });
     expect(looksLikeBomPartsRfqUpload(buf)).toBe(false);
   });
+
+  it("returns false for a legitimate 4-sheet workbook using aliased/whitespace sheet names", () => {
+    // `context` is a Header alias, `parts` is a Line_Items alias, and
+    // `Technical_Specs` / `Supplier_Responses` use whitespace-containing display names.
+    // The strict parser resolves all four via alias lists, so this must NOT be
+    // misdetected as BOM-parts-shaped.
+    const buf = workbookBuffer({
+      context: [{ rfq_id: "RFQ-1" }],
+      parts: [{ item: "L1" }],
+      "Technical Specs": [{ part_name: "L1", spec_text: "text" }],
+      "Supplier Responses": [{ supplier: "S1", item: "L1" }],
+    });
+    expect(looksLikeBomPartsRfqUpload(buf)).toBe(false);
+  });
 });
 
 describe("parseBomPartsAsRfqWorkbook", () => {
@@ -91,6 +105,18 @@ describe("parseBomPartsAsRfqWorkbook", () => {
     expect(workbook.header.customer).toBe("");
     expect(workbook.header.region).toBe("");
     expect(workbook.header.sop).toBe("");
+  });
+
+  it("labels header.rfq_id with the multiplicity when parts span multiple distinct customer_program values", () => {
+    const buf = workbookBuffer({
+      parts: [
+        { ref_designator: "R1", customer_program: "BM / Latch-ECU + Battery-Manager (Elatch)" },
+        { ref_designator: "R2", customer_program: "BM / Latch-ECU + Battery-Manager (Elatch)" },
+        { ref_designator: "R3", customer_program: "Magna / Ford Coil Driver Circuit" },
+      ],
+    });
+    const { workbook } = parseBomPartsAsRfqWorkbook(buf);
+    expect(workbook.header.rfq_id).toBe("BM / Latch-ECU + Battery-Manager (Elatch) (+1 more)");
   });
 
   it("returns empty technical_specs, supplier_responses, and suppliers_grouped", () => {
