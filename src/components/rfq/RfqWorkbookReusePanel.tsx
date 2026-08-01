@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import type { CaseData, GapWorkflowStatus } from "@/data/rfqTypes";
+import { useHydrated } from "@/lib/react/useHydrated";
 import { OverviewTopReferenceCard } from "@/components/rfq/RfqReferenceMatchPanel";
 import {
   loadReuseGuidancePrefs,
@@ -39,16 +40,20 @@ export function RfqWorkbookReusePanel({
   onOpenMatches,
   onOpenQuote,
 }: RfqWorkbookReusePanelProps) {
-  const [applyScope, setApplyScope] = useState<ReuseApplyScope>("active_rfq");
-  const [prefsHydrated, setPrefsHydrated] = useState(false);
-
-  useEffect(() => {
-    setApplyScope(loadReuseGuidancePrefs().applyScope);
-    setPrefsHydrated(true);
-  }, []);
+  /**
+   * The stored scope can only be read in the browser, so it is gated on
+   * hydration; `scopeOverride` holds the user's in-session choice on top of it.
+   */
+  const prefsHydrated = useHydrated();
+  const [scopeOverride, setScopeOverride] = useState<ReuseApplyScope | null>(null);
+  const storedScope = useMemo(
+    () => (prefsHydrated ? loadReuseGuidancePrefs().applyScope : null),
+    [prefsHydrated],
+  );
+  const applyScope: ReuseApplyScope = scopeOverride ?? storedScope ?? "active_rfq";
 
   function updateScope(scope: ReuseApplyScope) {
-    setApplyScope(scope);
+    setScopeOverride(scope);
     saveReuseGuidancePrefs({ applyScope: scope });
   }
 
