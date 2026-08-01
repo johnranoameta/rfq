@@ -129,7 +129,7 @@ async function writePdf(spec) {
   try {
     fs.writeFileSync(outPath, pdfBytes);
     console.log("Wrote", outPath, `(${pdfBytes.length} bytes)`);
-  } catch (e) {
+  } catch {
     console.warn("Could not write", outPath, "— close the open file and re-run npm run sample-gap-demo");
   }
 }

@@ -14,11 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  FIELD_CATEGORIES,
-  type RfqObjectField,
-  type RfqObjectPackage,
-} from "@/lib/extraction/rfqObjectTypes";
+import { FIELD_CATEGORIES, type RfqObjectPackage } from "@/lib/extraction/rfqObjectTypes";
 import "@/components/rfq/rfq-assistant.css";
 
 function blank(v: string | null | undefined) {

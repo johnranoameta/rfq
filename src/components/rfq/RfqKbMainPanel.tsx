@@ -10,7 +10,6 @@ import { SettingsMenu } from "@/components/settings/SettingsMenu";
 export type RfqKbMainPanelProps = {
   kbBucket: KbCategoryRow;
   projects: KbMainProjectRow[];
-  onOpenPortfolioRfq: (sessionId: string) => void;
 };
 
 type KbTab = "summary" | "matching" | "history";
@@ -52,7 +51,7 @@ function formatProjectRowId(p: KbMainProjectRow): string {
   return `H${String(p.rfq_id).padStart(3, "0")}`;
 }
 
-export function RfqKbMainPanel({ kbBucket, projects, onOpenPortfolioRfq }: RfqKbMainPanelProps) {
+export function RfqKbMainPanel({ kbBucket, projects }: RfqKbMainPanelProps) {
   const [tab, setTab] = useState<KbTab>("summary");
   const [matchCfg, setMatchCfg] = useState<MatchScoringConfig | null>(null);
   const [cfgError, setCfgError] = useState<string | null>(null);

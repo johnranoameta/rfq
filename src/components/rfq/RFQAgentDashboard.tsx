@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applySuppliedPackageDoc,
   clearSuppliedPackageDoc,
@@ -8,25 +8,15 @@ import {
 } from "@/lib/rfq/applySuppliedPackageDoc";
 import { isGapFinalized } from "@/lib/rfq/reconcileGapsWithDocuments";
 import { buildCaseDataFromPersisted } from "@/lib/rfq/caseFromPersisted";
-import { loadGapSessionCache, restoreGapSessionCaseData, saveGapSessionCache, clearGapSessionCache } from "@/lib/rfq/gapSessionCache";
+import { loadGapSessionCache, restoreGapSessionCaseData, saveGapSessionCache } from "@/lib/rfq/gapSessionCache";
 import { loadWorkspacePrefs, saveWorkspacePrefs } from "@/lib/rfq/workspacePrefsCache";
 import { loadSidebarListCache, saveSidebarListCache } from "@/lib/rfq/sidebarListCache";
 import type { RfqParseSessionFull } from "@/lib/rfq/sqlite/parseSessions";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleHelp, LogOut, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import type { CaseData, DocType, GapWorkflowStatus } from "@/data/rfqTypes";
+import type { CaseData } from "@/data/rfqTypes";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { SettingsMenu } from "@/components/settings/SettingsMenu";
 import { logout as clearAuthSession } from "@/components/auth/rfqAuth";
@@ -70,7 +60,6 @@ const showSupplierDb = isWorkspaceModuleEnabled("supplierdb");
 const showQuoteHistory = isAnalysisSubModuleEnabled("quoteHistory");
 type WorkspaceMode = "kb" | "inquiry" | "analysis" | "library" | "portfolio" | "supplierdb";
 type KbSubMode = "browse" | "training";
-type NewWorkspaceTab = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "documents" | "quote";
 
 type CatalogPayload = {
   upload_analyses?: RfqParseSessionRow[];
@@ -102,100 +91,6 @@ type GapFilterKey =
   | "sev-low"
   | `cat-${string}`;
 
-function clampPct(n: number) {
-  return Math.max(0, Math.min(100, n));
-}
-
-function isGapWorkflowClosed(w: GapWorkflowStatus | undefined): boolean {
-  return w === "resolved" || w === "accepted_risk";
-}
-
-const DOC_TYPE_LABEL: Record<DocType, string> = {
-  rfq: "RFQ Main",
-  cost: "Cost Template",
-  draw: "Drawing",
-  pkg: "Packaging",
-  test: "Test Spec",
-  q: "Questionnaire",
-  tech: "Tech Spec",
-  qual: "Quality",
-  comm: "Commercial",
-  nda: "NDA",
-};
-
-const DOC_TYPE_BADGE_CLS: Record<DocType, string> = {
-  rfq:
-    "border-primary/35 bg-primary/10 text-primary dark:border-primary/45 dark:bg-primary/6 dark:text-primary/90",
-  cost: "border-amber-400/35 bg-amber-400/10 dark:text-amber-200 text-amber-800",
-  draw: "border-emerald-400/30 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700",
-  pkg: "border-orange-500/30 bg-orange-500/10 dark:text-orange-200 text-orange-700",
-  test: "border-cyan-500/30 bg-cyan-500/10 dark:text-cyan-200 text-cyan-800",
-  q: "border-violet-500/30 bg-violet-500/10 dark:text-violet-200 text-violet-700",
-  tech: "border-sky-500/30 bg-sky-500/10 dark:text-sky-200 text-sky-800",
-  qual: "border-rose-400/30 bg-rose-400/10 dark:text-rose-200 text-rose-800",
-  comm: "border-amber-600/30 bg-amber-600/10 dark:text-amber-200 text-amber-900",
-  nda: "border-indigo-500/30 bg-indigo-500/10 dark:text-indigo-200 text-indigo-800",
-};
-
-function riskBucket(score: number) {
-  if (score >= 80) return "crit" as const;
-  if (score >= 60) return "high" as const;
-  if (score >= 40) return "med" as const;
-  return "low" as const;
-}
-
-function sidebarCustomerLabel(customer: string) {
-  // Dashboard menu formatting only: remove trailing "Automotive".
-  return customer.replace(/\s*Automotive$/i, "").trim();
-}
-
-function sidebarProgramLabel(program: string) {
-  // Dashboard menu formatting only: remove leading "NB-" prefix.
-  return program.replace(/^NB-/, "").trim();
-}
-
-function riskLabel(score: number) {
-  const b = riskBucket(score);
-  if (b === "crit") return "Critical";
-  if (b === "high") return "High";
-  if (b === "med") return "Medium";
-  return "Low";
-}
-
-function riskBadgeClasses(score: number) {
-  const b = riskBucket(score);
-  if (b === "crit") {
-    return "border-red-500/40 bg-red-500/15 dark:text-red-200 text-red-700";
-  }
-  if (b === "high") {
-    return "border-orange-500/40 bg-orange-500/15 dark:text-orange-200 text-orange-700";
-  }
-  if (b === "med") {
-    return "border-amber-400/35 bg-amber-400/10 dark:text-amber-200 text-amber-800";
-  }
-  return "border-emerald-400/35 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700";
-}
-
-function statusBadgeClasses(c: CaseData) {
-  if (c.completeness === "complete" && c.risk_score < 40) {
-    return "border-emerald-400/40 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700";
-  }
-  if (c.completeness === "incomplete") {
-    return "border-red-500/40 bg-red-500/15 dark:text-red-200 text-red-700";
-  }
-  if (c.risk_score >= 80) {
-    return "border-red-500/40 bg-red-500/15 dark:text-red-200 text-red-700";
-  }
-  if (c.risk_score >= 60) {
-    return "border-orange-500/40 bg-orange-500/15 dark:text-orange-200 text-orange-700";
-  }
-  return "border-amber-400/35 bg-amber-400/10 dark:text-amber-200 text-amber-800";
-}
-
-function formatMoney(n: number) {
-  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
 function uploadedFileFromPersistedRow(row: { session_id: string; original_filename: string }): UploadedPackageFile {
   const lower = row.original_filename.toLowerCase();
   const mimeType = lower.endsWith(".xls")
@@ -226,7 +121,6 @@ export default function RFQAgentDashboard() {
   const [analysisSelection, setAnalysisSelection] = useState<AnalysisSelection | null>(null);
   const [extractPackages, setExtractPackages] = useState<ExtractPackageSummary[]>([]);
   const [selectedExtractKey, setSelectedExtractKey] = useState<string | null>(null);
-  const [newWsTab, setNewWsTab] = useState<NewWorkspaceTab>("summary");
   const [kbSelectedSlug, setKbSelectedSlug] = useState<string | null>(null);
   const [sidebarQuery, setSidebarQuery] = useState("");
   const [catalog, setCatalog] = useState<CatalogPayload | null>(null);
@@ -236,7 +130,6 @@ export default function RFQAgentDashboard() {
   const [sidebarLoadBusy, setSidebarLoadBusy] = useState(false);
   /** After first catalog/cache merge; avoids writing an empty cache before hydration runs. */
   const [sidebarHydrated, setSidebarHydrated] = useState(false);
-  const supplyInputBaseId = useId();
   const [supplyDocBusySlot, setSupplyDocBusySlot] = useState<string | null>(null);
   const [supplyDocError, setSupplyDocError] = useState<string | null>(null);
   /** Per-file pipeline status (queued/analyzing/done/error) for sidebar progress pills. */
@@ -316,34 +209,6 @@ export default function RFQAgentDashboard() {
     },
     [uploadedRfqs, analysisSubMode, openDemoWorkbookAnalysis],
   );
-
-  const analysisWordOptions = useMemo(
-    () =>
-      extractPackages.map((p) => ({
-        key: p.key,
-        label: p.filename,
-        detail: `${p.section_count} sections`,
-      })),
-    [extractPackages],
-  );
-
-  const analysisWorkbookOptions = useMemo(() => {
-    const userWorkbooks = uploadedRfqs
-      .filter((u) => !isPreloadedDemoUpload(u))
-      .map((u) => ({
-        id: u.id,
-        label: u.originalName,
-        isDemo: false as const,
-      }));
-    return [
-      {
-        id: DEFAULT_DEMO_UPLOAD.id,
-        label: DEFAULT_DEMO_UPLOAD.originalName,
-        isDemo: true as const,
-      },
-      ...userWorkbooks,
-    ];
-  }, [uploadedRfqs]);
 
   const userWorkbookUploads = useMemo(
     () => uploadedRfqs.filter((u) => !isPreloadedDemoUpload(u)),
@@ -583,47 +448,6 @@ export default function RFQAgentDashboard() {
     }
   }
 
-  async function removeRfqFromSidebar(u: UploadedPackageFile) {
-    const isDemo = isPreloadedDemoUpload(u);
-    const msg = isDemo
-      ? `Remove the preloaded demo (“${u.originalName}”) from this list?`
-      : `Remove “${u.originalName}” from this list and delete its saved analysis from the database?`;
-    if (!window.confirm(msg)) return;
-
-    if (!isDemo) {
-      setSidebarLoadBusy(true);
-      try {
-        await fetch(`/api/rfq/database/sessions/${encodeURIComponent(u.id)}`, { method: "DELETE" });
-      } catch {
-        /* still drop from sidebar */
-      } finally {
-        setSidebarLoadBusy(false);
-      }
-    }
-
-    const nextList = uploadedRfqs.filter((x) => x.id !== u.id);
-    setUploadedRfqs(nextList);
-
-    if (session?.file.id === u.id) {
-      if (nextList.length > 0) {
-        void activateRfqFromSidebar(nextList[0]!);
-      } else {
-        setSession(null);
-        setSessionNotice(null);
-      }
-    }
-    clearGapSessionCache(u.id);
-    void (async () => {
-      try {
-        const r = await fetch("/api/rfq/database/catalog", { cache: "no-store" });
-        const data = (await r.json()) as CatalogPayload;
-        if (r.ok) setCatalog(data);
-      } catch {
-        /* ignore */
-      }
-    })();
-  }
-
   function handleUploaded(file: UploadedPackageFile) {
     setUploadedRfqs((prev) => {
       if (prev.some((u) => u.id === file.id)) return prev;
@@ -669,17 +493,6 @@ export default function RFQAgentDashboard() {
       }
     })();
   }
-
-  const docMissingCount = useMemo(
-    () => (c ? c.docs.filter((d) => d.status === "miss").length : 0),
-    [c],
-  );
-  const docConfidenceSummary = useMemo(() => {
-    if (!c) return null;
-    const ok = c.docs.filter((d) => d.status === "ok" && typeof d.conf === "number");
-    if (ok.length === 0) return null;
-    return ok.reduce((a, d) => a + (d.conf ?? 0), 0) / ok.length;
-  }, [c]);
 
   const kbClassBuckets = useMemo((): KbBucket[] => {
     const cats = catalog?.kb_categories ?? [];
@@ -848,69 +661,6 @@ export default function RFQAgentDashboard() {
     return visible;
   }, [c, gapFilter]);
 
-
-  const workflowSteps = useMemo(() => {
-    if (!c) {
-      return [
-        { n: 1, l: "Upload", s: "active" as const },
-        { n: 2, l: "Parse", s: "idle" as const },
-        { n: 3, l: "Normalize", s: "idle" as const },
-        { n: 4, l: "Gap Review", s: "idle" as const },
-        { n: 5, l: "Quote", s: "idle" as const },
-        { n: 6, l: "Submit", s: "idle" as const },
-        { n: 7, l: "Outcome", s: "idle" as const },
-      ] as const;
-    }
-    return [
-      { n: 1, l: "Upload", s: "done" as const },
-      { n: 2, l: "Parse", s: "done" as const },
-      { n: 3, l: "Normalize", s: "done" as const },
-      { n: 4, l: "Gap Review", s: "done" as const },
-      { n: 5, l: "Quote", s: c.risk_score < 40 ? ("active" as const) : ("idle" as const) },
-      { n: 6, l: "Submit", s: "idle" as const },
-      { n: 7, l: "Outcome", s: "idle" as const },
-    ] as const;
-  }, [c]);
-
-  const notes = useMemo(() => {
-    if (!c) return [];
-    const items: { title: string; body: string; severity: "low" | "medium" | "high" | "critical" }[] = [];
-    const open = c.gap_findings.filter((f) => !isGapWorkflowClosed(c.gap_workflow?.[f.rule]));
-    for (const g of open.slice(0, 6)) {
-      items.push({
-        title: g.title,
-        body: g.action || g.detail,
-        severity: g.sev,
-      });
-    }
-    if (items.length === 0) {
-      items.push({
-        title: "No open gaps",
-        body: "All current findings are resolved or accepted.",
-        severity: "low",
-      });
-    }
-    return items;
-  }, [c]);
-
-  const totalDocCount = c?.docs.length ?? 0;
-  const missingDocPct =
-    totalDocCount > 0 ? clampPct(((totalDocCount - docMissingCount) / totalDocCount) * 100) : 0;
-  const openHighGaps =
-    c?.gap_findings.filter((f) => f.sev === "high" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length ?? 0;
-  const openMedGaps =
-    c?.gap_findings.filter((f) => f.sev === "medium" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length ?? 0;
-  const openCritGaps =
-    c?.gap_findings.filter((f) => f.sev === "critical" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length ?? 0;
-  const openLowGaps =
-    c?.gap_findings.filter((f) => f.sev === "low" && !isGapWorkflowClosed(c.gap_workflow?.[f.rule])).length ?? 0;
-
-  const parsedDocCount = (c?.docs.length ?? 0) - docMissingCount;
-  const completenessPctRounded = Math.round(missingDocPct);
-  const completenessTone = missingDocPct >= 85 ? "good" : missingDocPct >= 60 ? "warn" : "bad";
-
-  const rulesTriggered = c?.triggered_rules.length ?? 0;
-  const rulesTriggeredPct = Math.round((rulesTriggered / 28) * 100);
 
   function showRaToast(msg: string) {
     const el = document.createElement("div");
@@ -1687,17 +1437,12 @@ export default function RFQAgentDashboard() {
               packageId={selectedExtractKey}
               packageLabel={selectedExtractPackage?.filename ?? null}
               sessionId={session?.file.id ?? null}
-              sessionLabel={session?.file.originalName ?? null}
             />
           ) : workspaceMode === "kb" && kbSubMode === "browse" ? (
             kbBucketSelected ? (
               <RfqKbMainPanel
                 kbBucket={kbBucketSelected}
                 projects={kbBucketSelected.projects}
-                onOpenPortfolioRfq={() => {
-                  setWorkspaceMode("kb");
-                  setKbSubMode("training");
-                }}
               />
             ) : (
               <div className="ra-canvas-content text-[var(--ra-muted)] text-sm">Loading knowledge base…</div>
@@ -1804,349 +1549,6 @@ function SidebarStatusPill({
     >
       {label}
     </span>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  mono,
-  tone = "default",
-  pill,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  tone?: "default" | "accent" | "destructive" | "warn";
-  pill?: boolean;
-}) {
-  const toneCls =
-    tone === "destructive"
-      ? "dark:text-red-200 text-red-700"
-      : tone === "accent"
-        ? "text-accent dark:text-accent/90"
-        : tone === "warn"
-          ? "dark:text-amber-200 text-amber-800"
-          : "text-foreground";
-
-  const pillCls =
-    tone === "destructive"
-      ? "border-red-500/35 bg-red-500/10 dark:bg-red-500/10"
-      : tone === "accent"
-        ? "border-accent/35 bg-accent/8 dark:bg-accent/6"
-        : tone === "warn"
-          ? "border-amber-400/35 bg-amber-400/10 dark:bg-amber-400/8"
-          : "border-border bg-background/20";
-
-  return (
-    <div>
-      <div className="text-[10px] font-semibold tracking-[0.12em] uppercase text-muted-foreground font-mono">
-        {label}
-      </div>
-      {pill ? (
-        <div
-          className={[
-            "mt-1 inline-flex items-center rounded-md border px-2.5 py-1 text-sm font-semibold",
-            mono ? "font-mono" : "font-sans",
-            pillCls,
-            toneCls,
-          ].join(" ")}
-        >
-          {value}
-        </div>
-      ) : (
-        <div className={["mt-1 text-sm", mono ? "font-mono" : "font-sans", toneCls].join(" ")}>{value}</div>
-      )}
-    </div>
-  );
-}
-
-function KeyValue({
-  label,
-  value,
-  mono,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  tone?: "default" | "accent" | "destructive";
-}) {
-  const toneCls =
-    tone === "destructive"
-      ? "dark:text-red-200 text-red-700"
-      : tone === "accent"
-        ? "text-accent dark:text-accent/90"
-        : "text-foreground";
-  return (
-    <div className="rounded-xl border border-border bg-background/30 p-3.5">
-      <div className="text-[11px] font-semibold tracking-[0.12em] uppercase text-muted-foreground font-mono">
-        {label}
-      </div>
-      <div className={["mt-1 text-[13px] font-semibold", mono ? "font-mono" : "", toneCls].join(" ")}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function FlagBadge({
-  tone,
-  children,
-}: {
-  tone: "good" | "bad" | "warn" | "accent";
-  children: ReactNode;
-}) {
-  const cls =
-    tone === "good"
-      ? "border-emerald-400/35 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700"
-      : tone === "bad"
-        ? "border-red-500/35 bg-red-500/10 dark:text-red-200 text-red-700"
-        : tone === "warn"
-          ? "border-amber-400/35 bg-amber-400/10 dark:text-amber-200 text-amber-800"
-          : "border-accent/40 bg-accent/10 text-accent dark:text-accent/90";
-
-  return (
-    <span className={["inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-mono", cls].join(" ")}>
-      {children}
-    </span>
-  );
-}
-
-function SeverityPill({
-  sev,
-  count,
-  active,
-  onClick,
-}: {
-  sev: "critical" | "high" | "medium" | "low";
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const tone =
-    sev === "critical"
-      ? "border-red-500/40 bg-red-500/10 dark:text-red-200 text-red-700"
-      : sev === "high"
-        ? "border-orange-500/40 bg-orange-500/10 dark:text-orange-200 text-orange-700"
-        : sev === "medium"
-          ? "border-amber-400/40 bg-amber-400/10 dark:text-amber-200 text-amber-800"
-          : "border-cyan-500/40 bg-cyan-500/10 dark:text-cyan-200 text-cyan-800";
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "h-9 px-3 rounded-xl border font-mono text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        active ? "bg-card" : "bg-background/15 hover:bg-background/25",
-        tone,
-      ].join(" ")}
-    >
-      <span className="font-semibold">{count}</span> {sev}
-    </button>
-  );
-}
-
-function filterButtonCls(active: boolean) {
-  return [
-    "h-9 px-3 rounded-lg border font-mono text-[11px] transition",
-    active
-      ? "border-accent/50 bg-card text-accent dark:text-accent/90"
-      : "border-border bg-background/20 text-muted-foreground hover:bg-background/30",
-  ].join(" ");
-}
-
-function MiniStat({ label, value, tone }: { label: string; value: string; tone: "good" | "warn" | "neutral" }) {
-  const cls =
-    tone === "good"
-      ? "dark:text-emerald-200 text-emerald-700 border-emerald-400/30 bg-emerald-400/10"
-      : tone === "warn"
-        ? "dark:text-amber-200 text-amber-800 border-amber-400/30 bg-amber-400/10"
-        : "text-muted-foreground border-border bg-background/20";
-  return (
-    <div className={["rounded-xl border p-2", cls].join(" ")}>
-      <div className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1 font-mono text-[12px] font-semibold">{value}</div>
-    </div>
-  );
-}
-
-function SummaryStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="rounded-xl border border-border bg-background/25 p-3.5">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono">
-        {label}
-      </div>
-      <div
-        className={["mt-2 text-[14px] font-semibold font-mono", accent ? "text-accent dark:text-accent/90" : "text-foreground"].join(
-          " ",
-        )}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function CostBreakdownBars({ c }: { c: CaseData }) {
-  const cb = c.quote.cost_breakdown;
-  const l = c.quote.lines[0];
-
-  const entries = [
-    ["Material", cb.material],
-    ["Labor", cb.labor],
-    ["Machine", cb.machine],
-    ["Overhead", cb.overhead],
-    ["Scrap", cb.scrap],
-    ["Quality / PPAP", cb.quality],
-    ["Logistics", cb.logistics],
-    ["Packaging", cb.packaging],
-  ] as const;
-
-  const maxV = cb.material;
-
-  return (
-    <div className="space-y-3">
-      {entries.map(([k, v]) => {
-        const isWarn =
-          (k === "Packaging" && v === 0) ||
-          (k === "Logistics" && v < 0.15 && c.incoterm.startsWith("DDP"));
-
-        const barBg =
-          isWarn
-            ? "bg-red-500"
-            : k === "Scrap"
-              ? "bg-orange-500"
-              : "bg-amber-400";
-
-        return (
-          <div key={k} className="flex items-center gap-3">
-            <div className="w-[140px] text-[12px] text-muted-foreground font-semibold">{k}</div>
-            <div className="flex-1 h-2 rounded-full border border-border bg-card/40 overflow-hidden">
-              <div
-                className={["h-full", barBg].join(" ")}
-                style={{ width: `${Math.min(100, (v / maxV) * 100)}%` }}
-              />
-            </div>
-            <div className={["w-[90px] text-right font-mono text-[12px] font-semibold", isWarn ? "dark:text-red-200 text-red-700" : "text-foreground"].join(" ")}>
-              {isWarn ? "⚠ " : ""}
-              ${v.toFixed(2)}
-            </div>
-          </div>
-        );
-      })}
-
-      <div className="flex items-center gap-3 pt-2 border-t border-border">
-        <div className="w-[140px] text-[12px] text-muted-foreground font-semibold">Total Cost</div>
-        <div className="flex-1 h-2 rounded-full border border-border bg-card/40 overflow-hidden">
-          <div className="h-full bg-primary" style={{ width: "100%" }} />
-        </div>
-        <div className="w-[90px] text-right font-mono text-[12px] font-semibold text-foreground">
-          ${cb.total.toFixed(2)}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="w-[140px] text-[12px] text-muted-foreground font-semibold">Unit Price</div>
-        <div className="flex-1 h-2 rounded-full border border-border bg-card/40 overflow-hidden">
-          <div className="h-full bg-accent" style={{ width: "100%" }} />
-        </div>
-        <div className="w-[90px] text-right font-mono text-[12px] font-semibold text-accent dark:text-accent/90">
-          ${l.price.toFixed(2)}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="w-[140px] text-[12px] text-muted-foreground font-semibold">Gross Margin</div>
-        <div className="flex-1 h-2 rounded-full border border-border bg-card/40 overflow-hidden">
-          <div
-            className="h-full bg-emerald-400"
-            style={{ width: `${Math.min(100, l.margin)}%` }}
-          />
-        </div>
-        <div className={[
-          "w-[90px] text-right font-mono text-[12px] font-semibold",
-          l.margin >= 17 ? "dark:text-emerald-200 text-emerald-700" : l.margin >= 13 ? "dark:text-amber-200 text-amber-800" : "dark:text-red-200 text-red-700",
-        ].join(" ")}>
-          {l.margin.toFixed(1)}%
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HistoricalBenchmark({ c }: { c: CaseData }) {
-  const histMatched = c.historical_benchmark.filter((h) => c.quote.hist_match.includes(h.id)).slice(0, 3);
-  const [lo, hi] = c.quote.hist_price_band;
-  const [tlo, thi] = c.quote.hist_tooling_band;
-  const l = c.quote.lines[0];
-
-  return (
-    <div className="space-y-3">
-      <div className="space-y-2">
-        {histMatched.map((h) => (
-          <div key={h.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/20 px-3 py-2">
-            <div className="font-mono text-[12px] text-muted-foreground">{h.id}</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[12px] text-foreground font-semibold truncate">{h.pn} · {h.material}</div>
-              <div className="text-[11px] font-mono text-muted-foreground">
-                {h.vol.toLocaleString()} pcs · PPAP L{h.ppap}
-              </div>
-            </div>
-            <div className={["font-mono text-[12px] font-semibold", h.award === "Won" ? "dark:text-emerald-200 text-emerald-700" : "dark:text-red-200 text-red-700"].join(" ")}>
-              ${h.price.toFixed(2)} · {h.award}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-xl border border-border bg-background/25 p-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono mb-2">
-            Hist. Price Band
-          </div>
-          <div className="font-mono text-sm font-semibold dark:text-emerald-200 text-emerald-700">
-            ${lo.toFixed(2)} – ${hi.toFixed(2)}
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-background/25 p-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono mb-2">
-            This Quote
-          </div>
-          <div
-            className={[
-              "font-mono text-sm font-semibold",
-              l.price < lo
-                ? "dark:text-red-200 text-red-700"
-                : l.price > hi
-                  ? "dark:text-amber-200 text-amber-800"
-                  : "dark:text-emerald-200 text-emerald-700",
-            ].join(" ")}
-          >
-            ${l.price.toFixed(2)}
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-background/25 p-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono mb-2">
-            Hist. Tooling Band
-          </div>
-          <div className="font-mono text-sm font-semibold dark:text-emerald-200 text-emerald-700">
-            ${tlo.toLocaleString()} – ${thi.toLocaleString()}
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-background/25 p-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono mb-2">
-            This Tooling
-          </div>
-          <div className="font-mono text-sm font-semibold text-accent dark:text-accent/90">
-            ${c.quote.total_tooling.toLocaleString()}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 

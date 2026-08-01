@@ -8,7 +8,6 @@ export type RfqKbInquiryPanelProps = {
   packageId?: string | null;
   packageLabel?: string | null;
   sessionId?: string | null;
-  sessionLabel?: string | null;
 };
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -24,7 +23,6 @@ export function RfqKbInquiryPanel({
   packageId,
   packageLabel,
   sessionId,
-  sessionLabel,
 }: RfqKbInquiryPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
