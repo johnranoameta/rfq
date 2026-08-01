@@ -7,7 +7,13 @@ import { buildGapAnalysisFromWorkbook } from "@/lib/rfq/gapFromWorkbook";
 import { loadHistoricalKnowledge, rankHistoricalMatches } from "@/lib/rfq/loadHistoricalKnowledge";
 import { mapParsedLineItemsToMatchCriteria, mapParsedToMatchCriteria } from "@/lib/rfq/mapParsedToMatch";
 import { runOpenAiGapAnalysis } from "@/lib/rfq/openaiGapAnalysis";
-import { parseRfqWorkbook, techSpecForPart } from "@/lib/rfq/parseRfqWorkbook";
+import { parseRfqWorkbook, techSpecForPart, type ParsedRfqWorkbook } from "@/lib/rfq/parseRfqWorkbook";
+import {
+  looksLikeBomPartsRfqUpload,
+  parseBomPartsAsRfqWorkbook,
+  type RfqExtraInfoSheet,
+} from "@/lib/rfq/parseBomPartsAsRfqWorkbook";
+import { maybeSyncBomPartsFromRfqUpload } from "@/lib/rfq/syncBomPartsFromRfqUpload";
 import { upsertKnowledgeBaseFromUpload } from "@/lib/rfq/sqlite/kbUploads";
 import { upsertRfqParseSession } from "@/lib/rfq/sqlite/parseSessions";
 import { resolveUploadedWorkbookPath } from "@/lib/rfq/uploadPaths";
@@ -68,8 +74,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const workbook = parseRfqWorkbook(buffer);
-    const parsed = workbookToAgentParsed(workbook);
+    let workbook: ParsedRfqWorkbook;
+    let extraInfo: RfqExtraInfoSheet[] | null = null;
+    if (looksLikeBomPartsRfqUpload(buffer)) {
+      const adapted = parseBomPartsAsRfqWorkbook(buffer);
+      workbook = adapted.workbook;
+      extraInfo = adapted.extraInfo;
+    } else {
+      workbook = parseRfqWorkbook(buffer);
+    }
+    const base = workbookToAgentParsed(workbook);
+    const parsed = extraInfo !== null ? { ...base, extra_info: extraInfo } : base;
     const bundle = await loadHistoricalKnowledge();
     const candidateProjects = filterSelfKbProjects(bundle.projects, uploadId, parsed);
     const criteria = mapParsedToMatchCriteria(parsed);
@@ -171,6 +186,11 @@ export async function POST(request: Request) {
           });
         } catch (kbErr) {
           console.error("[analyze-uploaded-workbook] knowledge base append", kbErr);
+        }
+        try {
+          maybeSyncBomPartsFromRfqUpload(buffer, uploadId);
+        } catch (bomErr) {
+          console.error("[analyze-uploaded-workbook] bom_parts sync", bomErr);
         }
       } catch (persistErr) {
         console.error("[analyze-uploaded-workbook] persist", persistErr);

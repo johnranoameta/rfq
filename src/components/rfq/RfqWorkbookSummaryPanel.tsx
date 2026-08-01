@@ -444,6 +444,52 @@ export function RfqWorkbookSummaryPanel({
           </CardContent>
         </Card>
       </div>
+
+      {c.extra_info && c.extra_info.length > 0 ? (
+        <Card className="bg-card/45 border-border">
+          <CardHeader className="p-5 pb-3">
+            <CardTitle className="text-[12px] tracking-wide font-semibold text-muted-foreground uppercase">
+              Additional Sheet Data
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 pt-0 space-y-4">
+            {c.extra_info.map((sheet) => {
+              const columns = sheet.rows.length > 0 ? Object.keys(sheet.rows[0]!) : [];
+              return (
+                <div key={sheet.sheet}>
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                    {sheet.sheet}
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full text-[12px]">
+                      <thead>
+                        <tr className="bg-background/20">
+                          {columns.map((col) => (
+                            <th key={col} className="text-left px-3 py-2 font-semibold text-muted-foreground">
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sheet.rows.map((row, i) => (
+                          <tr key={i} className="border-t border-border">
+                            {columns.map((col) => (
+                              <td key={col} className="px-3 py-2 align-top text-foreground">
+                                {row[col] || "—"}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }
