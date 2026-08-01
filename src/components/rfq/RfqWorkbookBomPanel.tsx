@@ -12,7 +12,8 @@ function EditableCell({
 }: {
   value: string;
   numeric?: boolean;
-  onSave: (raw: string) => Promise<void>;
+  /** Resolves with the saved field's server-normalized display value (e.g. "007" -> "7"). */
+  onSave: (raw: string) => Promise<string>;
 }) {
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,12 @@ function EditableCell({
     setSaving(true);
     setError(null);
     try {
-      await onSave(draft);
+      const saved = await onSave(draft);
+      // Resync from this save's own response rather than waiting for the `value` prop
+      // to come back around through a later reload() — if the server normalizes the
+      // input to something already equal to the current `value`, the prop never
+      // changes and the effect above would never fire, leaving stale text on screen.
+      setDraft(saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -38,12 +44,14 @@ function EditableCell({
   return (
     <div>
       <input
-        type={numeric ? "number" : "text"}
+        type="text"
+        inputMode={numeric ? "decimal" : undefined}
         className={["ra-cell-input", error ? "ra-cell-input-error" : ""].join(" ")}
         value={draft}
         disabled={saving}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
+        onWheel={(e) => e.currentTarget.blur()}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
         }}
@@ -59,7 +67,7 @@ export function RfqWorkbookBomPanel({ fileId }: { fileId: string }) {
   const { rows, loading, error, uploadBusy, uploadMessage, upload, reload } = useBomParts(fileId);
 
   const saveField = useCallback(
-    async (id: number, field: EditableBomPartField, raw: string) => {
+    async (id: number, field: EditableBomPartField, raw: string): Promise<string> => {
       const res = await fetch(`/api/rfq/bom-parts/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -67,7 +75,12 @@ export function RfqWorkbookBomPanel({ fileId }: { fileId: string }) {
       });
       const json = (await res.json()) as { row?: BomPartRow; error?: string };
       if (!res.ok) throw new Error(json.error || `Save failed (${res.status})`);
-      await reload();
+      // Keep the rest of the table (and other useBomParts consumers, e.g. Costing agent)
+      // in sync, but don't make the cell that was just edited wait on it — it already
+      // has the authoritative value from this save's own response, below.
+      void reload();
+      const saved = json.row?.[field];
+      return saved != null ? String(saved) : "";
     },
     [reload],
   );
@@ -176,7 +189,7 @@ export function RfqWorkbookBomPanel({ fileId }: { fileId: string }) {
                     <th>Description</th>
                     <th>Sub-assembly / Program</th>
                     <th>Qty</th>
-                    <th>Unit cost (as quoted)</th>
+                    <th>Unit cost</th>
                     <th>Identity</th>
                   </tr>
                 </thead>
@@ -187,7 +200,7 @@ export function RfqWorkbookBomPanel({ fileId }: { fileId: string }) {
                       <td>
                         <EditableCell value={r.description ?? ""} onSave={(v) => saveField(r.id, "description", v)} />
                         <div className="text-[11px] text-[var(--ra-muted)] mt-1">
-                          as supplied: <EditableCell value={r.ref_designator} onSave={(v) => saveField(r.id, "ref_designator", v)} />
+                          ref designator: <EditableCell value={r.ref_designator} onSave={(v) => saveField(r.id, "ref_designator", v)} />
                         </div>
                       </td>
                       <td className="text-[var(--ra-mid)]">
