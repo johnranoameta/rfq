@@ -1,63 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { ExtractPackageSummary } from "@/components/extraction/RfqWordExtractWorkspace";
 import type { AnalysisSelection, AnalysisSubMode } from "@/components/rfq/RfqAnalysisShell";
-import { STORED_NAME_DB_ONLY, type UploadedPackageFile } from "@/components/rfq/RfqPackageUpload";
+import type { UploadedPackageFile } from "@/components/rfq/RfqPackageUpload";
+import { useActivateRfq } from "@/components/rfq/dashboard/hooks/useActivateRfq";
 import type { DashboardSession } from "@/components/rfq/dashboard/hooks/useGapDocumentActions";
-import type {
-  CatalogPayload,
-  GapFilterKey,
-  WorkspaceMode,
-} from "@/components/rfq/dashboard/types";
+import { useEnsureWorkbookSession } from "@/components/rfq/dashboard/hooks/useEnsureWorkbookSession";
+import { useHydrateUploadList } from "@/components/rfq/dashboard/hooks/useHydrateUploadList";
+import { useWorkspacePersistence } from "@/components/rfq/dashboard/hooks/useWorkspacePersistence";
+import type { CatalogPayload, GapFilterKey, WorkspaceMode } from "@/components/rfq/dashboard/types";
 import {
   DEFAULT_DEMO_UPLOAD,
   getDefaultDemoSession,
   isPreloadedDemoUpload,
 } from "@/data/sampleRfqPipeline";
-import { fetchJsonNoStore } from "@/lib/http/fetchJson";
-import { buildCaseDataFromPersisted } from "@/lib/rfq/caseFromPersisted";
-import {
-  loadGapSessionCache,
-  restoreGapSessionCaseData,
-  saveGapSessionCache,
-} from "@/lib/rfq/gapSessionCache";
-import { loadSidebarListCache, saveSidebarListCache } from "@/lib/rfq/sidebarListCache";
-import type { RfqParseSessionFull } from "@/lib/rfq/sqlite/parseSessions";
-import { loadWorkspacePrefs, saveWorkspacePrefs } from "@/lib/rfq/workspacePrefsCache";
-
-const WORKBOOK_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
-/** SQLite rows arrive without the upload's original mime/size, so they are reconstructed. */
-function uploadedFileFromPersistedRow(row: {
-  session_id: string;
-  original_filename: string;
-}): UploadedPackageFile {
-  const isLegacyXls = row.original_filename.toLowerCase().endsWith(".xls");
-  return {
-    id: row.session_id,
-    originalName: row.original_filename,
-    size: 0,
-    mimeType: isLegacyXls ? "application/vnd.ms-excel" : WORKBOOK_MIME,
-    storedName: STORED_NAME_DB_ONLY,
-  };
-}
-
-/** Union of two lists by id, preserving order and preferring the first occurrence. */
-function mergeById(
-  primary: UploadedPackageFile[],
-  secondary: UploadedPackageFile[],
-): UploadedPackageFile[] {
-  const seen = new Set<string>();
-  const out: UploadedPackageFile[] = [];
-  for (const u of [...primary, ...secondary]) {
-    if (seen.has(u.id)) continue;
-    seen.add(u.id);
-    out.push(u);
-  }
-  return out;
-}
+import { restoreGapSessionCaseData } from "@/lib/rfq/gapSessionCache";
 
 export type RfqWorkspaceOptions = {
   showPortfolio: boolean;
@@ -78,13 +37,12 @@ export type RfqWorkspaceOptions = {
 };
 
 /**
- * Owns the dashboard's interdependent workspace state: which RFQ is loaded,
- * which workspace and sub-mode are showing, the sidebar upload list, and the
- * hydration handshake that restores all three after a refresh.
+ * Owns which RFQ is loaded, what the Analysis pane points at, and the sidebar
+ * upload list.
  *
- * These cannot be split further without inventing cross-hook signalling — the
- * "restore prefs, then load the RFQ they point at" sequence is one flow. What
- * is separated is the rendering: this file holds no JSX.
+ * Persistence lives in `useWorkspacePersistence` and the load itself in
+ * `useActivateRfq`; what remains here is the state those two operate on plus
+ * the selection logic tying them together.
  */
 export function useRfqWorkspace(options: RfqWorkspaceOptions) {
   const {
@@ -108,194 +66,82 @@ export function useRfqWorkspace(options: RfqWorkspaceOptions) {
   const [analysisSelection, setAnalysisSelection] = useState<AnalysisSelection | null>(null);
   const [gapFilter, setGapFilter] = useState<GapFilterKey>("all");
   const [sidebarLoadBusy, setSidebarLoadBusy] = useState(false);
-  /** Set after the first catalog/cache merge; gates cache writes so we never persist an empty list. */
-  const [hydrated, setHydrated] = useState(false);
+  const hydrated = useHydrateUploadList(setUploadedRfqs, setCatalog);
 
-  const prefsRestoredRef = useRef(false);
-  /** Blocks prefs/cache writes until startup restore finishes. */
-  const initialHydrationDoneRef = useRef(false);
-  /** Avoids re-fetch loops when a selected upload has no stored analysis. */
-  const sessionEnsureKeyRef = useRef<string | null>(null);
+  /** Which fileId the ensure-effect already tried; cleared on an explicit pick. */
+  const attemptedFileIdRef = useRef<string | null>(null);
 
   const caseData = session?.caseData ?? null;
   const isAnalysis = workspaceMode === "analysis";
 
-  // Portfolio can be switched off by env; fall back rather than render a dead pane.
-  useEffect(() => {
-    if (!showPortfolio && workspaceMode === "portfolio") setWorkspaceMode("library");
-  }, [showPortfolio, workspaceMode, setWorkspaceMode]);
+  const restoreDoneRef = useWorkspacePersistence({
+    hydrated,
+    uploadedRfqs,
+    session,
+    workspaceMode,
+    analysisSubMode,
+    analysisSelection,
+    showPortfolio,
+    showQuoteHistory,
+    setWorkspaceMode,
+    setAnalysisSubMode,
+    setAnalysisSelection,
+  });
 
-  useEffect(() => {
-    if (showQuoteHistory || analysisSubMode !== "quote") return;
-    setAnalysisSubMode("summary");
-  }, [showQuoteHistory, analysisSubMode]);
-
-  /**
-   * Rehydrate the sidebar after refresh/login: SQLite via the catalog when
-   * reachable, else the localStorage backup. Logout only clears auth keys —
-   * RFQs stay in `data/rfq.sqlite` and in this cache.
-   */
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      let fromSource: UploadedPackageFile[] = [];
-      try {
-        const data = await fetchJsonNoStore<CatalogPayload>(
-          "/api/rfq/database/catalog",
-          "Load failed",
-        );
-        if (!cancelled) setCatalog(data);
-        const fromApi = Array.isArray(data.upload_analyses)
-          ? data.upload_analyses.map(uploadedFileFromPersistedRow)
-          : [];
-        fromSource = mergeById(fromApi, loadSidebarListCache());
-      } catch {
-        fromSource = loadSidebarListCache();
-      }
-      if (cancelled) return;
-      setUploadedRfqs((prev) => mergeById(fromSource, prev));
-      setHydrated(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [setCatalog]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    saveSidebarListCache(uploadedRfqs);
-  }, [uploadedRfqs, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated || !session?.caseData) return;
-    saveGapSessionCache(session.file.id, session.caseData);
-  }, [session, hydrated]);
-
-  /** On refresh, restore workspace prefs before anything is allowed to persist. */
-  useEffect(() => {
-    if (!hydrated || prefsRestoredRef.current) return;
-    prefsRestoredRef.current = true;
-
-    const prefs = loadWorkspacePrefs();
-    if (prefs) {
-      setWorkspaceMode(prefs.workspaceMode);
-      setAnalysisSubMode(
-        prefs.analysisSubMode === "quote" && !showQuoteHistory ? "summary" : prefs.analysisSubMode,
-      );
-      if (prefs.analysisSelection) setAnalysisSelection(prefs.analysisSelection);
-    } else if (!uploadedRfqs.some((u) => !isPreloadedDemoUpload(u))) {
-      // First run with nothing of the user's own: land on the demo workbook.
+  const openDemoWorkbookAnalysis = useCallback(
+    (subMode: AnalysisSubMode = "summary") => {
+      attemptedFileIdRef.current = null;
       setWorkspaceMode("analysis");
-      setAnalysisSubMode("summary");
+      setAnalysisSubMode(subMode);
       setAnalysisSelection({
         kind: "workbook",
         fileId: DEFAULT_DEMO_UPLOAD.id,
         label: DEFAULT_DEMO_UPLOAD.originalName,
       });
-    }
-
-    initialHydrationDoneRef.current = true;
-  }, [hydrated, uploadedRfqs, showQuoteHistory, setWorkspaceMode]);
-
-  useEffect(() => {
-    if (!hydrated || !initialHydrationDoneRef.current) return;
-    saveWorkspacePrefs({ workspaceMode, analysisSubMode, analysisSelection });
-  }, [workspaceMode, analysisSubMode, analysisSelection, hydrated]);
-
-  const openDemoWorkbookAnalysis = useCallback((subMode: AnalysisSubMode = "summary") => {
-    sessionEnsureKeyRef.current = null;
-    setWorkspaceMode("analysis");
-    setAnalysisSubMode(subMode);
-    setAnalysisSelection({
-      kind: "workbook",
-      fileId: DEFAULT_DEMO_UPLOAD.id,
-      label: DEFAULT_DEMO_UPLOAD.originalName,
-    });
-    setUploadedRfqs((prev) =>
-      prev.some((x) => x.id === DEFAULT_DEMO_UPLOAD.id) ? prev : [DEFAULT_DEMO_UPLOAD, ...prev],
-    );
-    const defaultSession = getDefaultDemoSession();
-    setSession({
-      file: defaultSession.file,
-      caseData: restoreGapSessionCaseData(DEFAULT_DEMO_UPLOAD.id, defaultSession.caseData),
-    });
-    setSessionNotice(null);
-    setSidebarLoadBusy(false);
-    setPipelineBusy(false);
-    setGapFilter("all");
-  }, [setWorkspaceMode]);
-
-  /**
-   * Loads a stored analysis into the dashboard, falling back to the local gap
-   * cache when the row is missing or the network fails.
-   */
-  const activateRfq = useCallback(
-    async (u: UploadedPackageFile) => {
-      if (pipelineBusy || sidebarLoadBusy) return;
-      if (isPreloadedDemoUpload(u)) {
-        openDemoWorkbookAnalysis(analysisSubMode);
-        return;
-      }
-      setSidebarLoadBusy(true);
+      setUploadedRfqs((prev) =>
+        prev.some((x) => x.id === DEFAULT_DEMO_UPLOAD.id) ? prev : [DEFAULT_DEMO_UPLOAD, ...prev],
+      );
+      const defaultSession = getDefaultDemoSession();
+      setSession({
+        file: defaultSession.file,
+        caseData: restoreGapSessionCaseData(DEFAULT_DEMO_UPLOAD.id, defaultSession.caseData),
+      });
       setSessionNotice(null);
-
-      const fallBackToCache = (notice: string) => {
-        const cached = loadGapSessionCache(u.id);
-        if (cached) {
-          setSession({ file: u, caseData: cached });
-          setSessionNotice(null);
-        } else {
-          setSessionNotice(notice);
-        }
-      };
-
-      try {
-        const res = await fetch(`/api/rfq/database/sessions/${encodeURIComponent(u.id)}`, {
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const row = (await res.json()) as RfqParseSessionFull;
-          const fileDb: UploadedPackageFile = {
-            id: u.id,
-            originalName: u.originalName,
-            size: u.size,
-            mimeType: u.mimeType || WORKBOOK_MIME,
-            storedName: STORED_NAME_DB_ONLY,
-          };
-          setSession({
-            file: fileDb,
-            caseData: restoreGapSessionCaseData(u.id, buildCaseDataFromPersisted(row, fileDb)),
-          });
-          setPipelineBusy(false);
-          setGapFilter("all");
-          return;
-        }
-        fallBackToCache(
-          res.status === 404
-            ? "No stored analysis for this upload. Run analysis while the workbook file is on the server, or upload the workbook again."
-            : `Could not load RFQ (${res.status}).`,
-        );
-      } catch {
-        fallBackToCache("Network error loading stored RFQ.");
-      } finally {
-        setSidebarLoadBusy(false);
-      }
+      setSidebarLoadBusy(false);
+      setPipelineBusy(false);
+      setGapFilter("all");
     },
-    [pipelineBusy, sidebarLoadBusy, analysisSubMode, openDemoWorkbookAnalysis],
+    [setWorkspaceMode],
   );
+
+  const openDemoAtCurrentSubMode = useCallback(
+    () => openDemoWorkbookAnalysis(analysisSubMode),
+    [openDemoWorkbookAnalysis, analysisSubMode],
+  );
+
+  const activateRfq = useActivateRfq({
+    pipelineBusy,
+    sidebarLoadBusy,
+    setSidebarLoadBusy,
+    setSession,
+    setSessionNotice,
+    setPipelineBusy,
+    setGapFilter,
+    openDemo: openDemoAtCurrentSubMode,
+  });
 
   const selectWorkbook = useCallback(
     (u: UploadedPackageFile) => {
-      sessionEnsureKeyRef.current = null;
+      attemptedFileIdRef.current = null;
       if (u.id === DEFAULT_DEMO_UPLOAD.id) {
-        openDemoWorkbookAnalysis(analysisSubMode);
+        openDemoAtCurrentSubMode();
         return;
       }
       setWorkspaceMode("analysis");
       setAnalysisSelection({ kind: "workbook", fileId: u.id, label: u.originalName });
       void activateRfq(u);
     },
-    [analysisSubMode, openDemoWorkbookAnalysis, activateRfq, setWorkspaceMode],
+    [openDemoAtCurrentSubMode, activateRfq, setWorkspaceMode],
   );
 
   const selectWordPackage = useCallback(
@@ -309,54 +155,20 @@ export function useRfqWorkspace(options: RfqWorkspaceOptions) {
     [extractPackages, setSelectedExtractKey, setWorkspaceMode],
   );
 
-  /** Load workbook caseData whenever Analysis points at a workbook but no session is loaded. */
-  useEffect(() => {
-    if (!hydrated || !initialHydrationDoneRef.current) return;
-    if (!isAnalysis || sidebarLoadBusy || pipelineBusy) return;
-
-    const sel = analysisSelection;
-    if (sel?.kind !== "workbook") return;
-    if (session?.file.id === sel.fileId && session.caseData) return;
-
-    // Already attempted this file: fall back to cache instead of re-fetching.
-    if (sessionEnsureKeyRef.current === sel.fileId) {
-      const cached = loadGapSessionCache(sel.fileId);
-      if (!cached) return;
-      const file =
-        uploadedRfqs.find((u) => u.id === sel.fileId) ??
-        (sel.fileId === DEFAULT_DEMO_UPLOAD.id
-          ? DEFAULT_DEMO_UPLOAD
-          : {
-              id: sel.fileId,
-              originalName: sel.label,
-              size: 0,
-              mimeType: WORKBOOK_MIME,
-              storedName: STORED_NAME_DB_ONLY,
-            });
-      setSession({ file, caseData: cached });
-      return;
-    }
-    sessionEnsureKeyRef.current = sel.fileId;
-
-    if (sel.fileId === DEFAULT_DEMO_UPLOAD.id) {
-      openDemoWorkbookAnalysis(analysisSubMode);
-      return;
-    }
-    const u = uploadedRfqs.find((x) => x.id === sel.fileId);
-    if (u) void activateRfq(u);
-  }, [
+  useEnsureWorkbookSession({
     hydrated,
+    restoreDoneRef,
     isAnalysis,
-    analysisSelection,
-    analysisSubMode,
-    session?.file.id,
-    session?.caseData,
     sidebarLoadBusy,
     pipelineBusy,
+    selection: analysisSelection,
+    session,
     uploadedRfqs,
-    openDemoWorkbookAnalysis,
+    setSession,
+    attemptedFileIdRef,
+    openDemo: openDemoAtCurrentSubMode,
     activateRfq,
-  ]);
+  });
 
   const addUpload = useCallback((file: UploadedPackageFile) => {
     setUploadedRfqs((prev) => (prev.some((u) => u.id === file.id) ? prev : [file, ...prev]));
@@ -402,6 +214,8 @@ export function useRfqWorkspace(options: RfqWorkspaceOptions) {
     [uploadedRfqs],
   );
 
+  const sessionFile = session?.file;
+
   /** Falls back to the selected Word package, then the loaded session. */
   const resolvedSelection = useMemo((): AnalysisSelection | null => {
     if (analysisSelection) return analysisSelection;
@@ -410,11 +224,11 @@ export function useRfqWorkspace(options: RfqWorkspaceOptions) {
       const pkg = extractPackages.find((p) => p.key === selectedExtractKey);
       if (pkg) return { kind: "word", packageKey: pkg.key, label: pkg.filename };
     }
-    if (session?.file) {
-      return { kind: "workbook", fileId: session.file.id, label: session.file.originalName };
+    if (sessionFile) {
+      return { kind: "workbook", fileId: sessionFile.id, label: sessionFile.originalName };
     }
     return null;
-  }, [analysisSelection, isAnalysis, selectedExtractKey, extractPackages, session?.file]);
+  }, [analysisSelection, isAnalysis, selectedExtractKey, extractPackages, sessionFile]);
 
   return {
     session,
