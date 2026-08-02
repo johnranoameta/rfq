@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { mapDrawingExtractionToWorkbook, type DrawingExtractionResult } from "@/lib/rfq/parseDrawingImageQuote";
+import {
+  computeCropRect,
+  mapDrawingExtractionToWorkbook,
+  type DrawingExtractionResult,
+} from "@/lib/rfq/parseDrawingImageQuote";
 
 function sampleExtraction(): DrawingExtractionResult {
   return {
@@ -125,5 +129,36 @@ describe("mapDrawingExtractionToWorkbook", () => {
     const { workbook, bomPartsRows } = mapDrawingExtractionToWorkbook(extraction);
     expect(workbook.line_items).toHaveLength(3);
     expect(bomPartsRows).toHaveLength(3);
+  });
+});
+
+describe("computeCropRect", () => {
+  it("converts a fractional box to pixel coordinates with default padding", () => {
+    const rect = computeCropRect({ left: 0.1, top: 0.2, right: 0.4, bottom: 0.5 }, 1000, 1000);
+    expect(rect).toEqual({ left: 60, top: 160, width: 380, height: 380 });
+  });
+
+  it("clamps padding at the image edges rather than going negative", () => {
+    const rect = computeCropRect({ left: 0, top: 0, right: 0.2, bottom: 0.2 }, 1000, 1000);
+    expect(rect.left).toBe(0);
+    expect(rect.top).toBe(0);
+  });
+
+  it("clamps the crop so it never extends past the image bounds", () => {
+    const rect = computeCropRect({ left: 0.8, top: 0.8, right: 1, bottom: 1 }, 1000, 1000);
+    expect(rect.left + rect.width).toBeLessThanOrEqual(1000);
+    expect(rect.top + rect.height).toBeLessThanOrEqual(1000);
+  });
+
+  it("respects a custom padding fraction", () => {
+    const rect = computeCropRect({ left: 0.5, top: 0.5, right: 0.6, bottom: 0.6 }, 1000, 1000, 0.1);
+    expect(rect.left).toBe(400);
+    expect(rect.width).toBe(300);
+  });
+
+  it("always returns at least a 1px rectangle", () => {
+    const rect = computeCropRect({ left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 }, 1000, 1000, 0);
+    expect(rect.width).toBeGreaterThanOrEqual(1);
+    expect(rect.height).toBeGreaterThanOrEqual(1);
   });
 });
