@@ -12,9 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { EditableCell } from "@/components/rfq/EditableCell";
 import { EXTERNAL_SUPPLIER_ID } from "@/lib/rfq/externalPriceFetcher";
 import type { CostSelectionResult } from "@/lib/rfq/costLookupTypes";
 import type { SupplierPartRow } from "@/lib/rfq/costLookupTypes";
+import type { EditableSupplierPartField } from "@/lib/rfq/supplierPartFieldValidation";
 
 function isExternalSource(row: SupplierPartRow): boolean {
   return row.supplier_id === EXTERNAL_SUPPLIER_ID;
@@ -76,6 +78,22 @@ export function RfqSupplierPartsPanel() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const saveField = useCallback(
+    async (id: number, field: EditableSupplierPartField, raw: string): Promise<string> => {
+      const res = await fetch(`/api/rfq/supplier-parts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field, value: raw }),
+      });
+      const json = (await res.json()) as { row?: SupplierPartRow; error?: string };
+      if (!res.ok) throw new Error(json.error || `Save failed (${res.status})`);
+      void load();
+      const saved = json.row?.[field];
+      return saved != null ? String(saved) : "";
+    },
+    [load],
+  );
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -202,22 +220,41 @@ export function RfqSupplierPartsPanel() {
               <TableBody>
                 {rows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-mono text-[12px]">{r.part_number}</TableCell>
+                    <TableCell className="font-mono text-[12px]">
+                      <EditableCell value={r.part_number} onSave={(v) => saveField(r.id, "part_number", v)} />
+                    </TableCell>
                     <TableCell>
                       {isExternalSource(r) ? (
                         <Badge variant="outline" className="border-violet-400/40 text-violet-700 dark:text-violet-200">
                           {r.source}
                         </Badge>
                       ) : (
-                        <span className="font-mono text-[12px]">{r.supplier_id}</span>
+                        <EditableCell value={r.supplier_id} onSave={(v) => saveField(r.id, "supplier_id", v)} />
                       )}
                     </TableCell>
-                    <TableCell className="text-[12px] text-muted-foreground">{r.source}</TableCell>
-                    <TableCell className="font-mono text-[12px]">{fmtCost(r)}</TableCell>
+                    <TableCell className="text-[12px] text-muted-foreground">
+                      <EditableCell value={r.source} onSave={(v) => saveField(r.id, "source", v)} />
+                    </TableCell>
+                    <TableCell className="font-mono text-[12px]">
+                      {r.price_breaks_json ? (
+                        fmtCost(r)
+                      ) : (
+                        <EditableCell
+                          value={r.unit_cost != null ? String(r.unit_cost) : ""}
+                          numeric
+                          onSave={(v) => saveField(r.id, "unit_cost", v)}
+                        />
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-[11px] text-muted-foreground">
                       {r.quote_date || r.fetched_at || "—"}
                     </TableCell>
-                    <TableCell className="text-[12px] text-muted-foreground">{r.approval_status || "—"}</TableCell>
+                    <TableCell className="text-[12px] text-muted-foreground">
+                      <EditableCell
+                        value={r.approval_status ?? ""}
+                        onSave={(v) => saveField(r.id, "approval_status", v)}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
