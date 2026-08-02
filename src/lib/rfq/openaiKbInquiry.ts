@@ -20,9 +20,17 @@ Rules for comparisons:
 - Cost questions: use cost_elements when present (labor, overhead, SG&A, profit, packaging, FOB,
   tooling) rather than guessing a total.
 
+Cost lookups: each bom_parts line with a mfr_part_number carries a cost_lookup object — the same
+dual-source (internal Supplier & Part DB vs. cached external distributor) comparison the Costing
+agent shows, already resolved at the RFQ's required quantity. Use it directly for "what does this
+part cost" / "internal vs external" questions instead of re-deriving from the separate Supplier &
+Part DB block. The Supplier & Part DB block itself is shared master data, not scoped to any one
+RFQ — use it for general part/supplier questions unrelated to a specific uploaded RFQ's BOM.
+
 For single-RFQ questions, answer from the primary or full RFQ block.
 If data is missing, say what's missing (e.g. "no cost_elements — this upload wasn't a quote with
-a cost breakdown"). Do not invent values.`;
+a cost breakdown", or "no cost_lookup match — this part isn't in the Supplier & Part DB and there's
+no cached external price"). Do not invent values.`;
 
 export async function runKbInquiryChat(params: {
   apiKey: string;

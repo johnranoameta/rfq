@@ -1,3 +1,5 @@
+import { lookupPartCost } from "@/lib/rfq/costLookupEngine";
+import type { SupplierPartRow } from "@/lib/rfq/costLookupTypes";
 import { listBomParts } from "@/lib/rfq/sqlite/bomPartsDb";
 import { listKbCategories } from "@/lib/rfq/sqlite/kbCategories";
 import {
@@ -7,6 +9,9 @@ import {
   type RfqParseSessionRow,
 } from "@/lib/rfq/sqlite/parseSessions";
 import { listSeedRfqProjects } from "@/lib/rfq/sqlite/seedRfqs";
+import { listSupplierParts } from "@/lib/rfq/sqlite/supplierPartsDb";
+
+const SUPPLIER_PARTS_LIMIT = 300;
 
 const RFQ_FIELD_GLOSSARY = `RFQ field glossary:
 - Each uploaded RFQ (4-sheet workbook, BOM-parts file, AAG single-sheet quote, or technical
@@ -14,14 +19,17 @@ const RFQ_FIELD_GLOSSARY = `RFQ field glossary:
 - customer / program / part_number / rfq_reference: header-level commercial identity.
 - line_items[]: parsed BOM/quote lines (part_name, material, process, target_price where known).
 - bom_parts[]: the BOM Intelligence table for this RFQ — ref_designator, description, quantity,
-  unit_cost, mfr_part_number.
+  unit_cost, mfr_part_number, and (when mfr_part_number matches a Supplier & Part DB row)
+  cost_lookup — the same dual-source internal-vs-external comparison the Costing agent shows.
 - extra_info[]: README/suppliers/specification content that doesn't map to a structured field —
   reference-only (e.g. rated voltage/current read off a technical drawing).
 - cost_elements: quoted cost breakdown (labor, overhead, SG&A, profit, packaging, FOB, tooling)
   from an AAG single-sheet quote upload, when present.
 - gap_findings / risk_score (0-100) / completeness_status: rule-based completeness and risk
   assessment for this RFQ.
-- historical_matches: similarity-ranked comparisons against the knowledge base of past RFQs.`;
+- historical_matches: similarity-ranked comparisons against the knowledge base of past RFQs.
+- Supplier & Part DB: shared master data (not tied to one RFQ) — internal supplier quotes plus
+  cached external distributor pricing (TrustedParts.com), keyed by part_number + supplier_id.`;
 
 function labelSessions(rows: RfqParseSessionRow[]): Map<string, string> {
   const sorted = [...rows].sort((a, b) => a.session_id.localeCompare(b.session_id));
@@ -40,7 +48,26 @@ function wantsComparison(messages: { role: string; content: string }[]): boolean
   );
 }
 
-function compactSessionDigest(
+/**
+ * Resolves the same dual-source (internal Supplier & Part DB vs. cached external) cost
+ * comparison the Costing agent shows, for one BOM line — so chat can answer cost-lookup
+ * questions without the user having to open the Costing agent tab.
+ */
+function bomPartCostLookup(mfrPartNumber: string | null, quantity: number | null, annualVolume: unknown) {
+  if (!mfrPartNumber) return undefined;
+  const vol = typeof annualVolume === "number" && annualVolume > 0 ? annualVolume : 1;
+  const requiredQty = Math.max(1, Math.round((quantity ?? 1) * vol));
+  const result = lookupPartCost({ partNumber: mfrPartNumber, quantity: requiredQty });
+  return {
+    status: result.status,
+    selected: result.selected,
+    internal: result.internal ? { unitCost: result.internal.unitCost, currency: result.internal.currency } : null,
+    external: result.external ? { unitCost: result.external.unitCost, currency: result.external.currency } : null,
+    explanation: result.explanation,
+  };
+}
+
+export function compactSessionDigest(
   row: RfqParseSessionFull,
   label: string,
   opts?: { full?: boolean },
@@ -69,6 +96,7 @@ function compactSessionDigest(
       quantity: r.quantity,
       unit_cost: r.unit_cost,
       mfr_part_number: r.mfr_part_number,
+      cost_lookup: bomPartCostLookup(r.mfr_part_number, r.quantity, parsed.annual_volume),
     })),
     extra_info: Array.isArray(parsed.extra_info) ? parsed.extra_info : undefined,
     cost_elements: parsed.cost_elements ?? undefined,
@@ -77,6 +105,28 @@ function compactSessionDigest(
       score: m.score,
     })),
   };
+}
+
+/** Formats the Supplier & Part DB (shared master data, not tied to one RFQ) as a context block. */
+export function supplierPartsContextBlock(rows: SupplierPartRow[]): string | null {
+  if (rows.length === 0) return null;
+  const capped = rows.slice(0, SUPPLIER_PARTS_LIMIT);
+  return [
+    "Supplier & Part DB (internal supplier quotes + cached external distributor pricing):",
+    JSON.stringify(
+      capped.map((r) => ({
+        part_number: r.part_number,
+        supplier_id: r.supplier_id,
+        source: r.source,
+        currency: r.currency,
+        unit_cost: r.unit_cost,
+        lead_time: r.lead_time,
+        approval_status: r.approval_status,
+      })),
+      null,
+      0,
+    ),
+  ].join("\n");
 }
 
 function truncateContext(text: string, maxChars: number): string {
@@ -141,6 +191,9 @@ export async function buildKbInquiryContext(opts: KbInquiryContextOptions = {}):
       parts.push(`Full RFQ — ${label}:`, JSON.stringify(compactSessionDigest(full, label, { full: true }), null, 0));
     }
   }
+
+  const supplierBlock = supplierPartsContextBlock(listSupplierParts());
+  if (supplierBlock) parts.push(supplierBlock);
 
   const categories = listKbCategories();
   if (categories.length > 0) {
