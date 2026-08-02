@@ -1,5 +1,6 @@
 import type { GapAnalysisResult } from "@/lib/rfq/gapFromParsed";
 import type { MatchCriteria, RankedHistoricalMatch } from "@/lib/rfq/loadHistoricalKnowledge";
+import { deleteBomPartsForRfq } from "@/lib/rfq/sqlite/bomPartsDb";
 import { getKbCategoryBySlug } from "@/lib/rfq/sqlite/kbCategories";
 import { getRfqDb } from "@/lib/rfq/sqlite/rfqDb";
 
@@ -184,10 +185,15 @@ export type RfqParseSessionFull = RfqParseSessionRow & {
   gap: GapAnalysisResult;
 };
 
-/** Removes a persisted PDF analysis row. Does not delete files from `.uploads/`. */
+/**
+ * Removes a persisted RFQ analysis row, along with any bom_parts synced under the same
+ * id (upload_id === session_id === bom_parts.rfq_file_id), so deleting an RFQ doesn't
+ * leave orphaned BOM Intelligence rows behind. Does not delete files from `.uploads/`.
+ */
 export function deleteRfqParseSession(sessionId: string): boolean {
   const db = getRfqDb();
   const r = db.prepare(`DELETE FROM rfq_parse_sessions WHERE session_id = ?`).run(sessionId);
+  deleteBomPartsForRfq(sessionId);
   return r.changes > 0;
 }
 

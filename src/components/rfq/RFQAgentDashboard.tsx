@@ -266,17 +266,6 @@ export default function RFQAgentDashboard() {
     }
   }, [workspaceMode]);
 
-  const selectAnalysisWord = useCallback(
-    (key: string) => {
-      const pkg = extractPackages.find((p) => p.key === key);
-      if (!pkg) return;
-      setWorkspaceMode("analysis");
-      setSelectedExtractKey(key);
-      setAnalysisSelection({ kind: "word", packageKey: key, label: pkg.filename });
-    },
-    [extractPackages],
-  );
-
   const openDemoWorkbookAnalysis = useCallback((subMode: AnalysisSubMode = "summary") => {
     sessionEnsureKeyRef.current = null;
     setWorkspaceMode("analysis");
@@ -1513,91 +1502,9 @@ export default function RFQAgentDashboard() {
                     </p>
                   </div>
                 ) : null}
-                {extractPackages.length === 0 && userWorkbookUploads.length === 0 ? (
+                {userWorkbookUploads.length === 0 ? (
                   <div className="text-[12px] text-[var(--ra-muted)] px-2 py-3 leading-snug">
-                    {sidebarOpen
-                      ? "No other RFQs yet. Open the demo workbook below, or upload under Knowledge Base → Processing."
-                      : "…"}
-                  </div>
-                ) : null}
-                {sidebarOpen ? (
-                  <div className="px-2 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ra-muted)]">
-                    Demo workbook
-                  </div>
-                ) : null}
-                <button
-                  type="button"
-                  className={[
-                    "rfq-item w-full text-left",
-                    analysisSelectionResolved?.kind === "workbook" &&
-                    analysisSelectionResolved.fileId === DEFAULT_DEMO_UPLOAD.id
-                      ? "active"
-                      : "",
-                  ].join(" ")}
-                  onClick={() => openDemoWorkbookAnalysis(analysisSubMode)}
-                >
-                  <span className="rfq-dot dot-amber" aria-hidden />
-                  {sidebarOpen ? (
-                    <div className="min-w-0 flex-1">
-                      <div className="rfq-item-name truncate">{DEFAULT_DEMO_UPLOAD.originalName}</div>
-                      <div className="rfq-item-meta flex items-center gap-2 flex-wrap">
-                        Gap analysis demo
-                        <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
-                          Demo
-                        </span>
-                      </div>
-                    </div>
-                  ) : null}
-                </button>
-                {extractPackages.length > 0 && sidebarOpen ? (
-                  <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ra-muted)]">
-                    Word packages
-                  </div>
-                ) : null}
-                {extractPackages
-                  .filter((p) => {
-                    const q = sidebarQuery.trim().toLowerCase();
-                    if (!q) return true;
-                    return (
-                      p.filename.toLowerCase().includes(q) ||
-                      (p.rfq_number ?? "").toLowerCase().includes(q) ||
-                      (p.title ?? "").toLowerCase().includes(q)
-                    );
-                  })
-                  .map((p) => {
-                    const active =
-                      analysisSelectionResolved?.kind === "word" && analysisSelectionResolved.packageKey === p.key;
-                    return (
-                      <button
-                        key={`word-${p.key}`}
-                        type="button"
-                        className={["rfq-item w-full text-left", active ? "active" : ""].join(" ")}
-                        onClick={() => selectAnalysisWord(p.key)}
-                      >
-                        <div
-                          className="ra-kb-icon shrink-0"
-                          style={{
-                            background: p.has_error ? "var(--ra-red-bg)" : "var(--ra-accent-bg)",
-                            color: p.has_error ? "var(--ra-red)" : "var(--ra-accent)",
-                          }}
-                        >
-                          W
-                        </div>
-                        {sidebarOpen ? (
-                          <div className="min-w-0 flex-1">
-                            <div className="rfq-item-name truncate">{p.filename}</div>
-                            <div className="rfq-item-meta">
-                              {p.rfq_number ? `#${p.rfq_number} · ` : ""}
-                              {p.section_count} sections
-                            </div>
-                          </div>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                {userWorkbookUploads.length > 0 && sidebarOpen ? (
-                  <div className="px-2 pt-3 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ra-muted)]">
-                    Your workbook analyses
+                    {sidebarOpen ? "No RFQs yet. Upload one under Knowledge Base → Processing." : "…"}
                   </div>
                 ) : null}
                 {userWorkbookUploads
@@ -1612,25 +1519,43 @@ export default function RFQAgentDashboard() {
                       analysisSelectionResolved.fileId === u.id;
                     const status = analysisStatus[u.id];
                     return (
-                      <button
+                      <div
                         key={`wb-${u.id}`}
-                        type="button"
-                        className={["rfq-item w-full text-left", active ? "active" : ""].join(" ")}
-                        onClick={() => selectAnalysisWorkbook(u.id)}
+                        className="ra-sidebar-package-row flex w-full min-w-0 items-stretch overflow-hidden rounded-[var(--ra-radius)] border border-[var(--ra-border)]"
                       >
-                        <span className={`rfq-dot ${rfqSidebarStatusDot(u)}`} aria-hidden />
-                        {sidebarOpen ? (
-                          <div className="min-w-0 flex-1">
-                            <div className="rfq-item-name truncate">{u.originalName}</div>
-                            <div className="rfq-item-meta flex items-center gap-2 flex-wrap">
-                              Workbook
-                              {status ? (
-                                <SidebarStatusPill status={status.status} message={status.message} />
-                              ) : null}
+                        <button
+                          type="button"
+                          className={[
+                            "rfq-item min-w-0 flex-1 border-0 bg-transparent text-left flex items-center gap-2",
+                            active ? "active" : "",
+                          ].join(" ")}
+                          onClick={() => selectAnalysisWorkbook(u.id)}
+                        >
+                          <span className={`rfq-dot ${rfqSidebarStatusDot(u)}`} aria-hidden />
+                          {sidebarOpen ? (
+                            <div className="min-w-0 flex-1">
+                              <div className="rfq-item-name truncate">{u.originalName}</div>
+                              <div className="rfq-item-meta flex items-center gap-2 flex-wrap">
+                                Workbook
+                                {status ? (
+                                  <SidebarStatusPill status={status.status} message={status.message} />
+                                ) : null}
+                              </div>
                             </div>
-                          </div>
-                        ) : null}
-                      </button>
+                          ) : null}
+                        </button>
+                        <button
+                          type="button"
+                          className="ra-sidebar-delete-btn"
+                          aria-label={`Delete ${u.originalName}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void removeRfqFromSidebar(u);
+                          }}
+                        >
+                          <Trash2 className="size-4 shrink-0" aria-hidden />
+                        </button>
+                      </div>
                     );
                   })}
               </>

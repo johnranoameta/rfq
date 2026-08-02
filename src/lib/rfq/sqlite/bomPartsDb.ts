@@ -33,6 +33,12 @@ export function replaceBomParts(rfqFileId: string, rows: ParsedBomPartRow[]): vo
   tx(rows);
 }
 
+/** Deletes every bom_parts row for this RFQ — used when the RFQ itself is deleted. */
+export function deleteBomPartsForRfq(rfqFileId: string): void {
+  const db = getRfqDb();
+  db.prepare(`DELETE FROM bom_parts WHERE rfq_file_id = ?`).run(rfqFileId);
+}
+
 /**
  * Updates a single whitelisted field on one bom_parts row (BOM Intelligence inline
  * editing, issue #17). No original-value tracking or audit log in v1 — a straight
