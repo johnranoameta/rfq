@@ -32,16 +32,17 @@ describe("parseBomPartsWorkbookAsSupplierParts", () => {
     });
   });
 
-  it("skips a row with no manufacturer part number", () => {
+  it("does not skip a row with no manufacturer part number — falls back to ref_designator", () => {
     const buf = workbookBuffer([
       { supplier_id: "AAG", ref_designator: "Label", unit_cost: 0.005, currency: "USD" },
     ]);
     const { rows, skipped } = parseBomPartsWorkbookAsSupplierParts(buf);
-    expect(rows).toHaveLength(0);
-    expect(skipped).toBe(1);
+    expect(skipped).toBe(0);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ part_number: "Label", supplier_id: "AAG", unit_cost: 0.005 });
   });
 
-  it("skips a row with no supplier_id", () => {
+  it("does not skip a row with no supplier_id — falls back to UNKNOWN", () => {
     const buf = workbookBuffer([
       {
         ref_designator: "R1",
@@ -51,11 +52,12 @@ describe("parseBomPartsWorkbookAsSupplierParts", () => {
       },
     ]);
     const { rows, skipped } = parseBomPartsWorkbookAsSupplierParts(buf);
-    expect(rows).toHaveLength(0);
-    expect(skipped).toBe(1);
+    expect(skipped).toBe(0);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ part_number: "CRCW06032K20JNEA", supplier_id: "UNKNOWN", source: "UNKNOWN" });
   });
 
-  it("skips a row with no unit_cost", () => {
+  it("does not skip a row with no unit_cost — imports it with a null price", () => {
     const buf = workbookBuffer([
       {
         supplier_id: "AAG",
@@ -65,11 +67,12 @@ describe("parseBomPartsWorkbookAsSupplierParts", () => {
       },
     ]);
     const { rows, skipped } = parseBomPartsWorkbookAsSupplierParts(buf);
-    expect(rows).toHaveLength(0);
-    expect(skipped).toBe(1);
+    expect(skipped).toBe(0);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].unit_cost).toBeNull();
   });
 
-  it("counts rows dropped by the underlying parts parser (e.g. missing ref_designator) as skipped too", () => {
+  it("still counts rows the underlying parts parser itself couldn't read (e.g. no ref_designator at all) as skipped", () => {
     const buf = workbookBuffer([
       { supplier_id: "AAG", ref_designator: "", unit_cost: 1, currency: "USD" },
       {
@@ -85,7 +88,7 @@ describe("parseBomPartsWorkbookAsSupplierParts", () => {
     expect(skipped).toBe(1);
   });
 
-  it("imports multiple valid rows from a realistic multi-row parts sheet", () => {
+  it("imports every line from a realistic multi-row parts sheet, including ones with no manufacturer part number", () => {
     const buf = workbookBuffer([
       {
         supplier_id: "AAG",
@@ -104,7 +107,7 @@ describe("parseBomPartsWorkbookAsSupplierParts", () => {
       { supplier_id: "AAG", ref_designator: "Label", unit_cost: 0.005, currency: "USD" },
     ]);
     const { rows, skipped } = parseBomPartsWorkbookAsSupplierParts(buf);
-    expect(rows).toHaveLength(2);
-    expect(skipped).toBe(1);
+    expect(rows).toHaveLength(3);
+    expect(skipped).toBe(0);
   });
 });

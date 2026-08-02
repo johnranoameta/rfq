@@ -9,38 +9,33 @@ import type { ParsedSupplierPartRow } from "@/lib/rfq/parseSupplierPartsWorkbook
  * "parts" sheet parsing (including mfr_part_number extraction from
  * extended_attributes_json) rather than re-parsing the sheet independently.
  *
- * Only rows with a manufacturer part number, a supplier id, and a unit cost become a
- * supplier_parts record — those three fields are exactly what supplier_parts requires
- * (part_number, supplier_id are NOT NULL; a price-less row has nothing to look up).
- * Rows missing any of the three are counted as skipped, same convention as the other
- * workbook parsers in this module.
+ * Every parsed line becomes a row — nothing is dropped for missing pricing/part-number
+ * data (`unit_cost` is a nullable column; a missing `mfr_part_number` falls back to
+ * `ref_designator` so `part_number`, a NOT NULL column, is never empty; a missing
+ * `supplier_id`, also NOT NULL, falls back to "UNKNOWN"). These placeholders are meant
+ * to be fixed up afterward via Supplier & Part DB's inline editing rather than silently
+ * discarding the line. `skipped` only counts rows the underlying parts parser itself
+ * couldn't read at all (no ref_designator and no description) — see
+ * parseBomPartsWorkbook.ts.
  */
 export function parseBomPartsWorkbookAsSupplierParts(buffer: Buffer): {
   rows: ParsedSupplierPartRow[];
   skipped: number;
 } {
-  const { rows: bomRows, skipped: skippedByParts } = parseBomPartsWorkbook(buffer);
+  const { rows: bomRows, skipped } = parseBomPartsWorkbook(buffer);
 
-  const rows: ParsedSupplierPartRow[] = [];
-  let skipped = skippedByParts;
-  for (const r of bomRows) {
-    if (!r.mfr_part_number || !r.supplier_id || r.unit_cost == null) {
-      skipped++;
-      continue;
-    }
-    rows.push({
-      part_number: r.mfr_part_number,
-      supplier_id: r.supplier_id,
-      source: r.supplier_id,
-      currency: r.currency,
-      unit_cost: r.unit_cost,
-      price_breaks_json: null,
-      quote_date: null,
-      fetched_at: null,
-      lead_time: null,
-      approval_status: null,
-    });
-  }
+  const rows: ParsedSupplierPartRow[] = bomRows.map((r) => ({
+    part_number: r.mfr_part_number || r.ref_designator,
+    supplier_id: r.supplier_id || "UNKNOWN",
+    source: r.supplier_id || "UNKNOWN",
+    currency: r.currency,
+    unit_cost: r.unit_cost,
+    price_breaks_json: null,
+    quote_date: null,
+    fetched_at: null,
+    lead_time: null,
+    approval_status: null,
+  }));
 
   return { rows, skipped };
 }
