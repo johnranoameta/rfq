@@ -5,8 +5,6 @@ import { MessageCircle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export type RfqKbInquiryPanelProps = {
-  packageId?: string | null;
-  packageLabel?: string | null;
   sessionId?: string | null;
   sessionLabel?: string | null;
 };
@@ -14,18 +12,13 @@ export type RfqKbInquiryPanelProps = {
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const STARTERS = [
-  "Compare RFQ1 vs RFQ2 — what is different in the Supplier Request Form (section 1.3)?",
-  "List field-by-field differences between all extracted RFQs.",
-  "Which attachments are missing or incomplete?",
-  "Summarize commercial and supplier form fields for RFQ1.",
+  "Compare RFQ1 vs RFQ2 — what is different in customer, program, and BOM lines?",
+  "List field-by-field differences between all uploaded RFQs.",
+  "Which RFQs have open gap findings or a high risk score?",
+  "Summarize the cost elements and BOM for RFQ1.",
 ];
 
-export function RfqKbInquiryPanel({
-  packageId,
-  packageLabel,
-  sessionId,
-  sessionLabel,
-}: RfqKbInquiryPanelProps) {
+export function RfqKbInquiryPanel({ sessionId, sessionLabel }: RfqKbInquiryPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -50,7 +43,6 @@ export function RfqKbInquiryPanel({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: history,
-            packageId: packageId ?? null,
             sessionId: sessionId ?? null,
           }),
         });
@@ -70,7 +62,7 @@ export function RfqKbInquiryPanel({
         setBusy(false);
       }
     },
-    [busy, messages, packageId, sessionId],
+    [busy, messages, sessionId],
   );
 
   return (
@@ -82,16 +74,16 @@ export function RfqKbInquiryPanel({
             Inquiry
           </div>
           <div className="ra-canvas-sub">
-            Compare and query Word-extracted RFQs (RFQ1, RFQ2, …) — supplier forms, section fields,
-            attachments
-            {packageLabel ? (
+            Compare and query uploaded RFQs (RFQ1, RFQ2, …) — commercial fields, BOM lines, cost
+            elements, gap findings
+            {sessionLabel ? (
               <>
                 {" "}
-                · Focus: <span className="font-medium text-[var(--ra-text)]">{packageLabel}</span> (all
-                packages included for comparisons)
+                · Focus: <span className="font-medium text-[var(--ra-text)]">{sessionLabel}</span> (all
+                RFQs included for comparisons)
               </>
             ) : (
-              " · All extracted packages are included when you ask to compare"
+              " · All uploaded RFQs are included when you ask to compare"
             )}
           </div>
         </div>

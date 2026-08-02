@@ -32,10 +32,6 @@ import { SettingsMenu } from "@/components/settings/SettingsMenu";
 import { logout as clearAuthSession } from "@/components/auth/rfqAuth";
 import "./rfq-assistant.css";
 import { AllRfqsLibrary } from "@/components/rfq/AllRfqsLibrary";
-import {
-  RfqWordExtractWorkspace,
-  type ExtractPackageSummary,
-} from "@/components/extraction/RfqWordExtractWorkspace";
 import { RfqKbInquiryPanel } from "@/components/rfq/RfqKbInquiryPanel";
 import { RfqKbMainPanel } from "@/components/rfq/RfqKbMainPanel";
 import { RfqPortfolioPanel } from "@/components/rfq/RfqPortfolioPanel";
@@ -69,7 +65,6 @@ const showPortfolio = isWorkspaceModuleEnabled("portfolio");
 const showSupplierDb = isWorkspaceModuleEnabled("supplierdb");
 const showQuoteHistory = isAnalysisSubModuleEnabled("quoteHistory");
 type WorkspaceMode = "kb" | "inquiry" | "analysis" | "library" | "portfolio" | "supplierdb";
-type KbSubMode = "browse" | "training";
 type NewWorkspaceTab = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "documents" | "quote";
 
 type CatalogPayload = {
@@ -221,11 +216,8 @@ export default function RFQAgentDashboard() {
   const [pipelineBusy, setPipelineBusy] = useState(false);
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("kb");
-  const [kbSubMode, setKbSubMode] = useState<KbSubMode>("browse");
   const [analysisSubMode, setAnalysisSubMode] = useState<AnalysisSubMode>("summary");
   const [analysisSelection, setAnalysisSelection] = useState<AnalysisSelection | null>(null);
-  const [extractPackages, setExtractPackages] = useState<ExtractPackageSummary[]>([]);
-  const [selectedExtractKey, setSelectedExtractKey] = useState<string | null>(null);
   const [newWsTab, setNewWsTab] = useState<NewWorkspaceTab>("summary");
   const [kbSelectedSlug, setKbSelectedSlug] = useState<string | null>(null);
   const [sidebarQuery, setSidebarQuery] = useState("");
@@ -304,16 +296,6 @@ export default function RFQAgentDashboard() {
       void activateRfqFromSidebar(u);
     },
     [uploadedRfqs, analysisSubMode, openDemoWorkbookAnalysis],
-  );
-
-  const analysisWordOptions = useMemo(
-    () =>
-      extractPackages.map((p) => ({
-        key: p.key,
-        label: p.filename,
-        detail: `${p.section_count} sections`,
-      })),
-    [extractPackages],
   );
 
   const analysisWorkbookOptions = useMemo(() => {
@@ -681,14 +663,13 @@ export default function RFQAgentDashboard() {
   }, [catalog?.kb_categories, catalog?.seed_projects, catalog?.upload_analyses]);
 
   useEffect(() => {
-    if (workspaceMode !== "kb" || kbSubMode !== "browse") return;
+    if (workspaceMode !== "kb") return;
     const valid = kbSelectedSlug && kbClassBuckets.some((b) => b.slug === kbSelectedSlug);
     if (valid) return;
     const firstWithData = kbClassBuckets.find((b) => b.projects.length > 0);
     setKbSelectedSlug(firstWithData?.slug ?? kbClassBuckets[0]?.slug ?? null);
-  }, [workspaceMode, kbSubMode, kbClassBuckets, kbSelectedSlug]);
+  }, [workspaceMode, kbClassBuckets, kbSelectedSlug]);
 
-  const isKbTraining = workspaceMode === "kb" && kbSubMode === "training";
   const isAnalysis = workspaceMode === "analysis";
 
   /** Load workbook caseData whenever Analysis points at a workbook but session is empty. */
@@ -745,12 +726,6 @@ export default function RFQAgentDashboard() {
 
   const analysisSelectionResolved = useMemo((): AnalysisSelection | null => {
     if (analysisSelection) return analysisSelection;
-    if (isAnalysis && selectedExtractKey) {
-      const pkg = extractPackages.find((p) => p.key === selectedExtractKey);
-      if (pkg) {
-        return { kind: "word", packageKey: pkg.key, label: pkg.filename };
-      }
-    }
     if (isAnalysis && session?.file) {
       return {
         kind: "workbook",
@@ -759,60 +734,14 @@ export default function RFQAgentDashboard() {
       };
     }
     return null;
-  }, [analysisSelection, isAnalysis, selectedExtractKey, extractPackages, session?.file]);
-
-  const loadExtractPackages = useCallback(async () => {
-    try {
-      const res = await fetch("/api/extraction/manifest", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = (await res.json()) as { packages: ExtractPackageSummary[] };
-      const list = data.packages ?? [];
-      setExtractPackages(list);
-      setSelectedExtractKey((prev) => {
-        if (prev && list.some((p) => p.key === prev)) return prev;
-        return list[0]?.key ?? null;
-      });
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadExtractPackages();
-  }, [loadExtractPackages]);
-
-  async function removeExtractPackage(p: ExtractPackageSummary) {
-    const msg = `Remove “${p.filename}” and delete its extracted data?`;
-    if (!window.confirm(msg)) return;
-
-    try {
-      const res = await fetch(`/api/extraction/package?package=${encodeURIComponent(p.key)}`, {
-        method: "DELETE",
-      });
-      const data = (await res.json()) as { error?: string; packages?: ExtractPackageSummary[] };
-      if (!res.ok) throw new Error(data.error || `Delete failed (${res.status})`);
-      const list = data.packages ?? [];
-      setExtractPackages(list);
-      setSelectedExtractKey((prev) => {
-        if (prev && list.some((x) => x.key === prev)) return prev;
-        return list[0]?.key ?? null;
-      });
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : "Delete failed");
-    }
-  }
-
-  const selectedExtractPackage = useMemo(
-    () => extractPackages.find((p) => p.key === selectedExtractKey) ?? null,
-    [extractPackages, selectedExtractKey],
-  );
+  }, [analysisSelection, isAnalysis, session?.file]);
 
   const headerKbClassCount = catalog?.kb_categories?.length ?? KB_CLASS_COUNT;
   const headerHistoricalCount =
     (catalog?.seed_projects?.length ?? 0) +
     (catalog?.historical_uploads?.length ?? 0);
   const headerSavedAnalysesCount = catalog?.upload_analyses?.length ?? 0;
-  const headerNewCount = extractPackages.length + uploadedRfqs.length;
+  const headerNewCount = uploadedRfqs.length;
 
   const kbBucketSelected = useMemo(() => {
     if (!kbSelectedSlug) return null;
@@ -998,14 +927,6 @@ export default function RFQAgentDashboard() {
           <span className="ra-hpill">
             <strong>{headerNewCount}</strong>
           </span>
-          {selectedExtractPackage && isKbTraining ? (
-            <span className="ra-hpill hidden xl:inline">
-              <strong>{selectedExtractPackage.rfq_number ?? selectedExtractPackage.filename}</strong>
-              {selectedExtractPackage.section_count > 0
-                ? ` · ${selectedExtractPackage.section_count} sections`
-                : ""}
-            </span>
-          ) : null}
         </div>
         <div className="ra-header-actions">
           <Link href="/baseline" className="ra-hbtn hidden lg:inline-flex">
@@ -1027,10 +948,7 @@ export default function RFQAgentDashboard() {
           <button
             type="button"
             className="ra-hbtn"
-            onClick={() => {
-              setWorkspaceMode("kb");
-              setKbSubMode("browse");
-            }}
+            onClick={() => setWorkspaceMode("kb")}
           >
             Knowledge base
           </button>
@@ -1061,10 +979,7 @@ export default function RFQAgentDashboard() {
             <button
               type="button"
               className={["ra-nav-item ra-nav-item-btn", workspaceMode === "kb" || workspaceMode === "inquiry" ? "active" : ""].join(" ")}
-              onClick={() => {
-                setWorkspaceMode("kb");
-                setKbSubMode("browse");
-              }}
+              onClick={() => setWorkspaceMode("kb")}
             >
               <span className="ra-nav-text">Knowledge Base</span>
               <span className="ra-nav-badge">{headerHistoricalCount + headerNewCount}</span>
@@ -1073,25 +988,11 @@ export default function RFQAgentDashboard() {
               <div className="ra-nav-submenu" role="group" aria-label="Knowledge base sections">
                 <button
                   type="button"
-                  className={["ra-nav-subitem", workspaceMode === "kb" && kbSubMode === "browse" ? "active" : ""].join(" ")}
-                  onClick={() => {
-                    setWorkspaceMode("kb");
-                    setKbSubMode("browse");
-                  }}
+                  className={["ra-nav-subitem", workspaceMode === "kb" ? "active" : ""].join(" ")}
+                  onClick={() => setWorkspaceMode("kb")}
                 >
                   <span className="ra-nav-text">Historical</span>
                   <span className="ra-nav-badge">{headerHistoricalCount}</span>
-                </button>
-                <button
-                  type="button"
-                  className={["ra-nav-subitem", workspaceMode === "kb" && kbSubMode === "training" ? "active" : ""].join(" ")}
-                  onClick={() => {
-                    setWorkspaceMode("kb");
-                    setKbSubMode("training");
-                  }}
-                >
-                  <span className="ra-nav-text">Processing</span>
-                  <span className="ra-nav-badge ra-nav-badge-warn">{headerNewCount}</span>
                 </button>
                 <button
                   type="button"
@@ -1120,7 +1021,7 @@ export default function RFQAgentDashboard() {
               }}
             >
               <span className="ra-nav-text">Processing</span>
-              <span className="ra-nav-badge">{extractPackages.length + uploadedRfqs.length}</span>
+              <span className="ra-nav-badge">{uploadedRfqs.length}</span>
             </button>
             {workspaceMode === "analysis" && sidebarOpen ? (
               <div className="ra-nav-submenu" role="group" aria-label="Analysis sections">
@@ -1252,7 +1153,7 @@ export default function RFQAgentDashboard() {
               <div className="text-[12px] text-[var(--ra-muted)] px-1 py-2">
                 {sidebarOpen ? "Running parse → gap review…" : "…"}
               </div>
-            ) : workspaceMode === "kb" && kbSubMode === "browse" ? (
+            ) : workspaceMode === "kb" ? (
               kbClassBuckets
                 .filter((b) => {
                   const q = sidebarQuery.trim().toLowerCase();
@@ -1294,135 +1195,6 @@ export default function RFQAgentDashboard() {
                     </button>
                   );
                 })
-            ) : workspaceMode === "kb" && kbSubMode === "training" ? (
-              extractPackages.length === 0 && uploadedRfqs.length === 0 ? (
-                <div
-                  className={[
-                    "text-[12px] text-[var(--ra-muted)] leading-snug",
-                    sidebarOpen ? "px-2 py-3" : "px-1 py-2 text-center",
-                  ].join(" ")}
-                >
-                  {sidebarOpen
-                    ? "No uploads yet. Upload a Word package or workbook in the main panel."
-                    : "…"}
-                </div>
-              ) : (
-              <>
-                {extractPackages.length > 0 && sidebarOpen ? (
-                  <div className="px-2 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ra-muted)]">
-                    Word Packages
-                  </div>
-                ) : null}
-                {extractPackages
-                  .filter((p) => {
-                    const q = sidebarQuery.trim().toLowerCase();
-                    if (!q) return true;
-                    return (
-                      p.filename.toLowerCase().includes(q) ||
-                      (p.rfq_number ?? "").toLowerCase().includes(q) ||
-                      (p.title ?? "").toLowerCase().includes(q)
-                    );
-                  })
-                  .map((p) => {
-                    const active = selectedExtractKey === p.key;
-                    return (
-                      <div
-                        key={p.key}
-                        className="ra-sidebar-package-row"
-                      >
-                        <button
-                          type="button"
-                          className={["rfq-item text-left flex items-center gap-2", active ? "active" : ""].join(
-                            " ",
-                          )}
-                          onClick={() => {
-                            setWorkspaceMode("kb");
-                            setKbSubMode("training");
-                            setSelectedExtractKey(p.key);
-                          }}
-                        >
-                          <div
-                            className="ra-kb-icon shrink-0"
-                            style={{
-                              background: p.has_error ? "var(--ra-red-bg)" : "var(--ra-accent-bg)",
-                              color: p.has_error ? "var(--ra-red)" : "var(--ra-accent)",
-                            }}
-                          >
-                            W
-                          </div>
-                          {sidebarOpen ? (
-                            <div className="min-w-0 flex-1">
-                              <div className="rfq-item-name truncate">{p.filename}</div>
-                              <div className="rfq-item-meta">
-                                {p.rfq_number ? `#${p.rfq_number} · ` : ""}
-                                {p.section_count} sections · {p.attachment_count} files
-                              </div>
-                            </div>
-                          ) : null}
-                        </button>
-                        <button
-                          type="button"
-                          className="ra-sidebar-delete-btn"
-                          aria-label={`Delete ${p.filename}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void removeExtractPackage(p);
-                          }}
-                        >
-                          <Trash2 className="size-4 shrink-0" aria-hidden />
-                        </button>
-                      </div>
-                    );
-                  })}
-                {uploadedRfqs.length > 0 && sidebarOpen ? (
-                  <div className="px-2 pt-3 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ra-muted)]">
-                    Workbook Analyses
-                  </div>
-                ) : null}
-                {uploadedRfqs
-                  .filter((u) => {
-                    const q = sidebarQuery.trim().toLowerCase();
-                    if (!q) return true;
-                    return u.originalName.toLowerCase().includes(q);
-                  })
-                  .map((u) => {
-                    const isDemo = u.id === DEFAULT_DEMO_UPLOAD.id;
-                    const status = analysisStatus[u.id];
-                    return (
-                      <button
-                        key={`wb-${u.id}`}
-                        type="button"
-                        className="rfq-item w-full text-left"
-                        onClick={() => isDemo ? openDemoWorkbookAnalysis("gaps") : selectAnalysisWorkbook(u.id)}
-                      >
-                        <span className={`rfq-dot ${isDemo ? "dot-amber" : rfqSidebarStatusDot(u)}`} aria-hidden />
-                        {sidebarOpen ? (
-                          <div className="min-w-0 flex-1">
-                            <div className="rfq-item-name truncate">{u.originalName}</div>
-                            <div className="rfq-item-meta flex items-center gap-2 flex-wrap">
-                              {isDemo ? (
-                                <>
-                                  Gap analysis demo
-                                  <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
-                                    Demo
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  Workbook
-                                  {status ? (
-                                    <SidebarStatusPill status={status.status} message={status.message} />
-                                  ) : null}
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-              </>
-              )
             ) : workspaceMode === "inquiry" ? (
               <div
                 className={[
@@ -1431,9 +1203,7 @@ export default function RFQAgentDashboard() {
                 ].join(" ")}
               >
                 {sidebarOpen
-                  ? selectedExtractPackage
-                    ? `Chat uses all extracted packages; focus: “${selectedExtractPackage.filename}”.`
-                    : "Chat compares Word RFQs (RFQ1 vs RFQ2). Upload under Processing, then ask in the main panel."
+                  ? "Chat compares uploaded RFQs (RFQ1 vs RFQ2). Upload under Processing, then ask in the main panel."
                   : "…"}
               </div>
             ) : workspaceMode === "analysis" && analysisSubMode === "gaps" ? (
@@ -1604,20 +1374,15 @@ export default function RFQAgentDashboard() {
             </div>
           ) : workspaceMode === "inquiry" ? (
             <RfqKbInquiryPanel
-              packageId={selectedExtractKey}
-              packageLabel={selectedExtractPackage?.filename ?? null}
               sessionId={session?.file.id ?? null}
               sessionLabel={session?.file.originalName ?? null}
             />
-          ) : workspaceMode === "kb" && kbSubMode === "browse" ? (
+          ) : workspaceMode === "kb" ? (
             kbBucketSelected ? (
               <RfqKbMainPanel
                 kbBucket={kbBucketSelected}
                 projects={kbBucketSelected.projects}
-                onOpenPortfolioRfq={() => {
-                  setWorkspaceMode("kb");
-                  setKbSubMode("training");
-                }}
+                onOpenPortfolioRfq={() => setWorkspaceMode("kb")}
               />
             ) : (
               <div className="ra-canvas-content text-[var(--ra-muted)] text-sm">Loading knowledge base…</div>
@@ -1628,29 +1393,12 @@ export default function RFQAgentDashboard() {
             </div>
           ) : showPortfolio && workspaceMode === "portfolio" ? (
             <div className="ra-canvas-content min-h-0 flex flex-col">
-              <RfqPortfolioPanel
-                onOpenRfq={() => {
-                  setWorkspaceMode("kb");
-                  setKbSubMode("training");
-                }}
-              />
+              <RfqPortfolioPanel onOpenRfq={() => setWorkspaceMode("kb")} />
             </div>
           ) : showSupplierDb && workspaceMode === "supplierdb" ? (
             <div className="ra-canvas-content min-h-0 flex flex-col">
               <RfqSupplierPartsPanel />
             </div>
-          ) : isKbTraining ? (
-            <RfqWordExtractWorkspace
-              embedded
-              selectedKey={selectedExtractKey}
-              onSelectedKeyChange={setSelectedExtractKey}
-              onPackagesChange={setExtractPackages}
-              onExtractionComplete={(key) => {
-                if (key) setSelectedExtractKey(key);
-                void loadExtractPackages();
-              }}
-              onPackageDeleted={() => void loadExtractPackages()}
-            />
           ) : isAnalysis ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <RfqAnalysisShell

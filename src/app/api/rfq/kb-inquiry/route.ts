@@ -8,7 +8,6 @@ export const maxDuration = 60;
 type Body = {
   messages?: KbInquiryMessage[];
   sessionId?: string | null;
-  packageId?: string | null;
 };
 
 export async function POST(request: Request) {
@@ -50,11 +49,9 @@ export async function POST(request: Request) {
 
   const sessionId =
     typeof body.sessionId === "string" && body.sessionId.trim() ? body.sessionId.trim() : null;
-  const packageId =
-    typeof body.packageId === "string" && body.packageId.trim() ? body.packageId.trim() : null;
 
   try {
-    const reply = await runKbInquiryChat({ apiKey, messages, sessionId, packageId });
+    const reply = await runKbInquiryChat({ apiKey, messages, sessionId });
     return NextResponse.json({ reply });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Inquiry failed";

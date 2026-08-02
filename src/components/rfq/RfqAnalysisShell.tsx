@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { CaseData } from "@/data/rfqTypes";
-import WordPackageHistoricalMatch from "@/components/extraction/WordPackageHistoricalMatch";
 import { RfqMatchCoverageMatrix } from "@/components/rfq/RfqMatchCoverageMatrix";
 import {
   OverviewTopReferenceCard,
@@ -21,9 +20,7 @@ const showQuoteHistory = isAnalysisSubModuleEnabled("quoteHistory");
 
 export type AnalysisSubMode = "summary" | "matching" | "coverage" | "gaps" | "reuse" | "bom" | "costing" | "quote";
 
-export type AnalysisSelection =
-  | { kind: "word"; packageKey: string; label: string }
-  | { kind: "workbook"; fileId: string; label: string };
+export type AnalysisSelection = { kind: "workbook"; fileId: string; label: string };
 
 type RfqAnalysisShellProps = {
   subMode: AnalysisSubMode;
@@ -111,67 +108,6 @@ export function RfqAnalysisShell({
             Load demo workbook (gap analysis)
           </Button>
         ) : null}
-      </AnalysisPageLayout>
-    );
-  }
-
-  if (selection.kind === "word") {
-    if (subMode === "matching") {
-      return (
-        <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-          <p className="text-xs text-muted-foreground max-w-2xl">
-            Word matching compares this upload to <strong className="text-foreground">other Word packages</strong> in
-            Training — not the CSV/seed historical knowledge base.
-          </p>
-          <WordPackageHistoricalMatch packageId={selection.packageKey} packageLabel={selection.label} />
-        </AnalysisPageLayout>
-      );
-    }
-    if (
-      subMode === "coverage" ||
-      subMode === "reuse" ||
-      subMode === "bom" ||
-      subMode === "costing" ||
-      (showQuoteHistory && subMode === "quote")
-    ) {
-      return (
-        <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-          <p className="text-sm text-[var(--ra-muted)]">
-            {subMode === "coverage"
-              ? "Coverage matrix applies to multi-line workbook analyses."
-              : subMode === "reuse"
-                ? "Reuse guidance applies to analyzed workbooks."
-                : subMode === "bom"
-                  ? "BOM Intelligence applies to analyzed workbooks."
-                  : subMode === "costing"
-                    ? "Costing agent applies to analyzed workbooks with BOM lines."
-                    : "Quote & history applies to analyzed workbooks."}{" "}
-            For Word packages, use <strong className="text-[var(--ra-text)]">Matching</strong> to compare against other
-            Word uploads.
-          </p>
-        </AnalysisPageLayout>
-      );
-    }
-    if (subMode === "summary") {
-      return (
-        <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-          <p className="text-sm text-[var(--ra-muted)]">
-            Overview cards apply to analyzed <strong className="text-[var(--ra-text)]">workbooks</strong>. Select the
-            demo workbook or upload a 4-sheet Excel file below.
-          </p>
-        </AnalysisPageLayout>
-      );
-    }
-    return (
-      <AnalysisPageLayout uploadSlot={workbookUploadSlot}>
-        <p className="text-sm text-[var(--ra-muted)] max-w-xl">
-          Automated <strong className="text-[var(--ra-text)]">gap analysis</strong> is available for analyzed{" "}
-          <strong className="text-[var(--ra-text)]">4-sheet workbooks</strong> today.
-        </p>
-        <p className="text-sm text-[var(--ra-muted)] max-w-xl">
-          For Word RFQs, use <strong className="text-[var(--ra-text)]">Knowledge Base → Inquiry</strong> to ask about
-          missing attachments, section fields, and differences vs other uploads.
-        </p>
       </AnalysisPageLayout>
     );
   }

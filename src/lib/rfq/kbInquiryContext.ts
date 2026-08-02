@@ -1,136 +1,145 @@
-import {
-  getNormalizedPackage,
-  readNormalizedPackages,
-  type NormalizedPackage,
-} from "@/lib/extraction/loadNormalized";
-import {
-  buildPackageComparisonDigest,
-  labelPackages,
-  wantsRfqComparison,
-} from "@/lib/rfq/kbInquiryCompare";
+import { listBomParts } from "@/lib/rfq/sqlite/bomPartsDb";
 import { listKbCategories } from "@/lib/rfq/sqlite/kbCategories";
-import { getRfqParseSession, listRfqParseSessionSummaries } from "@/lib/rfq/sqlite/parseSessions";
+import {
+  getRfqParseSession,
+  listRfqParseSessionSummaries,
+  type RfqParseSessionFull,
+  type RfqParseSessionRow,
+} from "@/lib/rfq/sqlite/parseSessions";
 import { listSeedRfqProjects } from "@/lib/rfq/sqlite/seedRfqs";
 
 const RFQ_FIELD_GLOSSARY = `RFQ field glossary:
-Word extraction (normalized.json) — primary upload path:
-- Each upload is an RFQ package with rfq_label (RFQ1, RFQ2, …) for comparison in chat.
-- section_slots[]: per RFQ section (e.g. 1.3 Supplier Request Form)
-  - fields[]: { field, value } parsed from forms (Supplier Name, Contact Person, DUNS, etc.)
-  - expected_files[] / attachment_forms: embedded Word/Excel/PDF with clean_text
-  - Empty template underscores are NOT real values; non-empty text like "TEST" IS a real difference.
-- Use supplier_and_commercial_sections in comparison digests for supplier form diffs.
+- Each uploaded RFQ (4-sheet workbook, BOM-parts file, AAG single-sheet quote, or technical
+  drawing) gets an rfq_label (RFQ1, RFQ2, …) for comparison in chat.
+- customer / program / part_number / rfq_reference: header-level commercial identity.
+- line_items[]: parsed BOM/quote lines (part_name, material, process, target_price where known).
+- bom_parts[]: the BOM Intelligence table for this RFQ — ref_designator, description, quantity,
+  unit_cost, mfr_part_number.
+- extra_info[]: README/suppliers/specification content that doesn't map to a structured field —
+  reference-only (e.g. rated voltage/current read off a technical drawing).
+- cost_elements: quoted cost breakdown (labor, overhead, SG&A, profit, packaging, FOB, tooling)
+  from an AAG single-sheet quote upload, when present.
+- gap_findings / risk_score (0-100) / completeness_status: rule-based completeness and risk
+  assessment for this RFQ.
+- historical_matches: similarity-ranked comparisons against the knowledge base of past RFQs.`;
 
-Legacy workbook fields: customer, program, part_number, line_items, gap_findings, etc.`;
-
-function compactParsed(parsed: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {
-    source_form: parsed.source_form,
-    customer: parsed.customer,
-    program: parsed.program,
-    rfq_reference: parsed.rfq_reference,
-  };
-  if (Array.isArray(parsed.line_items)) {
-    out.line_items = (parsed.line_items as unknown[]).slice(0, 12);
-  }
-  return out;
+function labelSessions(rows: RfqParseSessionRow[]): Map<string, string> {
+  const sorted = [...rows].sort((a, b) => a.session_id.localeCompare(b.session_id));
+  return new Map(sorted.map((r, i) => [r.session_id, `RFQ${i + 1}`]));
 }
 
-function compactNormalizedPackage(pkg: NormalizedPackage, opts?: { fullForms?: boolean }): Record<string, unknown> {
-  const fullForms = opts?.fullForms ?? false;
-  const cleanLimit = fullForms ? 12_000 : 2000;
+/** Detects comparison intent ("compare RFQ1 vs RFQ2", "what's different", …) in recent user turns. */
+function wantsComparison(messages: { role: string; content: string }[]): boolean {
+  const text = messages
+    .filter((m) => m.role === "user")
+    .slice(-3)
+    .map((m) => m.content.toLowerCase())
+    .join(" ");
+  return /\b(compare|comparison|difference|differences|diff|versus|vs\.?|between|rfq\s*1|rfq\s*2|rfq1|rfq2)\b/.test(
+    text,
+  );
+}
+
+function compactSessionDigest(
+  row: RfqParseSessionFull,
+  label: string,
+  opts?: { full?: boolean },
+): Record<string, unknown> {
+  const parsed = row.parse.parsed;
+  const lineItems = Array.isArray(parsed.line_items) ? (parsed.line_items as unknown[]) : [];
+  const bomRows = listBomParts(row.session_id);
+  const limit = opts?.full ? 40 : 12;
 
   return {
-    package_id: pkg.package_id,
-    filename: pkg.filename,
-    rfq_number: pkg.rfq_number,
-    title: pkg.title,
-    normalized_at: pkg.normalized_at,
-    summary: pkg.summary,
-    section_slots: (pkg.section_slots ?? []).map((slot) => ({
-      section_number: slot.section_number,
-      section_display: slot.section_display ?? slot.section_title,
-      status: slot.status,
-      fields: (slot.fields ?? []).filter((f) => {
-        const v = (f.value ?? "").trim();
-        return v && !/^_+$/.test(v);
-      }),
-      body_text: slot.body_text?.slice(0, fullForms ? 6000 : 2000) ?? "",
-      expected_files: (slot.expected_files ?? []).map((f) => ({
-        icon_label: f.icon_label,
-        filename: f.filename,
-        present: f.present,
-        document_role: f.document_role,
-        file_type: f.file_type,
-        clean_text: f.present ? (f.clean_text?.slice(0, cleanLimit) ?? "") : "",
-      })),
+    rfq_label: label,
+    session_id: row.session_id,
+    original_filename: row.original_filename,
+    customer: parsed.customer ?? row.customer_name,
+    program: parsed.program ?? row.program_name,
+    part_number: parsed.part_number ?? row.part_number,
+    rfq_reference: parsed.rfq_reference ?? row.rfq_reference,
+    risk_score: row.gap.risk_score,
+    completeness_status: row.gap.completeness_status,
+    gap_summary: row.gap.summary,
+    triggered_rules: row.gap.triggered_rules,
+    line_items: lineItems.slice(0, limit),
+    bom_parts: bomRows.slice(0, opts?.full ? 60 : 15).map((r) => ({
+      ref_designator: r.ref_designator,
+      description: r.description,
+      quantity: r.quantity,
+      unit_cost: r.unit_cost,
+      mfr_part_number: r.mfr_part_number,
+    })),
+    extra_info: Array.isArray(parsed.extra_info) ? parsed.extra_info : undefined,
+    cost_elements: parsed.cost_elements ?? undefined,
+    historical_matches: row.historical.matches.slice(0, 5).map((m) => ({
+      project_id: m.project_id,
+      score: m.score,
     })),
   };
 }
 
 function truncateContext(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
-  return `${text.slice(0, maxChars)}\n\n[context truncated for length — ask about a specific section or RFQ label]`;
+  return `${text.slice(0, maxChars)}\n\n[context truncated for length — ask about a specific RFQ label]`;
 }
 
 export type KbInquiryContextOptions = {
   sessionId?: string | null;
-  packageId?: string | null;
   messages?: { role: string; content: string }[];
 };
 
-/** Build context for the KB inquiry agent (all RFQs for comparison + optional primary package). */
+/** Build context for the KB inquiry agent (all RFQs for comparison + optional primary RFQ). */
 export async function buildKbInquiryContext(opts: KbInquiryContextOptions = {}): Promise<string> {
   const parts: string[] = [RFQ_FIELD_GLOSSARY];
 
-  const normalizedPackages = await readNormalizedPackages();
-  const labels = labelPackages(normalizedPackages);
-  const labelById = new Map(labels.map((l) => [l.package_id, l.rfq_label]));
+  const summaries = listRfqParseSessionSummaries();
+  const labelBySessionId = labelSessions(summaries);
 
-  const compareMode =
-    wantsRfqComparison(opts.messages ?? []) || normalizedPackages.length > 1;
-
-  if (labels.length > 0) {
+  if (summaries.length > 0) {
     parts.push(
-      "RFQ package index (use RFQ1, RFQ2 labels in answers):",
-      JSON.stringify(labels, null, 0),
-    );
-  }
-
-  if (normalizedPackages.length > 0) {
-    parts.push(
-      "Cross-RFQ comparison digests (field-level — use for diff questions):",
+      "RFQ index (use RFQ1, RFQ2 labels in answers):",
       JSON.stringify(
-        normalizedPackages.map((p) =>
-          buildPackageComparisonDigest(p, labelById.get(p.package_id) ?? p.package_id),
-        ),
+        summaries.map((s) => ({
+          rfq_label: labelBySessionId.get(s.session_id),
+          session_id: s.session_id,
+          original_filename: s.original_filename,
+          customer: s.customer_name,
+          program: s.program_name,
+          risk_score: s.risk_score,
+        })),
         null,
         0,
       ),
     );
   }
 
-  const pid = typeof opts.packageId === "string" ? opts.packageId.trim() : "";
+  const compareMode = wantsComparison(opts.messages ?? []) || summaries.length > 1;
+  const sid = typeof opts.sessionId === "string" ? opts.sessionId.trim() : "";
+
   if (compareMode) {
-    for (const pkg of normalizedPackages) {
+    for (const s of summaries) {
+      const full = getRfqParseSession(s.session_id);
+      if (!full) continue;
+      const label = labelBySessionId.get(s.session_id) ?? s.session_id;
       parts.push(
-        `Full extraction — ${labelById.get(pkg.package_id) ?? pkg.package_id} (${pkg.filename}):`,
-        JSON.stringify(compactNormalizedPackage(pkg, { fullForms: true }), null, 0),
+        `Full RFQ — ${label} (${s.original_filename}):`,
+        JSON.stringify(compactSessionDigest(full, label, { full: true }), null, 0),
       );
     }
-  } else if (pid) {
-    const pkg = (await getNormalizedPackage(pid)) ?? normalizedPackages.find((p) => p.package_id === pid);
-    if (pkg) {
-      parts.push(
-        `Primary package — ${labelById.get(pkg.package_id) ?? pkg.package_id}:`,
-        JSON.stringify(compactNormalizedPackage(pkg, { fullForms: true }), null, 0),
-      );
+  } else if (sid) {
+    const full = getRfqParseSession(sid);
+    if (full) {
+      const label = labelBySessionId.get(sid) ?? sid;
+      parts.push(`Primary RFQ — ${label}:`, JSON.stringify(compactSessionDigest(full, label, { full: true }), null, 0));
     }
-  } else if (normalizedPackages.length === 1) {
-    parts.push(
-      `Full extraction — ${labelById.get(normalizedPackages[0]!.package_id) ?? "RFQ1"}:`,
-      JSON.stringify(compactNormalizedPackage(normalizedPackages[0]!, { fullForms: true }), null, 0),
-    );
+  } else if (summaries.length === 1) {
+    const only = summaries[0]!;
+    const full = getRfqParseSession(only.session_id);
+    if (full) {
+      const label = labelBySessionId.get(only.session_id) ?? "RFQ1";
+      parts.push(`Full RFQ — ${label}:`, JSON.stringify(compactSessionDigest(full, label, { full: true }), null, 0));
+    }
   }
 
   const categories = listKbCategories();
@@ -147,31 +156,7 @@ export async function buildKbInquiryContext(opts: KbInquiryContextOptions = {}):
 
   const seeds = listSeedRfqProjects().slice(0, 6);
   if (seeds.length > 0) {
-    parts.push("Historical seed RFQs (samples):", JSON.stringify(seeds.slice(0, 6), null, 0));
-  }
-
-  const sid = typeof opts.sessionId === "string" ? opts.sessionId.trim() : "";
-  if (sid) {
-    const row = getRfqParseSession(sid);
-    if (row) {
-      parts.push(
-        "Legacy workbook session:",
-        JSON.stringify(
-          {
-            session_id: row.session_id,
-            original_filename: row.original_filename,
-            parsed: compactParsed(row.parse.parsed),
-          },
-          null,
-          0,
-        ),
-      );
-    }
-  }
-
-  const uploads = listRfqParseSessionSummaries().slice(0, 4);
-  if (uploads.length > 0) {
-    parts.push("Legacy workbook uploads:", JSON.stringify(uploads, null, 0));
+    parts.push("Historical seed RFQs (samples):", JSON.stringify(seeds, null, 0));
   }
 
   return truncateContext(parts.join("\n\n"), compareMode ? 120_000 : 64_000);
