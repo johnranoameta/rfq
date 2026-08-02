@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { looksLikeBomPartsRfqUpload } from "@/lib/rfq/parseBomPartsAsRfqWorkbook";
+import { parseBomPartsWorkbookAsSupplierParts } from "@/lib/rfq/parseBomPartsAsSupplierParts";
 import { parseSupplierPartsWorkbook } from "@/lib/rfq/parseSupplierPartsWorkbook";
 import { upsertSupplierPart } from "@/lib/rfq/sqlite/supplierPartsDb";
 
@@ -9,7 +11,10 @@ const MAX_BYTES = 12 * 1024 * 1024;
 
 /**
  * Uploads a Supplier & Part DB workbook (.xlsx/.xls) and upserts each row into
- * supplier_parts. See parseSupplierPartsWorkbook.ts for the expected columns.
+ * supplier_parts. Accepts either the flat part_number/supplier_id/unit_cost table
+ * described in parseSupplierPartsWorkbook.ts, or a BOM-parts-shaped workbook (a
+ * `parts` sheet, e.g. docs/sample_supplier_and_part_data.xlsx) — the same shape
+ * BOM Intelligence accepts — mapped via parseBomPartsAsSupplierParts.ts.
  */
 export async function POST(request: Request) {
   let formData: FormData;
@@ -32,7 +37,9 @@ export async function POST(request: Request) {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const { rows, skipped } = parseSupplierPartsWorkbook(buffer);
+    const { rows, skipped } = looksLikeBomPartsRfqUpload(buffer)
+      ? parseBomPartsWorkbookAsSupplierParts(buffer)
+      : parseSupplierPartsWorkbook(buffer);
     for (const row of rows) {
       upsertSupplierPart(row);
     }
