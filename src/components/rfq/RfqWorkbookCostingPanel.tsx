@@ -164,6 +164,69 @@ export function RfqWorkbookCostingPanel({
         ) : null}
       </div>
 
+      {caseData.cost_elements ? (
+        <div className="ra-card">
+          <div className="ra-card-h">
+            <span className="ra-card-t">Quoted Cost Breakdown</span>
+            <span className="ra-badge ra-badge-b">From source quote</span>
+          </div>
+          <div className="ra-card-b">
+            <div className="text-[12.5px] text-[var(--ra-mid)] mb-3">
+              Cost elements as extracted from the uploaded quote — read-only, not yet editable.
+            </div>
+            <div className="ra-kpi-grid">
+              {(
+                [
+                  ["BOM cost", caseData.cost_elements.bom_cost],
+                  ["Loss rate", caseData.cost_elements.loss_rate],
+                  ["Labor", caseData.cost_elements.labor],
+                  ["Overhead & Burden", caseData.cost_elements.overhead_burden],
+                  ["SG&A", caseData.cost_elements.sga],
+                  ["Profit", caseData.cost_elements.profit],
+                  ["Packaging cost", caseData.cost_elements.packaging_cost],
+                  ["FOB Shanghai", caseData.cost_elements.fob_shanghai],
+                  ["FOB Huntsville", caseData.cost_elements.fob_huntsville],
+                ] as [string, number | null][]
+              ).map(([label, value]) => (
+                <div className="ra-kpi" key={label}>
+                  <div className="ra-kpi-l">{label}</div>
+                  <div className="ra-kpi-v">{value != null ? fmtMoney("USD", value) : "—"}</div>
+                </div>
+              ))}
+            </div>
+            {caseData.cost_elements.tooling_items.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ra-muted)] mb-2">
+                  Tooling
+                </div>
+                <table className="ra-table">
+                  <thead>
+                    <tr>
+                      <th>Description</th>
+                      <th>Sub-total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {caseData.cost_elements.tooling_items.map((t, i) => (
+                      <tr key={i}>
+                        <td>{t.description}</td>
+                        <td className="ra-mono">{t.sub_total != null ? fmtMoney("USD", t.sub_total) : "—"}</td>
+                      </tr>
+                    ))}
+                    {caseData.cost_elements.tooling_total != null ? (
+                      <tr>
+                        <td className="font-semibold">Total</td>
+                        <td className="ra-mono font-semibold">{fmtMoney("USD", caseData.cost_elements.tooling_total)}</td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {bomError ? <div className="ra-finding ra-finding-hi">{bomError}</div> : null}
 
       {!bomLoading && bomRows.length === 0 ? (

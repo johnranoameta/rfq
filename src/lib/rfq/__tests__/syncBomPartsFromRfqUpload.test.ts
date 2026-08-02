@@ -16,6 +16,32 @@ function workbookBuffer(sheets: Record<string, Record<string, unknown>[]>): Buff
   return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
 
+function aagSingleSheetBuffer(): Buffer {
+  const rows: unknown[][] = [];
+  rows[2] = ["Customer:", "", "Acme Corp"];
+  rows[3] = ["Program Name:", "", "Widget Line"];
+  rows[10] = [
+    "Item #",
+    "Qty per Assy",
+    "Unit",
+    "Ref Designation",
+    "Manufacturer or\nSuggested Supplier",
+    "Part Number",
+    "Description",
+    "Target Price",
+    "Unit price",
+    " Sub-Total ",
+    "Comments",
+  ];
+  rows[11] = [1, 2, "each", "", "Diodes", "S1GT-04LC-F", "Rectifier", "", 0.04, 0.08, ""];
+  rows[43] = ["", "", "", "", "", "", "", "", "BOM cost", 1.0643];
+  const filled = rows.map((r) => r ?? []);
+  const ws = XLSX.utils.aoa_to_sheet(filled);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Ford coil driver circuit");
+  return XLSX.write(wb, { type: "buffer", bookType: "xls" }) as Buffer;
+}
+
 describe("maybeSyncBomPartsFromRfqUpload", () => {
   it("populates bom_parts for a BOM-parts-shaped upload", () => {
     const buf = workbookBuffer({
@@ -49,5 +75,13 @@ describe("maybeSyncBomPartsFromRfqUpload", () => {
     const rows = listBomParts("rfq-sync-3");
     expect(rows).toHaveLength(1);
     expect(rows[0]?.ref_designator).toBe("R1");
+  });
+
+  it("populates bom_parts for an AAG single-sheet quote upload", () => {
+    const buf = aagSingleSheetBuffer();
+    maybeSyncBomPartsFromRfqUpload(buf, "rfq-sync-4");
+    const rows = listBomParts("rfq-sync-4");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ ref_designator: "S1GT-04LC-F", description: "Rectifier", quantity: 2 });
   });
 });

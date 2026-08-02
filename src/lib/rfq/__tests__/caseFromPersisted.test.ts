@@ -63,3 +63,55 @@ describe("buildCaseDataFromPersisted extra_info", () => {
     expect(c.extra_info).toBeUndefined();
   });
 });
+
+describe("buildCaseDataFromPersisted cost_elements", () => {
+  it("passes cost_elements through when present on the parsed object", () => {
+    const row = baseRow({
+      cost_elements: {
+        bom_cost: 1.0643,
+        loss_rate: 0.0034,
+        labor: 0.1054,
+        overhead_burden: 0.1204,
+        sga: 0.0996,
+        profit: 0.0594,
+        packaging_cost: 0.04,
+        fob_shanghai: 1.4925,
+        fob_huntsville: 1.4925,
+        tooling_items: [{ description: "PCB Tooling", sub_total: 400 }],
+        tooling_total: 750,
+      },
+    });
+    const c = buildCaseDataFromPersisted(row, { id: "file-1", originalName: "test.xlsx" });
+    expect(c.cost_elements).toEqual({
+      bom_cost: 1.0643,
+      loss_rate: 0.0034,
+      labor: 0.1054,
+      overhead_burden: 0.1204,
+      sga: 0.0996,
+      profit: 0.0594,
+      packaging_cost: 0.04,
+      fob_shanghai: 1.4925,
+      fob_huntsville: 1.4925,
+      tooling_items: [{ description: "PCB Tooling", sub_total: 400 }],
+      tooling_total: 750,
+    });
+  });
+
+  it("is undefined when the parsed object has no cost_elements", () => {
+    const row = baseRow({});
+    const c = buildCaseDataFromPersisted(row, { id: "file-1", originalName: "test.xlsx" });
+    expect(c.cost_elements).toBeUndefined();
+  });
+
+  it("drops malformed tooling_items entries and nulls out non-numeric cost fields", () => {
+    const row = baseRow({
+      cost_elements: {
+        bom_cost: "not-a-number",
+        tooling_items: [{ description: "", sub_total: 5 }, { description: "Valid", sub_total: "x" }],
+      },
+    });
+    const c = buildCaseDataFromPersisted(row, { id: "file-1", originalName: "test.xlsx" });
+    expect(c.cost_elements?.bom_cost).toBeNull();
+    expect(c.cost_elements?.tooling_items).toEqual([{ description: "Valid", sub_total: null }]);
+  });
+});

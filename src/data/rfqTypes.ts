@@ -178,4 +178,18 @@ export type CaseData = {
   item_historical_comparison?: ItemHistoricalComparison[];
   /** README/suppliers-style sheets from a BOM-parts-shaped RFQ upload — display only, not matched/gap-analyzed. */
   extra_info?: { sheet: string; rows: Record<string, string>[] }[];
+  /** Quoted cost-element breakdown from an AAG single-sheet quote upload (issue #16) — display only, not editable yet. */
+  cost_elements?: {
+    bom_cost: number | null;
+    loss_rate: number | null;
+    labor: number | null;
+    overhead_burden: number | null;
+    sga: number | null;
+    profit: number | null;
+    packaging_cost: number | null;
+    fob_shanghai: number | null;
+    fob_huntsville: number | null;
+    tooling_items: { description: string; sub_total: number | null }[];
+    tooling_total: number | null;
+  };
 };

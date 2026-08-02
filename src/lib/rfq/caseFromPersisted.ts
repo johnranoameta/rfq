@@ -50,6 +50,34 @@ function extraInfoFromParsed(parsed: Record<string, unknown>): CaseData["extra_i
   );
 }
 
+function numOrNull(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function costElementsFromParsed(parsed: Record<string, unknown>): CaseData["cost_elements"] {
+  const raw = parsed.cost_elements;
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const r = raw as Record<string, unknown>;
+  const toolingRaw = Array.isArray(r.tooling_items) ? r.tooling_items : [];
+  const tooling_items = toolingRaw
+    .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null)
+    .map((x) => ({ description: str(x.description), sub_total: numOrNull(x.sub_total) }))
+    .filter((x) => x.description);
+  return {
+    bom_cost: numOrNull(r.bom_cost),
+    loss_rate: numOrNull(r.loss_rate),
+    labor: numOrNull(r.labor),
+    overhead_burden: numOrNull(r.overhead_burden),
+    sga: numOrNull(r.sga),
+    profit: numOrNull(r.profit),
+    packaging_cost: numOrNull(r.packaging_cost),
+    fob_shanghai: numOrNull(r.fob_shanghai),
+    fob_huntsville: numOrNull(r.fob_huntsville),
+    tooling_items,
+    tooling_total: numOrNull(r.tooling_total),
+  };
+}
+
 function firstLineItem(parsed: Record<string, unknown>): Record<string, unknown> | null {
   const items = parsed.line_items;
   if (!Array.isArray(items) || items.length === 0) return null;
@@ -351,5 +379,6 @@ export function buildCaseDataFromPersisted(
         }))
       : undefined,
     extra_info: extraInfoFromParsed(parsed),
+    cost_elements: costElementsFromParsed(parsed),
   };
 }

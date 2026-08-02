@@ -13,6 +13,11 @@ import {
   parseBomPartsAsRfqWorkbook,
   type RfqExtraInfoSheet,
 } from "@/lib/rfq/parseBomPartsAsRfqWorkbook";
+import {
+  looksLikeAagSingleSheetQuote,
+  parseAagSingleSheetQuote,
+  type AagCostElements,
+} from "@/lib/rfq/parseAagSingleSheetQuote";
 import { maybeSyncBomPartsFromRfqUpload } from "@/lib/rfq/syncBomPartsFromRfqUpload";
 import { upsertKnowledgeBaseFromUpload } from "@/lib/rfq/sqlite/kbUploads";
 import { upsertRfqParseSession } from "@/lib/rfq/sqlite/parseSessions";
@@ -76,15 +81,24 @@ export async function POST(request: Request) {
   try {
     let workbook: ParsedRfqWorkbook;
     let extraInfo: RfqExtraInfoSheet[] | null = null;
+    let costElements: AagCostElements | null = null;
     if (looksLikeBomPartsRfqUpload(buffer)) {
       const adapted = parseBomPartsAsRfqWorkbook(buffer);
       workbook = adapted.workbook;
       extraInfo = adapted.extraInfo;
+    } else if (looksLikeAagSingleSheetQuote(buffer)) {
+      const adapted = parseAagSingleSheetQuote(buffer, originalName || storedName);
+      workbook = adapted.workbook;
+      costElements = adapted.costElements;
     } else {
       workbook = parseRfqWorkbook(buffer);
     }
     const base = workbookToAgentParsed(workbook);
-    const parsed = extraInfo !== null ? { ...base, extra_info: extraInfo } : base;
+    const parsed = {
+      ...base,
+      ...(extraInfo !== null ? { extra_info: extraInfo } : {}),
+      ...(costElements !== null ? { cost_elements: costElements } : {}),
+    };
     const bundle = await loadHistoricalKnowledge();
     const candidateProjects = filterSelfKbProjects(bundle.projects, uploadId, parsed);
     const criteria = mapParsedToMatchCriteria(parsed);
