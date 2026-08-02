@@ -32,7 +32,8 @@ function formatBytes(n: number) {
 
 function isWorkbookRfqUpload(f: UploadedPackageFile): boolean {
   if (f.storedName === STORED_NAME_DB_ONLY) return false;
-  return f.storedName.toLowerCase().endsWith(".xlsx") || f.storedName.toLowerCase().endsWith(".xls");
+  const name = f.storedName.toLowerCase();
+  return name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".tif") || name.endsWith(".tiff");
 }
 
 /** 4-sheet workbook on disk — eligible for server parse + gap (not DB-only rows). */
@@ -174,7 +175,7 @@ export function RfqPackageUpload({
   const runPackageAnalysis = useCallback(async (f: UploadedPackageFile) => {
     if (f.storedName === STORED_NAME_DB_ONLY) {
       const message =
-        "This RFQ was opened from the database only. Re-upload the 4-sheet workbook (.xlsx/.xls) to run analysis again.";
+        "This RFQ was opened from the database only. Re-upload the workbook (.xlsx/.xls) or drawing (.tif/.tiff) to run analysis again.";
       setPdfPipeline((prev) => ({
         ...prev,
         [f.id]: { status: "error", message },
@@ -186,7 +187,7 @@ export function RfqPackageUpload({
     onAnalysisStatusChange?.({ fileId: f.id, status: "analyzing" });
     try {
       if (!isWorkbookRfqUpload(f)) {
-        throw new Error("Workbook-only mode: upload a 4-sheet .xlsx/.xls RFQ file.");
+        throw new Error("Upload a 4-sheet .xlsx/.xls workbook or a .tif/.tiff technical drawing to analyze.");
       }
       const endpoint = "/api/rfq/analyze-uploaded-workbook";
       const res = await fetch(endpoint, {
@@ -292,7 +293,7 @@ export function RfqPackageUpload({
             id={inputId}
             type="file"
             className="sr-only"
-            accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+            accept=".xlsx,.xls,.tif,.tiff,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,image/tiff"
             disabled={busy}
             multiple
             onChange={(e) => {
