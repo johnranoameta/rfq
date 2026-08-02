@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { updateSupplierPartField, upsertSupplierPart } from "@/lib/rfq/sqlite/supplierPartsDb";
+import { createSupplierPart, updateSupplierPartField, upsertSupplierPart } from "@/lib/rfq/sqlite/supplierPartsDb";
 import { getRfqDb } from "@/lib/rfq/sqlite/rfqDb";
 import type { EditableSupplierPartField } from "@/lib/rfq/supplierPartFieldValidation";
 
@@ -55,5 +55,48 @@ describe("updateSupplierPartField", () => {
     insertRow("DUPE-1", "AAG");
     const id2 = insertRow("DUPE-2", "AAG");
     expect(() => updateSupplierPartField(id2, "part_number", "DUPE-1")).toThrow(/already has this/);
+  });
+});
+
+describe("createSupplierPart", () => {
+  it("inserts a row with only the required fields and applies defaults", () => {
+    const row = createSupplierPart({ part_number: "NEW-1", supplier_id: "AAG", source: "AAG quote" });
+    expect(row.part_number).toBe("NEW-1");
+    expect(row.supplier_id).toBe("AAG");
+    expect(row.source).toBe("AAG quote");
+    expect(row.currency).toBe("USD");
+    expect(row.unit_cost).toBeNull();
+    expect(row.lead_time).toBeNull();
+    expect(row.approval_status).toBeNull();
+    expect(row.id).toBeGreaterThan(0);
+  });
+
+  it("inserts a row with all optional fields set", () => {
+    const row = createSupplierPart({
+      part_number: "NEW-2",
+      supplier_id: "AAG",
+      source: "AAG quote",
+      currency: "EUR",
+      unit_cost: 2.5,
+      lead_time: "4 weeks",
+      approval_status: "approved",
+    });
+    expect(row.currency).toBe("EUR");
+    expect(row.unit_cost).toBe(2.5);
+    expect(row.lead_time).toBe("4 weeks");
+    expect(row.approval_status).toBe("approved");
+  });
+
+  it("throws a clear error for a duplicate supplier_id + part_number", () => {
+    createSupplierPart({ part_number: "NEW-DUPE", supplier_id: "AAG", source: "AAG quote" });
+    expect(() =>
+      createSupplierPart({ part_number: "NEW-DUPE", supplier_id: "AAG", source: "AAG quote" }),
+    ).toThrow(/already exists/);
+  });
+
+  it("does not affect an existing row for a different supplier with the same part_number", () => {
+    createSupplierPart({ part_number: "SHARED-1", supplier_id: "AAG", source: "AAG quote" });
+    const row = createSupplierPart({ part_number: "SHARED-1", supplier_id: "OTHER", source: "Other quote" });
+    expect(row.supplier_id).toBe("OTHER");
   });
 });

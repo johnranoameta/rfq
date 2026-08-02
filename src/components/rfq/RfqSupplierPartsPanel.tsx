@@ -59,6 +59,19 @@ export function RfqSupplierPartsPanel() {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupResult, setLookupResult] = useState<CostSelectionResult | null>(null);
 
+  const [addOpen, setAddOpen] = useState(false);
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addForm, setAddForm] = useState({
+    part_number: "",
+    supplier_id: "",
+    source: "",
+    currency: "USD",
+    unit_cost: "",
+    lead_time: "",
+    approval_status: "",
+  });
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -118,6 +131,50 @@ export function RfqSupplierPartsPanel() {
     [load],
   );
 
+  const handleAddPart = useCallback(async () => {
+    const part_number = addForm.part_number.trim();
+    const supplier_id = addForm.supplier_id.trim();
+    const source = addForm.source.trim();
+    if (!part_number || !supplier_id || !source) {
+      setAddError("Part number, supplier, and source are required.");
+      return;
+    }
+    setAddBusy(true);
+    setAddError(null);
+    try {
+      const res = await fetch("/api/rfq/supplier-parts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          part_number,
+          supplier_id,
+          source,
+          currency: addForm.currency.trim() || undefined,
+          unit_cost: addForm.unit_cost.trim() || undefined,
+          lead_time: addForm.lead_time.trim() || undefined,
+          approval_status: addForm.approval_status.trim() || undefined,
+        }),
+      });
+      const json = (await res.json()) as { row?: SupplierPartRow; error?: string };
+      if (!res.ok) throw new Error(json.error || `Add failed (${res.status})`);
+      setAddForm({
+        part_number: "",
+        supplier_id: "",
+        source: "",
+        currency: "USD",
+        unit_cost: "",
+        lead_time: "",
+        approval_status: "",
+      });
+      setAddOpen(false);
+      await load();
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Add failed");
+    } finally {
+      setAddBusy(false);
+    }
+  }, [addForm, load]);
+
   const handleLookup = useCallback(async () => {
     const pn = partNumber.trim();
     const qty = Number(quantity);
@@ -162,6 +219,17 @@ export function RfqSupplierPartsPanel() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setAddError(null);
+                  setAddOpen((v) => !v);
+                }}
+              >
+                {addOpen ? "Cancel" : "Add part"}
+              </Button>
               <input
                 id={fileInputId}
                 ref={fileInputRef}
@@ -188,6 +256,94 @@ export function RfqSupplierPartsPanel() {
           </div>
         </CardHeader>
         <CardContent className="p-5 pt-0 space-y-3">
+          {addOpen ? (
+            <div className="rounded-xl border border-border bg-background/20 p-4 space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    Part number *
+                  </span>
+                  <input
+                    value={addForm.part_number}
+                    onChange={(e) => setAddForm((f) => ({ ...f, part_number: e.target.value }))}
+                    className="h-9 rounded-lg border border-border bg-background/20 px-3 text-[12px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    Supplier *
+                  </span>
+                  <input
+                    value={addForm.supplier_id}
+                    onChange={(e) => setAddForm((f) => ({ ...f, supplier_id: e.target.value }))}
+                    className="h-9 rounded-lg border border-border bg-background/20 px-3 text-[12px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    Source *
+                  </span>
+                  <input
+                    value={addForm.source}
+                    onChange={(e) => setAddForm((f) => ({ ...f, source: e.target.value }))}
+                    placeholder="e.g. Supplier quote"
+                    className="h-9 rounded-lg border border-border bg-background/20 px-3 text-[12px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    Currency
+                  </span>
+                  <input
+                    value={addForm.currency}
+                    onChange={(e) => setAddForm((f) => ({ ...f, currency: e.target.value }))}
+                    className="h-9 rounded-lg border border-border bg-background/20 px-3 text-[12px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    Unit cost
+                  </span>
+                  <input
+                    value={addForm.unit_cost}
+                    onChange={(e) => setAddForm((f) => ({ ...f, unit_cost: e.target.value }))}
+                    inputMode="decimal"
+                    className="h-9 rounded-lg border border-border bg-background/20 px-3 text-[12px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    Lead time
+                  </span>
+                  <input
+                    value={addForm.lead_time}
+                    onChange={(e) => setAddForm((f) => ({ ...f, lead_time: e.target.value }))}
+                    className="h-9 rounded-lg border border-border bg-background/20 px-3 text-[12px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
+                    Approval status
+                  </span>
+                  <input
+                    value={addForm.approval_status}
+                    onChange={(e) => setAddForm((f) => ({ ...f, approval_status: e.target.value }))}
+                    className="h-9 rounded-lg border border-border bg-background/20 px-3 text-[12px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                  />
+                </label>
+              </div>
+              {addError ? (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
+                  {addError}
+                </div>
+              ) : null}
+              <div className="flex justify-end">
+                <Button type="button" size="sm" disabled={addBusy} onClick={() => void handleAddPart()}>
+                  {addBusy ? "Adding…" : "Add part"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
           {uploadMessage ? (
             <div className="rounded-lg border border-border/70 bg-background/20 px-3 py-2 text-[12px] text-muted-foreground">
               {uploadMessage}

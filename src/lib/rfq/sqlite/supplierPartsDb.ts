@@ -74,6 +74,46 @@ export function upsertSupplierPart(record: {
 }
 
 /**
+ * Inserts one new supplier_parts row (the "Add part" form in Supplier & Part DB).
+ * Unlike upsertSupplierPart (bulk import, overwrite-on-conflict), this rejects a
+ * duplicate (supplier_id, part_number) rather than silently clobbering an existing
+ * row's fields that weren't part of this form.
+ */
+export function createSupplierPart(record: {
+  part_number: string;
+  supplier_id: string;
+  source: string;
+  currency?: string | null;
+  unit_cost?: number | null;
+  lead_time?: string | null;
+  approval_status?: string | null;
+}): SupplierPartRow {
+  const db = getRfqDb();
+  try {
+    const info = db
+      .prepare(
+        `INSERT INTO supplier_parts (
+           part_number, supplier_id, source, currency, unit_cost, lead_time, approval_status, updated_at
+         ) VALUES (@part_number, @supplier_id, @source, @currency, @unit_cost, @lead_time, @approval_status, datetime('now'))`,
+      )
+      .run({
+        currency: "USD",
+        unit_cost: null,
+        lead_time: null,
+        approval_status: null,
+        ...record,
+      });
+    return db.prepare(`SELECT ${SELECT_COLUMNS} FROM supplier_parts WHERE id = ?`).get(info.lastInsertRowid) as SupplierPartRow;
+  } catch (e) {
+    const code = (e as { code?: string }).code;
+    if (code === "SQLITE_CONSTRAINT_UNIQUE" || code === "SQLITE_CONSTRAINT_PRIMARYKEY") {
+      throw new Error("A row with this supplier_id + part_number combination already exists");
+    }
+    throw e;
+  }
+}
+
+/**
  * Updates a single whitelisted field on one supplier_parts row. No original-value
  * tracking or audit log in v1 — a straight overwrite, matching the same pattern as
  * updateBomPartField (issue #17). Re-checks the whitelist at this boundary (not just at
