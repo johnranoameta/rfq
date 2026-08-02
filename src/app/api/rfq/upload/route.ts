@@ -11,6 +11,8 @@ const MAX_BYTES = 12 * 1024 * 1024;
 const ALLOWED_EXT = new Set([
   ".xlsx",
   ".xls",
+  ".tif",
+  ".tiff",
 ]);
 
 const GAP_DOC_EXT = new Set([
@@ -61,7 +63,7 @@ export async function POST(request: Request) {
         error:
           purpose === "gap-doc"
             ? "Unsupported type. Allowed for gap documents: PDF, Word, or Excel."
-            : "Unsupported type. Allowed: Excel workbook (.xlsx/.xls) with 4 RFQ tabs.",
+            : "Unsupported type. Allowed: Excel workbook (.xlsx/.xls) or a technical drawing (.tif/.tiff).",
       },
       { status: 415 },
     );

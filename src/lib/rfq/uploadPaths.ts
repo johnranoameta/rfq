@@ -10,11 +10,17 @@ export function isSafeWorkbookStoredName(storedName: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.xlsx?$/i.test(storedName);
 }
 
-function resolveStoredFile(storedName: string, ext: "pdf" | "xlsx"): string | null {
+export function isSafeDrawingStoredName(storedName: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.tiff?$/i.test(storedName);
+}
+
+function resolveStoredFile(storedName: string, ext: "pdf" | "xlsx" | "tiff"): string | null {
   const ok =
     ext === "pdf"
       ? isSafePdfStoredName(storedName)
-      : isSafeWorkbookStoredName(storedName);
+      : ext === "xlsx"
+        ? isSafeWorkbookStoredName(storedName)
+        : isSafeDrawingStoredName(storedName);
   if (!ok) return null;
   const root = path.resolve(RFQ_UPLOAD_DIR);
   const full = path.resolve(root, storedName);
@@ -29,4 +35,8 @@ export function resolveUploadedPdfPath(storedName: string): string | null {
 
 export function resolveUploadedWorkbookPath(storedName: string): string | null {
   return resolveStoredFile(storedName, "xlsx");
+}
+
+export function resolveUploadedDrawingPath(storedName: string): string | null {
+  return resolveStoredFile(storedName, "tiff");
 }

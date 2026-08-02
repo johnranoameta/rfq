@@ -18,10 +18,13 @@ import {
   parseAagSingleSheetQuote,
   type AagCostElements,
 } from "@/lib/rfq/parseAagSingleSheetQuote";
+import { extractDrawingFields, mapDrawingExtractionToWorkbook } from "@/lib/rfq/parseDrawingImageQuote";
 import { maybeSyncBomPartsFromRfqUpload } from "@/lib/rfq/syncBomPartsFromRfqUpload";
+import { listBomParts, replaceBomParts } from "@/lib/rfq/sqlite/bomPartsDb";
+import type { ParsedBomPartRow } from "@/lib/rfq/parseBomPartsWorkbook";
 import { upsertKnowledgeBaseFromUpload } from "@/lib/rfq/sqlite/kbUploads";
 import { upsertRfqParseSession } from "@/lib/rfq/sqlite/parseSessions";
-import { resolveUploadedWorkbookPath } from "@/lib/rfq/uploadPaths";
+import { resolveUploadedDrawingPath, resolveUploadedWorkbookPath } from "@/lib/rfq/uploadPaths";
 import { workbookToAgentParsed } from "@/lib/rfq/workbookToAgentParsed";
 
 export const runtime = "nodejs";
@@ -30,8 +33,10 @@ export const maxDuration = 120;
 const MAX_BYTES = 12 * 1024 * 1024;
 
 /**
- * 4-sheet workbook (Header, Line_Items, Technical_Specs, Supplier_Responses) →
- * historical match → heuristic workbook gaps → optional model-assisted gap pass.
+ * Accepts either a workbook upload (4-sheet, BOM-parts-shaped, or AAG single-sheet
+ * quote — detected by content) or a .tif/.tiff technical-drawing upload (extracted via
+ * GPT-4o vision) → historical match → heuristic workbook gaps → optional model-assisted
+ * gap pass.
  */
 export async function POST(request: Request) {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -59,9 +64,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing storedName" }, { status: 400 });
   }
 
-  const diskPath = resolveUploadedWorkbookPath(storedName);
+  const isDrawing = /\.tiff?$/i.test(storedName);
+  const diskPath = isDrawing ? resolveUploadedDrawingPath(storedName) : resolveUploadedWorkbookPath(storedName);
   if (!diskPath) {
-    return NextResponse.json({ error: "Invalid or unknown .xlsx file" }, { status: 400 });
+    return NextResponse.json(
+      { error: isDrawing ? "Invalid or unknown .tif file" : "Invalid or unknown .xlsx file" },
+      { status: 400 },
+    );
   }
 
   let buffer: Buffer;
@@ -82,7 +91,14 @@ export async function POST(request: Request) {
     let workbook: ParsedRfqWorkbook;
     let extraInfo: RfqExtraInfoSheet[] | null = null;
     let costElements: AagCostElements | null = null;
-    if (looksLikeBomPartsRfqUpload(buffer)) {
+    let drawingBomPartsRows: ParsedBomPartRow[] | null = null;
+    if (isDrawing) {
+      const extraction = await extractDrawingFields(buffer, apiKey);
+      const adapted = mapDrawingExtractionToWorkbook(extraction, originalName || storedName);
+      workbook = adapted.workbook;
+      extraInfo = adapted.extraInfo.length > 0 ? adapted.extraInfo : null;
+      drawingBomPartsRows = adapted.bomPartsRows;
+    } else if (looksLikeBomPartsRfqUpload(buffer)) {
       const adapted = parseBomPartsAsRfqWorkbook(buffer);
       workbook = adapted.workbook;
       extraInfo = adapted.extraInfo;
@@ -156,7 +172,7 @@ export async function POST(request: Request) {
     }
 
     const parse = {
-      mode: "workbook_xlsx" as const,
+      mode: isDrawing ? ("drawing_vision_openai" as const) : ("workbook_xlsx" as const),
       model: gap.gap_model ?? "workbook_heuristic",
       extractedTextChars: 0,
       parsed,
@@ -202,7 +218,16 @@ export async function POST(request: Request) {
           console.error("[analyze-uploaded-workbook] knowledge base append", kbErr);
         }
         try {
-          maybeSyncBomPartsFromRfqUpload(buffer, uploadId);
+          if (drawingBomPartsRows) {
+            // Reuse the BOM rows already extracted above rather than re-calling the vision
+            // model: a second call on the same image can read fine print differently, which
+            // would desync BOM Intelligence from what Overview/Matching just showed.
+            if (listBomParts(uploadId).length === 0) {
+              replaceBomParts(uploadId, drawingBomPartsRows);
+            }
+          } else {
+            maybeSyncBomPartsFromRfqUpload(buffer, uploadId);
+          }
         } catch (bomErr) {
           console.error("[analyze-uploaded-workbook] bom_parts sync", bomErr);
         }
