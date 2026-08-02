@@ -3,14 +3,37 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 @AGENTS.md
+@CONVENTIONS.md
+
+## Before writing code
+
+`CONVENTIONS.md` is binding, not advisory. Read it before your first edit in a
+session. The rules that matter most, because the codebase already drifted past
+them once:
+
+1. **Do not hand-roll the shared primitives.** `errorMessage`, `jsonStorage`,
+   `apiResponse`, `fetchJson`, `useHydrated` exist because each replaced 15–50
+   copies. Grep for an existing helper before writing error handling, a
+   `localStorage` read, an API error reply, or a client fetch.
+2. **Respect the size limits** (400 lines/file, 200/function, complexity 20).
+   `npm run lint` enforces them as errors on new code. When you hit one, split
+   by responsibility — state into a `hooks/` file, a region of the tree into a
+   component, pure logic into `src/lib/` where it can be tested.
+3. **`eslint.config.mjs` carries a legacy shrink-list** of files that predate
+   the limits and warn instead of erroring. Never add to it.
+4. **Never leave dead code.** Unused vars are an error, not a warning.
+
+Finish with `npm run lint` (0 errors), `npm test`, and `npm run build`
+(exit 0 — this is also the typecheck). For a refactor, additionally run the app
+and check the routes you touched.
 
 ## Commands
 
 ```bash
 npm run dev          # Start dev server (http://localhost:3000)
 npm run build        # Production build (use to typecheck)
-npm run lint         # ESLint check (repo has known pre-existing warnings; only fix new ones in files you touch)
-npm test             # Vitest (specs in src/lib/rfq/__tests__)
+npm run lint         # ESLint; must stay at 0 errors. Warnings are the legacy shrink-list (see CONVENTIONS.md § 1)
+npm test             # Vitest (specs in __tests__/ folders beside the code)
 npm run test:watch   # Vitest, watch mode
 
 # Sample data generators (write to project_files/)
@@ -27,19 +50,30 @@ npm run deploy:pm2   # build + pm2
 
 ## Conventions
 
-- TDD: test first (Vitest), watch it fail, then implement. Pure domain logic in `src/lib/rfq` is the testable seam.
-- Path alias `@/` → `src/`.
+Full rules in `CONVENTIONS.md`. In brief:
+
+- TDD: test first (Vitest), watch it fail, then implement. Pure domain logic in `src/lib` is the testable seam.
+- Path alias `@/` → `src/`; never `../../`.
+- Shared primitives are mandatory: `@/lib/core/errors`, `@/lib/core/jsonStorage`, `@/lib/http/apiResponse`, `@/lib/http/fetchJson`, `@/lib/react/useHydrated`.
+- Size limits enforced by lint: 400 lines/file, 200/function, complexity 20, 4 params.
 - Commits: plain messages, no Claude co-author/footer.
 
-## graphify
-Setup: see `GRAPHIFY.md`.
+## graphify (optional, per-developer)
 
-Knowledge graph at `graphify-out/` (god nodes, community structure, cross-file relationships).
+**Check `graphify-out/graph.json` exists before using any of this.** The graph
+is git-ignored and each developer builds their own, so on most checkouts it is
+absent and the `graphify` CLI is not installed. If it is missing, skip this
+section entirely — do not try the commands and do not offer to build it
+unprompted (the first build needs an LLM API key). Setup: `GRAPHIFY.md`.
 
-- Codebase questions: run `graphify query "<question>"` when `graphify-out/graph.json` exists. `graphify path "<A>" "<B>"` for relationships, `graphify explain "<concept>"` for focused concepts — return scoped subgraphs, smaller than GRAPH_REPORT.md or grep.
+When the graph *is* present:
+
+- Codebase questions: `graphify query "<question>"`; `graphify path "<A>" "<B>"`
+  for relationships; `graphify explain "<concept>"` for focused concepts — each
+  returns a scoped subgraph, smaller than GRAPH_REPORT.md or grep.
 - `graphify-out/wiki/index.md` for broad navigation if present.
 - `graphify-out/GRAPH_REPORT.md` only for broad architecture review.
-- After code changes, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- After code changes, `graphify update .` refreshes it (AST-only, no API cost).
 
 ## Architecture
 
@@ -51,11 +85,33 @@ RFQ Assistant is an internal automotive procurement tool for NorthBridge Automot
 
 ### Entry points and routing
 
-- `src/app/page.tsx` — root; checks `localStorage`/`sessionStorage` auth, redirects to `/login` if not authenticated
+- `src/app/page.tsx` — root; wraps the dashboard in `<AuthGuard>`
 - `src/app/login/page.tsx` — hardcoded credentials (`RFQ1` / `Manu1a!`) stored in `rfqAuth.ts`; auth is client-side only (localStorage flag)
 - `src/app/help/page.tsx`, `src/app/baseline/page.tsx`, `src/app/extraction/page.tsx` — secondary pages
 
-The entire main UI lives in one large component: `src/components/rfq/RFQAgentDashboard.tsx`.
+Guarded pages use `<AuthGuard fallback={…}>` from `src/components/auth/AuthGuard.tsx`,
+which reads auth via `useSyncExternalStore` so there is no hydration mismatch.
+
+### Dashboard structure
+
+`src/components/rfq/RFQAgentDashboard.tsx` is a composition root only. Its
+parts live in `src/components/rfq/dashboard/`:
+
+| Path | What |
+|---|---|
+| `hooks/useRfqWorkspace` | which RFQ is loaded, the Analysis selection, the sidebar upload list |
+| `hooks/useWorkspacePersistence` | prefs/cache reads and writes, module-enabled guards |
+| `hooks/useActivateRfq` | loads a stored analysis, falling back to the local gap cache |
+| `hooks/useEnsureWorkbookSession` | fills in case data when a selection has none |
+| `hooks/useHydrateUploadList` | merges the catalog and the localStorage backup on boot |
+| `hooks/useKbCatalog` | catalog fetch + KB class buckets |
+| `hooks/useExtractPackages` | Word-package list, selection, delete |
+| `hooks/useAnalysisStatus` | per-file pipeline status pills and dots |
+| `hooks/useGapDocumentActions` | supply / remove / finalize a gap document |
+| `DashboardHeader`, `DashboardSidebar`, `DashboardCanvas` | the three regions |
+| `sidebar/SidebarPrimitives` | shared row, nav-button and pill components |
+| `sidebar/SidebarLists` | the per-workspace list bodies |
+| `sidebar/WorkspaceNav` | the nav tree |
 
 ### Workspace modes
 

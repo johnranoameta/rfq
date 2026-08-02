@@ -20,7 +20,11 @@ export const UI_FONTS: {
 }[] = [
   { id: "oxanium", label: "Oxanium", description: "Technical — matches the dashboard default" },
   { id: "inter", label: "Inter", description: "Neutral UI — very clear at small sizes" },
-  { id: "source-sans", label: "Source Sans 3", description: "Humanist — comfortable for long reading" },
+  {
+    id: "source-sans",
+    label: "Source Sans 3",
+    description: "Humanist — comfortable for long reading",
+  },
 ];
 
 function isUiFontId(v: string | null): v is UiFontId {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { badRequest, failureResponse } from "@/lib/http/apiResponse";
 import { getNormalizedPackage, readNormalizedPackages } from "@/lib/extraction/loadNormalized";
 import { compactRankedMatches } from "@/lib/rfq/compactHistoricalMatch";
 import { rankHistoricalMatches, type RankedHistoricalMatch } from "@/lib/rfq/loadHistoricalKnowledge";
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const packageId = url.searchParams.get("package")?.trim() ?? "";
   if (!packageId) {
-    return NextResponse.json({ error: "Missing package query parameter" }, { status: 400 });
+    return badRequest("Missing package query parameter");
   }
 
   const pkg = await getNormalizedPackage(packageId);
@@ -75,8 +76,7 @@ export async function GET(request: Request) {
         matches: row.matches,
       })),
     });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Word package match failed";
-    return NextResponse.json({ error: message }, { status: 503 });
+  } catch (error) {
+    return failureResponse(error, "Word package match failed");
   }
 }

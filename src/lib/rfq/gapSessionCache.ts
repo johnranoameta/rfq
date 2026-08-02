@@ -1,4 +1,5 @@
 import type { CaseData } from "@/data/rfqTypes";
+import { readJsonStorage, writeJsonStorage } from "@/lib/core/jsonStorage";
 import { reconcileCaseGapsWithDocuments } from "@/lib/rfq/reconcileGapsWithDocuments";
 
 const KEY = "rfq-agent-gap-sessions-v1";
@@ -6,24 +7,11 @@ const KEY = "rfq-agent-gap-sessions-v1";
 type GapSessionStore = Record<string, CaseData>;
 
 function readStore(): GapSessionStore {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as GapSessionStore;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
+  return readJsonStorage<GapSessionStore>(KEY, {}, (p) => !!p && typeof p === "object");
 }
 
 function writeStore(store: GapSessionStore): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(store));
-  } catch {
-    /* quota */
-  }
+  writeJsonStorage(KEY, store);
 }
 
 /** Persist gap uploads, finalizations, and workflow for a workbook session (survives refresh). */

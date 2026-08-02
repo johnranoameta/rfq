@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
 
+import { badRequest } from "@/lib/http/apiResponse";
 import { RFQ_UPLOAD_DIR } from "@/lib/rfq/uploadPaths";
 
 const UPLOAD_DIR = RFQ_UPLOAD_DIR;
@@ -33,16 +34,16 @@ export async function POST(request: Request) {
   try {
     formData = await request.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+    return badRequest("Invalid form data");
   }
 
   const file = formData.get("file");
   if (!file || !(file instanceof File)) {
-    return NextResponse.json({ error: "Missing file field" }, { status: 400 });
+    return badRequest("Missing file field");
   }
 
   if (file.size <= 0) {
-    return NextResponse.json({ error: "Empty file" }, { status: 400 });
+    return badRequest("Empty file");
   }
 
   if (file.size > MAX_BYTES) {

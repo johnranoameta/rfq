@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { failureResponse } from "@/lib/http/apiResponse";
 import { loadPortfolioStats } from "@/lib/rfq/sqlite/portfolioStats";
 
 export const runtime = "nodejs";
@@ -13,9 +14,8 @@ export async function GET() {
   try {
     const stats = loadPortfolioStats();
     return NextResponse.json(stats);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Database read failed";
-    console.error("[database/portfolio]", e);
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    console.error("[database/portfolio]", error);
+    return failureResponse(error, "Database read failed", 500);
   }
 }

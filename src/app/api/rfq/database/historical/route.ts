@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { badRequest, errorResponse, failureResponse } from "@/lib/http/apiResponse";
 import { parseHistoricalJsonl } from "@/lib/rfq/historicalKnowledgeParsers";
 import type { HistoricalProjectRecord } from "@/lib/rfq/historicalKnowledgeTypes";
 import { insertHistoricalUploads, listHistoricalUploadSummaries } from "@/lib/rfq/sqlite/historicalUploads";
@@ -18,9 +19,8 @@ function isHistoricalProjectRecord(v: unknown): v is HistoricalProjectRecord {
 export async function GET() {
   try {
     return NextResponse.json({ historical_uploads: listHistoricalUploadSummaries() });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Database read failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    return failureResponse(error, "Database read failed", 500);
   }
 }
 
@@ -29,11 +29,11 @@ export async function POST(request: Request) {
   try {
     formData = await request.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+    return badRequest("Invalid form data");
   }
   const file = formData.get("file");
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Missing file field" }, { status: 400 });
+    return badRequest("Missing file field");
   }
   const ext = file.name.toLowerCase().split(".").pop() || "";
   const text = await file.text();
@@ -45,18 +45,18 @@ export async function POST(request: Request) {
     try {
       const arr = JSON.parse(text) as unknown;
       if (!Array.isArray(arr)) {
-        return NextResponse.json({ error: "JSON must be an array of historical records" }, { status: 400 });
+        return badRequest("JSON must be an array of historical records");
       }
       records = arr.filter(isHistoricalProjectRecord);
     } catch {
-      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+      return badRequest("Invalid JSON");
     }
   } else {
-    return NextResponse.json({ error: "Unsupported type. Use .jsonl or .json" }, { status: 415 });
+    return errorResponse("Unsupported type. Use .jsonl or .json", 415);
   }
 
   if (records.length === 0) {
-    return NextResponse.json({ error: "No valid historical records found" }, { status: 400 });
+    return badRequest("No valid historical records found");
   }
 
   try {
@@ -66,9 +66,8 @@ export async function POST(request: Request) {
       source: "historical_import",
     });
     return NextResponse.json({ ok: true, inserted });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Insert failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    return failureResponse(error, "Insert failed", 500);
   }
 }
 

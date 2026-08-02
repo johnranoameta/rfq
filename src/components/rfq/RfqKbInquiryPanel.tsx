@@ -3,12 +3,13 @@
 import { useCallback, useRef, useState } from "react";
 import { MessageCircle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { fetchJson } from "@/lib/http/fetchJson";
+import { errorMessage } from "@/lib/core/errors";
 
 export type RfqKbInquiryPanelProps = {
   packageId?: string | null;
   packageLabel?: string | null;
   sessionId?: string | null;
-  sessionLabel?: string | null;
 };
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -24,7 +25,6 @@ export function RfqKbInquiryPanel({
   packageId,
   packageLabel,
   sessionId,
-  sessionLabel,
 }: RfqKbInquiryPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -45,17 +45,19 @@ export function RfqKbInquiryPanel({
       setBusy(true);
 
       try {
-        const res = await fetch("/api/rfq/kb-inquiry", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: history,
-            packageId: packageId ?? null,
-            sessionId: sessionId ?? null,
-          }),
-        });
-        const data = (await res.json()) as { reply?: string; error?: string };
-        if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+        const data = await fetchJson<{ reply?: string }>(
+          "/api/rfq/kb-inquiry",
+          "Request failed",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: history,
+              packageId: packageId ?? null,
+              sessionId: sessionId ?? null,
+            }),
+          },
+        );
         const reply = typeof data.reply === "string" ? data.reply.trim() : "";
         if (!reply) throw new Error("Empty reply from server");
         setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
@@ -63,7 +65,7 @@ export function RfqKbInquiryPanel({
           scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
         });
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Inquiry failed");
+        setError(errorMessage(e, "Inquiry failed"));
         setMessages((prev) => prev.slice(0, -1));
         setInput(trimmed);
       } finally {

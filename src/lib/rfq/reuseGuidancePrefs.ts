@@ -1,3 +1,5 @@
+import { readJsonStorage, writeJsonStorage } from "@/lib/core/jsonStorage";
+
 const KEY = "rfq-agent-reuse-guidance-prefs-v1";
 
 export type ReuseApplyScope = "active_rfq" | "kb_class" | "all_historical";
@@ -36,29 +38,17 @@ const DEFAULT_PREFS: ReuseGuidancePrefs = {
   applyScope: "active_rfq",
 };
 
+function isReuseApplyScope(value: unknown): value is ReuseApplyScope {
+  return REUSE_APPLY_SCOPE_OPTIONS.some((o) => o.id === value);
+}
+
 export function loadReuseGuidancePrefs(): ReuseGuidancePrefs {
-  if (typeof window === "undefined") return DEFAULT_PREFS;
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return DEFAULT_PREFS;
-    const parsed = JSON.parse(raw) as Partial<ReuseGuidancePrefs>;
-    const scope = parsed.applyScope;
-    if (scope === "active_rfq" || scope === "kb_class" || scope === "all_historical") {
-      return { applyScope: scope };
-    }
-    return DEFAULT_PREFS;
-  } catch {
-    return DEFAULT_PREFS;
-  }
+  const parsed = readJsonStorage<Partial<ReuseGuidancePrefs>>(KEY, {});
+  return isReuseApplyScope(parsed.applyScope) ? { applyScope: parsed.applyScope } : DEFAULT_PREFS;
 }
 
 export function saveReuseGuidancePrefs(prefs: ReuseGuidancePrefs): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(prefs));
-  } catch {
-    /* quota */
-  }
+  writeJsonStorage(KEY, prefs);
 }
 
 export function reuseScopeSummary(

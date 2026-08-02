@@ -10,6 +10,7 @@ import {
   RfqReferenceMatchPanel,
 } from "@/components/rfq/RfqReferenceMatchPanel";
 import type { MatchCriteria } from "@/lib/rfq/loadHistoricalKnowledge";
+import { errorMessage } from "@/lib/core/errors";
 
 type HistoricalMatchResponse = {
   error?: string;
@@ -66,7 +67,7 @@ export default function WordPackageHistoricalMatch({
       setRows(null);
       setCriteria(null);
       setMeta(null);
-      setError(e instanceof Error ? e.message : "Failed to load historical matches");
+      setError(errorMessage(e, "Failed to load historical matches"));
     } finally {
       setLoading(false);
     }

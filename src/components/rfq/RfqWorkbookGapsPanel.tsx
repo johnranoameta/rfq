@@ -3,15 +3,15 @@
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type { CaseData, DocEntry, GapFinding, GapWorkflowStatus } from "@/data/rfqTypes";
+import type { CaseData, GapFinding, GapWorkflowStatus } from "@/data/rfqTypes";
+import { isGapFinalized, isGapOpenInCase } from "@/lib/rfq/reconcileGapsWithDocuments";
 import {
-  DOC_GAP_CONF_THRESHOLD,
-  gapDocumentStatus,
-  gapFinalizeSupplySlot,
-  isGapFinalized,
-  isGapOpenInCase,
-} from "@/lib/rfq/reconcileGapsWithDocuments";
-import { gapSlotHasSessionUpload } from "@/lib/rfq/applySuppliedPackageDoc";
+  computeCostExposure,
+  parseImpactDollars,
+  riskTone,
+} from "@/lib/rfq/gapCostExposure";
+import { GapFindingRow } from "@/components/rfq/gaps/GapFindingRow";
+import { catDeptLabel, SeverityPill } from "@/components/rfq/gaps/GapStatusUi";
 
 type GapFilterKey =
   | "all"
@@ -27,144 +27,8 @@ type SortKey = "severity" | "cost" | "status";
 const SEV_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const WF_ORDER: Record<string, number> = { open: 0, in_review: 1, resolved: 2, accepted_risk: 3 };
 
-function parseImpactDollars(impact: string): { perPc?: [number, number]; nre?: [number, number] } {
-  const pcRange = impact.match(/\$([\d.]+)[–\-]([\d.]+)\/pc/);
-  if (pcRange) return { perPc: [parseFloat(pcRange[1]), parseFloat(pcRange[2])] };
-  const pcSingle = impact.match(/\$([\d.]+)\/pc/);
-  if (pcSingle) { const v = parseFloat(pcSingle[1]); return { perPc: [v, v] }; }
-  const nreRange = impact.match(/\$([\d.]+)K[–\-]([\d.]+)K/i);
-  if (nreRange) return { nre: [parseFloat(nreRange[1]) * 1000, parseFloat(nreRange[2]) * 1000] };
-  const nreSingle = impact.match(/\$([\d.]+)K/i);
-  if (nreSingle) { const v = parseFloat(nreSingle[1]) * 1000; return { nre: [v, v] }; }
-  return {};
-}
 
-function computeCostExposure(
-  findings: GapFinding[],
-  workflow: Partial<Record<string, GapWorkflowStatus>> | undefined,
-): { perPc: [number, number] | null; nre: [number, number] | null } {
-  let pcLo = 0, pcHi = 0, nreLo = 0, nreHi = 0;
-  for (const f of findings) {
-    const wf = workflow?.[f.rule] ?? "open";
-    if (wf === "resolved" || wf === "accepted_risk") continue;
-    const p = parseImpactDollars(f.impact);
-    if (p.perPc) { pcLo += p.perPc[0]; pcHi += p.perPc[1]; }
-    if (p.nre) { nreLo += p.nre[0]; nreHi += p.nre[1]; }
-  }
-  return {
-    perPc: pcLo > 0 || pcHi > 0 ? [pcLo, pcHi] : null,
-    nre: nreLo > 0 || nreHi > 0 ? [nreLo, nreHi] : null,
-  };
-}
 
-function gapDocumentStatusLabel(status: ReturnType<typeof gapDocumentStatus>, doc?: DocEntry): string {
-  if (status === "missing") return "Document missing";
-  if (status === "pending") return "Document pending";
-  if (status === "partial") {
-    const pct = doc?.conf != null ? `${Math.round(doc.conf * 100)}%` : "low";
-    return `Partial match · ${pct} conf`;
-  }
-  if (status === "finalized") {
-    const pct = doc?.conf != null ? `${Math.round(doc.conf * 100)}%` : "ok";
-    return `Finalized · ${pct} conf`;
-  }
-  if (status === "supplied") {
-    const pct = doc?.conf != null ? `${Math.round(doc.conf * 100)}%` : "ok";
-    return `Document supplied · ${pct} conf`;
-  }
-  return "";
-}
-
-function documentStatusPillCls(status: ReturnType<typeof gapDocumentStatus>): string {
-  if (status === "finalized") {
-    return "border-violet-400/40 bg-violet-400/10 dark:text-violet-200 text-violet-700";
-  }
-  if (status === "supplied") {
-    return "border-emerald-400/40 bg-emerald-400/10 dark:text-emerald-200 text-emerald-700";
-  }
-  if (status === "partial") {
-    return "border-amber-400/40 bg-amber-400/10 dark:text-amber-200 text-amber-800";
-  }
-  if (status === "pending") {
-    return "border-cyan-500/30 bg-cyan-500/10 dark:text-cyan-200 text-cyan-800";
-  }
-  if (status === "missing") {
-    return "border-orange-500/35 bg-orange-500/10 dark:text-orange-200 text-orange-700";
-  }
-  return "border-border bg-background/20 text-muted-foreground";
-}
-
-function supplyAcceptForDoc(doc: DocEntry | undefined): string {
-  if (!doc) return ".pdf,.xlsx,.xls,.doc,.docx";
-  if (doc.type === "comm" || doc.type === "cost") return ".xlsx,.xls";
-  return ".pdf,.doc,.docx";
-}
-
-function riskTone(score: number): "good" | "warn" | "bad" {
-  if (score < 35) return "good";
-  if (score < 55) return "warn";
-  return "bad";
-}
-
-function SeverityPill({
-  sev,
-  count,
-  active,
-  onClick,
-}: {
-  sev: "critical" | "high" | "medium" | "low";
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const cls =
-    sev === "critical"
-      ? "border-red-500/40 bg-red-500/10 dark:text-red-200 text-red-700"
-      : sev === "high"
-        ? "border-orange-500/40 bg-orange-500/10 dark:text-orange-200 text-orange-700"
-        : sev === "medium"
-          ? "border-amber-400/40 bg-amber-400/10 dark:text-amber-200 text-amber-800"
-          : "border-cyan-500/40 bg-cyan-500/10 dark:text-cyan-200 text-cyan-800";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "h-9 px-3 rounded-xl border font-mono text-[11px] transition inline-flex items-center gap-2",
-        active ? "border-accent/60 bg-card ring-1 ring-accent/30" : cls,
-      ].join(" ")}
-    >
-      {sev.toUpperCase()} ({count})
-    </button>
-  );
-}
-
-function catDeptLabel(cat: string): string {
-  switch (cat) {
-    case "commercial": return "Commercial";
-    case "technical": return "Engineering";
-    case "completeness": return "Documentation";
-    case "quality": return "Quality";
-    case "logistics": return "Logistics";
-    case "quote": return "Quoting";
-    default: return cat;
-  }
-}
-
-function MiniStat({ label, value, tone }: { label: string; value: string; tone: "good" | "warn" | "neutral" }) {
-  const cls =
-    tone === "good"
-      ? "dark:text-emerald-200 text-emerald-700 border-emerald-400/30 bg-emerald-400/10"
-      : tone === "warn"
-        ? "dark:text-amber-200 text-amber-800 border-amber-400/30 bg-amber-400/10"
-        : "text-muted-foreground border-border bg-background/20";
-  return (
-    <div className={["rounded-xl border p-2", cls].join(" ")}>
-      <div className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
-      <div className="mt-1 font-mono text-[12px] font-semibold">{value}</div>
-    </div>
-  );
-}
 
 export type RfqWorkbookGapsPanelProps = {
   caseData: CaseData;
@@ -435,226 +299,19 @@ export function RfqWorkbookGapsPanel({
                 if (visible.length === 0) {
                   return <div className="text-muted-foreground text-[12px]">{q ? "No findings match your search." : "No findings match this filter."}</div>;
                 }
-                return visible.map((f) => {
-                  const wf = caseData.gap_workflow?.[f.rule] ?? "open";
-                  const docStatus = gapDocumentStatus(f, caseData.docs);
-                  const linkedDoc = f.doc_slot ? caseData.docs.find((d) => d.name === f.doc_slot) : undefined;
-                  const gapOpen = isGapOpenInCase(caseData, f);
-                  const closed = !gapOpen;
-                  const supplySlot = gapFinalizeSupplySlot(caseData, f);
-                  const supplySlotDoc = supplySlot ? caseData.docs.find((d) => d.name === supplySlot) : undefined;
-                  const supplyLabel =
-                    supplySlotDoc?.status === "ok" &&
-                    supplySlotDoc.conf != null &&
-                    supplySlotDoc.conf < DOC_GAP_CONF_THRESHOLD
-                      ? "Replace"
-                      : supplySlotDoc?.supplied_label || supplySlotDoc?.finalized
-                        ? "Replace"
-                        : supplySlotDoc?.status === "ok"
-                          ? "Replace"
-                          : supplySlot
-                            ? "Response"
-                            : null;
-                  const sessionUpload = supplySlot != null && gapSlotHasSessionUpload(caseData, supplySlot);
-
-                  const sevColor =
-                    f.sev === "critical"
-                      ? "bg-red-500"
-                      : f.sev === "high"
-                        ? "bg-orange-500"
-                        : f.sev === "medium"
-                          ? "bg-amber-400"
-                          : "bg-cyan-400";
-
-                  const sevPill =
-                    f.sev === "critical"
-                      ? "dark:text-red-200 text-red-700 border-red-500/30 bg-red-500/10"
-                      : f.sev === "high"
-                        ? "dark:text-orange-200 text-orange-700 border-orange-500/30 bg-orange-500/10"
-                        : f.sev === "medium"
-                          ? "dark:text-amber-200 text-amber-800 border-amber-400/35 bg-amber-400/10"
-                          : "dark:text-cyan-200 text-cyan-800 border-cyan-500/30 bg-cyan-500/10";
-
-                  return (
-                    <div
-                      key={f.rule}
-                      className={[
-                        "rounded-xl border border-border/70 bg-card/25 shadow-sm",
-                        closed ? "opacity-75 border-emerald-500/20 bg-emerald-500/[0.03]" : "",
-                      ].join(" ")}
-                    >
-                      {/* Card header: department · severity · status · rule */}
-                      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 rounded-t-xl bg-background/20">
-                        {/* left group: dept + severity + status */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <div className={["w-2 h-2 rounded-full shrink-0", sevColor].join(" ")} />
-                            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                              {catDeptLabel(f.cat)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span style={{ fontSize: "7px" }} className="font-mono font-medium uppercase tracking-widest text-muted-foreground/40">Severity</span>
-                            <div
-                              className={[
-                                "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-mono font-semibold h-6",
-                                sevPill,
-                              ].join(" ")}
-                            >
-                              {f.sev.toUpperCase()}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span style={{ fontSize: "7px" }} className="font-mono font-medium uppercase tracking-widest text-muted-foreground/40">Status</span>
-                            <select
-                              className="h-6 rounded-md border border-border bg-background/25 px-2 text-[10px] font-mono text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-                              value={wf}
-                              onChange={(e) => {
-                                const v = e.target.value as GapWorkflowStatus;
-                                onWorkflowChange(f.rule, v);
-                              }}
-                            >
-                              <option value="open">Pending</option>
-                              <option value="in_review">In Review</option>
-                              <option value="resolved">Resolved</option>
-                              <option value="accepted_risk">Accepted Risk</option>
-                            </select>
-                          </div>
-                        </div>
-                        {/* rule badge — right */}
-                        <div className="font-mono text-[10px] text-muted-foreground border border-border bg-background/20 rounded px-2 py-0.5">
-                          {f.rule}
-                        </div>
-                      </div>
-
-                      <div className="p-4 space-y-2">
-
-                        {/* Title row + file details + response button */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="font-semibold text-[13px] min-w-0" title={f.title}>{f.title}</div>
-                          {/* right side: uploaded file info + action buttons */}
-                          <div className="flex items-center gap-2 shrink-0">
-                            {supplySlotDoc?.supplied_label ? (
-                              <div className="flex items-center gap-1.5 rounded-lg border border-border/70 bg-background/20 px-2 py-1 text-[10px] font-mono text-muted-foreground">
-                                <span className="text-foreground font-semibold truncate max-w-[120px]" title={supplySlotDoc.supplied_label}>
-                                  {supplySlotDoc.supplied_label}
-                                </span>
-                                {supplySlotDoc.conf != null && supplySlotDoc.conf < DOC_GAP_CONF_THRESHOLD ? (
-                                  <span className="text-amber-700 dark:text-amber-300">{(supplySlotDoc.conf * 100).toFixed(0)}%</span>
-                                ) : supplySlotDoc.finalized ? (
-                                  <span className="text-violet-600 dark:text-violet-300">Finalized</span>
-                                ) : (
-                                  <span className="text-amber-700 dark:text-amber-300">Not finalized</span>
-                                )}
-                              </div>
-                            ) : null}
-                            {sessionUpload && !supplySlotDoc?.finalized ? (
-                              <Button
-                                type="button"
-                                variant="default"
-                                size="sm"
-                                className="h-7 text-[11px]"
-                                disabled={supplyDocBusySlot !== null}
-                                onClick={() => onFinalizeGapDoc(supplySlot!, f.rule)}
-                              >
-                                Finalize
-                              </Button>
-                            ) : null}
-                            {sessionUpload ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
-                                disabled={supplyDocBusySlot !== null}
-                                onClick={() => onRemoveSuppliedDoc(supplySlot!, f.rule)}
-                              >
-                                Remove
-                              </Button>
-                            ) : null}
-                            {supplySlot && supplyLabel ? (
-                              <>
-                                <input
-                                  id={`${supplyInputBaseId}-gap-${f.rule.replace(/[^a-zA-Z0-9_-]/g, "_")}`}
-                                  type="file"
-                                  className="sr-only"
-                                  accept={supplyAcceptForDoc(supplySlotDoc)}
-                                  disabled={supplyDocBusySlot !== null}
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    e.target.value = "";
-                                    if (file) void onSupplyMissingDoc(supplySlot, file);
-                                  }}
-                                />
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-[11px]"
-                                  disabled={supplyDocBusySlot !== null}
-                                  onClick={() => {
-                                    const el = document.getElementById(
-                                      `${supplyInputBaseId}-gap-${f.rule.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
-                                    ) as HTMLInputElement | null;
-                                    el?.click();
-                                  }}
-                                >
-                                  {supplyDocBusySlot === supplySlot ? "Responding…" : supplyLabel}
-                                </Button>
-                              </>
-                            ) : null}
-                          </div>
-                        </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-mono bg-background/20 dark:bg-background/15 border-border/70 text-muted-foreground">
-                              {f.impact}
-                            </span>
-                            {docStatus !== "none" ? (
-                              <div
-                                className={[
-                                  "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-mono font-semibold",
-                                  documentStatusPillCls(docStatus),
-                                ].join(" ")}
-                                title={linkedDoc?.note ?? undefined}
-                              >
-                                {gapDocumentStatusLabel(docStatus, linkedDoc)}
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="text-[12px] text-muted-foreground leading-relaxed">{f.detail}</div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                            <div className="rounded-xl border border-border bg-background/20 p-3">
-                              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono mb-1.5">
-                                Evidence
-                              </div>
-                              <div className="text-[12px] text-muted-foreground leading-relaxed">{f.evidence}</div>
-                            </div>
-                            <div className="rounded-xl border border-border bg-background/20 p-3">
-                              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground font-mono mb-1.5">
-                                Recommended Action
-                              </div>
-                              <div className="text-[12px] text-muted-foreground leading-relaxed">{f.action}</div>
-                            </div>
-                          </div>
-                          {f.hist ? (
-                            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
-                              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] dark:text-blue-200 text-blue-700 font-mono mb-2">
-                                Historical Benchmark
-                              </div>
-                              <div className="text-[12px] text-muted-foreground">
-                                {f.hist.projects.join(", ")} · {f.hist.label}
-                              </div>
-                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <MiniStat label={f.hist.label} value={f.hist.hist_val} tone="good" />
-                                <MiniStat label="This RFQ" value={f.hist.curr_val} tone="warn" />
-                                <MiniStat label="Projects Matched" value={`${f.hist.projects.length}`} tone="neutral" />
-                              </div>
-                            </div>
-                          ) : null}
-                      </div>
-                    </div>
-                  );
-                });
+                return visible.map((f) => (
+                  <GapFindingRow
+                    key={f.rule}
+                    f={f}
+                    caseData={caseData}
+                    supplyDocBusySlot={supplyDocBusySlot}
+                    supplyInputBaseId={supplyInputBaseId}
+                    onSupplyMissingDoc={onSupplyMissingDoc}
+                    onRemoveSuppliedDoc={onRemoveSuppliedDoc}
+                    onFinalizeGapDoc={onFinalizeGapDoc}
+                    onWorkflowChange={onWorkflowChange}
+                  />
+                ));
               })()}
             </div>
         </CardContent>

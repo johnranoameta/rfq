@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { badRequest, errorResponse, failureResponse } from "@/lib/http/apiResponse";
 import { parseBomPartsWorkbook } from "@/lib/rfq/parseBomPartsWorkbook";
 import { replaceBomParts } from "@/lib/rfq/sqlite/bomPartsDb";
 
@@ -18,22 +19,22 @@ export async function POST(request: Request) {
   try {
     formData = await request.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+    return badRequest("Invalid form data");
   }
 
   const file = formData.get("file");
   if (!file || !(file instanceof File)) {
-    return NextResponse.json({ error: "Missing file field" }, { status: 400 });
+    return badRequest("Missing file field");
   }
   const fileId = formData.get("fileId");
   if (!fileId || typeof fileId !== "string") {
-    return NextResponse.json({ error: "Missing fileId field" }, { status: 400 });
+    return badRequest("Missing fileId field");
   }
   if (file.size <= 0) {
-    return NextResponse.json({ error: "Empty file" }, { status: 400 });
+    return badRequest("Empty file");
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: `File too large (max ${MAX_BYTES / 1024 / 1024} MB)` }, { status: 413 });
+    return errorResponse(`File too large (max ${MAX_BYTES / 1024 / 1024} MB)`, 413);
   }
 
   try {
@@ -41,8 +42,7 @@ export async function POST(request: Request) {
     const { rows, skipped } = parseBomPartsWorkbook(buffer);
     replaceBomParts(fileId, rows);
     return NextResponse.json({ imported: rows.length, skipped });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to parse BOM parts workbook";
-    return NextResponse.json({ error: message }, { status: 400 });
+  } catch (error) {
+    return failureResponse(error, "Failed to parse BOM parts workbook", 400);
   }
 }

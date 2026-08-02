@@ -6,6 +6,8 @@ import { Monitor, Moon, Settings2, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useThemeMode, type ThemeMode } from "@/components/theme/ThemeProvider";
 import { UI_FONTS, useUiFont, type UiFontId } from "@/components/settings/FontProvider";
+import { fetchJson, fetchJsonNoStore } from "@/lib/http/fetchJson";
+import { errorMessage } from "@/lib/core/errors";
 
 const themeOptions: { mode: ThemeMode; label: string; icon: typeof Sun }[] = [
   { mode: "light", label: "Light", icon: Sun },
@@ -56,15 +58,16 @@ export function SettingsMenu() {
       setMatchConfigBusy(true);
       setMatchConfigError(null);
       try {
-        const res = await fetch("/api/rfq/settings/match", { cache: "no-store" });
-        const json = (await res.json()) as { config?: unknown; error?: string };
-        if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+        const json = await fetchJsonNoStore<{ config?: unknown }>(
+          "/api/rfq/settings/match",
+          "Failed",
+        );
         if (!cancelled) {
           setMatchConfigText(JSON.stringify(json.config ?? {}, null, 2));
           setMatchConfigLoaded(true);
         }
       } catch (e) {
-        if (!cancelled) setMatchConfigError(e instanceof Error ? e.message : "Failed to load matching settings");
+        if (!cancelled) setMatchConfigError(errorMessage(e, "Failed to load matching settings"));
       } finally {
         if (!cancelled) setMatchConfigBusy(false);
       }
@@ -85,16 +88,18 @@ export function SettingsMenu() {
     }
     setMatchConfigBusy(true);
     try {
-      const res = await fetch("/api/rfq/settings/match", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ config: parsed }),
-      });
-      const json = (await res.json()) as { config?: unknown; error?: string };
-      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      const json = await fetchJson<{ config?: unknown }>(
+        "/api/rfq/settings/match",
+        "Failed",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ config: parsed }),
+        },
+      );
       setMatchConfigText(JSON.stringify(json.config ?? {}, null, 2));
     } catch (e) {
-      setMatchConfigError(e instanceof Error ? e.message : "Failed to save matching settings");
+      setMatchConfigError(errorMessage(e, "Failed to save matching settings"));
     } finally {
       setMatchConfigBusy(false);
     }
@@ -104,12 +109,14 @@ export function SettingsMenu() {
     setMatchConfigBusy(true);
     setMatchConfigError(null);
     try {
-      const res = await fetch("/api/rfq/settings/match", { method: "DELETE" });
-      const json = (await res.json()) as { config?: unknown; error?: string };
-      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      const json = await fetchJson<{ config?: unknown }>(
+        "/api/rfq/settings/match",
+        "Failed",
+        { method: "DELETE" },
+      );
       setMatchConfigText(JSON.stringify(json.config ?? {}, null, 2));
     } catch (e) {
-      setMatchConfigError(e instanceof Error ? e.message : "Failed to reset matching settings");
+      setMatchConfigError(errorMessage(e, "Failed to reset matching settings"));
     } finally {
       setMatchConfigBusy(false);
     }

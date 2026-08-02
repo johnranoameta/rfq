@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { BomPartRow } from "@/lib/rfq/costLookupTypes";
+import { errorMessage } from "@/lib/core/errors";
 
 /**
  * Loads (and can upload) the bom_parts rows for one RFQ. Shared between the BOM
@@ -24,7 +25,7 @@ export function useBomParts(fileId: string) {
       if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
       setRows(json.rows ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load BOM parts");
+      setError(errorMessage(e, "Failed to load BOM parts"));
       setRows([]);
     } finally {
       setLoading(false);
@@ -51,7 +52,7 @@ export function useBomParts(fileId: string) {
         );
         await reload();
       } catch (e) {
-        setUploadMessage(e instanceof Error ? e.message : "Upload failed");
+        setUploadMessage(errorMessage(e, "Upload failed"));
       } finally {
         setUploadBusy(false);
       }

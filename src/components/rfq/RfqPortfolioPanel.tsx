@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { fetchJsonNoStore } from "@/lib/http/fetchJson";
+import { errorMessage } from "@/lib/core/errors";
 import {
   Table,
   TableBody,
@@ -110,14 +112,13 @@ export function RfqPortfolioPanel({ onOpenRfq }: RfqPortfolioPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/rfq/database/portfolio", { cache: "no-store" });
-      const json = (await res.json()) as PortfolioStats;
-      if (!res.ok) {
-        throw new Error(json.error || `Request failed (${res.status})`);
-      }
+      const json = await fetchJsonNoStore<PortfolioStats>(
+        "/api/rfq/database/portfolio",
+        "Request failed",
+      );
       setData(json);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load portfolio");
+      setError(errorMessage(e, "Failed to load portfolio"));
       setData(null);
     } finally {
       setLoading(false);

@@ -10,6 +10,7 @@ import type {
 import { getHistoricalDataDir } from "@/lib/rfq/historicalKnowledgePaths";
 import { getMatchScoringConfig } from "@/lib/rfq/matchScoringConfig";
 import { getRfqDb } from "@/lib/rfq/sqlite/rfqDb";
+import { errorMessage } from "@/lib/core/errors";
 import {
   loadHistoricalGapFindingsFromDatabase,
   loadHistoricalProjectsFromDatabase,
@@ -63,7 +64,7 @@ export async function loadHistoricalKnowledge(): Promise<HistoricalKnowledgeBund
       projects = parseHistoricalJsonl(jsonlRaw);
       projectsSource = "jsonl";
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to read historical JSONL";
+      const msg = errorMessage(e, "Failed to read historical JSONL");
       cacheError = sqliteFailed ? `SQLite unavailable or empty; JSONL failed: ${msg}` : msg;
       throw new Error(cacheError);
     }
@@ -79,7 +80,7 @@ export async function loadHistoricalKnowledge(): Promise<HistoricalKnowledgeBund
         gapFindings = [];
         gapSource = projectsSource === "sqlite" ? "sqlite" : "csv";
       } else {
-        const msg = e instanceof Error ? e.message : "Failed to read historical CSV";
+        const msg = errorMessage(e, "Failed to read historical CSV");
         throw new Error(msg);
       }
     }
