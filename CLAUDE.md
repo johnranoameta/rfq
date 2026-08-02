@@ -58,15 +58,22 @@ Full rules in `CONVENTIONS.md`. In brief:
 - Size limits enforced by lint: 400 lines/file, 200/function, complexity 20, 4 params.
 - Commits: plain messages, no Claude co-author/footer.
 
-## graphify
-Setup: see `GRAPHIFY.md`.
+## graphify (optional, per-developer)
 
-Knowledge graph at `graphify-out/` (god nodes, community structure, cross-file relationships).
+**Check `graphify-out/graph.json` exists before using any of this.** The graph
+is git-ignored and each developer builds their own, so on most checkouts it is
+absent and the `graphify` CLI is not installed. If it is missing, skip this
+section entirely — do not try the commands and do not offer to build it
+unprompted (the first build needs an LLM API key). Setup: `GRAPHIFY.md`.
 
-- Codebase questions: run `graphify query "<question>"` when `graphify-out/graph.json` exists. `graphify path "<A>" "<B>"` for relationships, `graphify explain "<concept>"` for focused concepts — return scoped subgraphs, smaller than GRAPH_REPORT.md or grep.
+When the graph *is* present:
+
+- Codebase questions: `graphify query "<question>"`; `graphify path "<A>" "<B>"`
+  for relationships; `graphify explain "<concept>"` for focused concepts — each
+  returns a scoped subgraph, smaller than GRAPH_REPORT.md or grep.
 - `graphify-out/wiki/index.md` for broad navigation if present.
 - `graphify-out/GRAPH_REPORT.md` only for broad architecture review.
-- After code changes, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- After code changes, `graphify update .` refreshes it (AST-only, no API cost).
 
 ## Architecture
 

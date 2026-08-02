@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { badRequest, failureResponse } from "@/lib/http/apiResponse";
+import { badRequest, errorResponse, failureResponse } from "@/lib/http/apiResponse";
 import { parseSupplierPartsWorkbook } from "@/lib/rfq/parseSupplierPartsWorkbook";
 import { upsertSupplierPart } from "@/lib/rfq/sqlite/supplierPartsDb";
 
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     return badRequest("Empty file");
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: `File too large (max ${MAX_BYTES / 1024 / 1024} MB)` }, { status: 413 });
+    return errorResponse(`File too large (max ${MAX_BYTES / 1024 / 1024} MB)`, 413);
   }
 
   try {

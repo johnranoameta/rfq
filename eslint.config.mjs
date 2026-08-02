@@ -71,7 +71,8 @@ const conventions = {
  * the list as files are split, and nothing may be added to it.
  *
  * Splitting one of these is a standalone refactor — see CONVENTIONS.md § 1 for
- * how (`RFQAgentDashboard` went 2152 -> 255 lines that way).
+ * how. Already removed this way: RFQAgentDashboard (2152 -> 255 lines),
+ * RfqReferenceMatchPanel (945 -> 232), RfqPackageUpload (762 -> 240).
  */
 const legacyOversizedFiles = [
   "src/app/api/extraction/run/route.ts",
@@ -82,9 +83,7 @@ const legacyOversizedFiles = [
   "src/components/help/HelpManual.tsx",
   "src/components/rfq/AllRfqsLibrary.tsx",
   "src/components/rfq/RfqAnalysisShell.tsx",
-  "src/components/rfq/RfqPackageUpload.tsx",
   "src/components/rfq/RfqPortfolioPanel.tsx",
-  "src/components/rfq/RfqReferenceMatchPanel.tsx",
   "src/components/rfq/RfqSupplierPartsPanel.tsx",
   "src/components/rfq/RfqWorkbookCostingPanel.tsx",
   "src/components/rfq/RfqWorkbookGapsPanel.tsx",

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { badRequest, failureResponse } from "@/lib/http/apiResponse";
+import { badRequest, errorResponse, failureResponse } from "@/lib/http/apiResponse";
 import { parseHistoricalJsonl } from "@/lib/rfq/historicalKnowledgeParsers";
 import type { HistoricalProjectRecord } from "@/lib/rfq/historicalKnowledgeTypes";
 import { insertHistoricalUploads, listHistoricalUploadSummaries } from "@/lib/rfq/sqlite/historicalUploads";
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       return badRequest("Invalid JSON");
     }
   } else {
-    return NextResponse.json({ error: "Unsupported type. Use .jsonl or .json" }, { status: 415 });
+    return errorResponse("Unsupported type. Use .jsonl or .json", 415);
   }
 
   if (records.length === 0) {

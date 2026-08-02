@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { badRequest, failureResponse } from "@/lib/http/apiResponse";
+import { badRequest, errorResponse, failureResponse } from "@/lib/http/apiResponse";
 import { clearEngineOutput } from "@/lib/extraction/clearOutput";
 import { ENGINE_OUTPUT_DIR } from "@/lib/extraction/enginePaths";
 import { packageKey, readExtractionManifest, summarizePackage } from "@/lib/extraction/loadManifest";
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
 
     const records = await readExtractionManifest();
     if (records.length === 0) {
-      return NextResponse.json({ error: "extraction.json was not created" }, { status: 500 });
+      return errorResponse("extraction.json was not created", 500);
     }
 
     const lastKey = packageKey(records[records.length - 1]!);
