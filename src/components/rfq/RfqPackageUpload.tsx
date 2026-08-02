@@ -139,6 +139,7 @@ export function RfqPackageUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<UploadedPackageFile[]>([]);
   const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pdfPipeline, setPdfPipeline] = useState<Record<string, PipelineState>>({});
 
@@ -255,11 +256,38 @@ export function RfqPackageUpload({
     [uploadOne, onUploaded, runPackageAnalysis, onAnalysisStatusChange],
   );
 
+  const handleDragOver = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      if (!busy) setDragging(true);
+    },
+    [busy],
+  );
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setDragging(false);
+      if (busy) return;
+      void onFiles(e.dataTransfer.files);
+    },
+    [busy, onFiles],
+  );
+
   return (
     <Card
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       className={[
-        "bg-card/45 border-border",
+        "bg-card/45 border-border transition-colors",
         embedded ? "border-[var(--ra-border)] shadow-sm" : "border-dashed",
+        dragging ? "border-accent bg-accent/10 border-2 border-dashed" : "",
       ].join(" ")}
     >
       <CardHeader className={embedded ? "p-4 pb-2" : "p-5 pb-3"}>
@@ -310,6 +338,9 @@ export function RfqPackageUpload({
           >
             {busy ? "Uploading…" : embedded ? "Choose workbook" : "Choose files"}
           </Button>
+          <span className="text-[11px] text-muted-foreground">
+            {dragging ? "Drop to upload" : "or drag & drop a file here"}
+          </span>
         </div>
 
         {error ? (

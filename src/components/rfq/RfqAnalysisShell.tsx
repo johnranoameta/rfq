@@ -58,7 +58,7 @@ function AnalysisPageLayout({
             uploadSlot
           ) : (
             <details className="ra-analysis-upload-details">
-              <summary>Upload workbook (.xlsx)</summary>
+              <summary>Upload workbook (.xlsx/.xls) or drawing (.tif/.tiff)</summary>
               {uploadSlot}
             </details>
           )}
