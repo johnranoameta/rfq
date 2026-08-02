@@ -386,8 +386,30 @@
 }
 
 .ra-sidebar-package-row {
+  display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  border-radius: var(--ra-radius);
+  border: 1px solid var(--ra-border);
+  overflow: hidden;
+}
+
+/* Inside a package row, the row itself owns the border/radius — the inner
+   button and delete button must be flush against each other, not each
+   independently boxed (plain CSS here outranks Tailwind utility classes
+   applied in JSX at equal specificity, so this must be set here, not there). */
+.ra-sidebar-package-row .rfq-item {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  border-radius: 0;
+}
+
+.ra-sidebar-package-row .rfq-item:hover {
+  border: none;
 }
 
 .ra-sidebar-package-row .rfq-item.active {
@@ -404,6 +426,7 @@
   padding: 0;
   margin: 0;
   border: none;
+  border-radius: 0;
   border-left: 1px solid var(--ra-border);
   background: var(--ra-red-bg);
   color: var(--ra-red);

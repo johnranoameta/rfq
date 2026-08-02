@@ -1328,14 +1328,13 @@ export default function RFQAgentDashboard() {
                     return (
                       <div
                         key={p.key}
-                        className="ra-sidebar-package-row flex w-full min-w-0 items-stretch overflow-hidden rounded-[var(--ra-radius)] border border-[var(--ra-border)]"
+                        className="ra-sidebar-package-row"
                       >
                         <button
                           type="button"
-                          className={[
-                            "rfq-item min-w-0 flex-1 border-0 bg-transparent text-left flex items-center gap-2",
-                            active ? "active" : "",
-                          ].join(" ")}
+                          className={["rfq-item text-left flex items-center gap-2", active ? "active" : ""].join(
+                            " ",
+                          )}
                           onClick={() => {
                             setWorkspaceMode("kb");
                             setKbSubMode("training");
@@ -1519,16 +1518,12 @@ export default function RFQAgentDashboard() {
                       analysisSelectionResolved.fileId === u.id;
                     const status = analysisStatus[u.id];
                     return (
-                      <div
-                        key={`wb-${u.id}`}
-                        className="ra-sidebar-package-row flex w-full min-w-0 items-stretch overflow-hidden rounded-[var(--ra-radius)] border border-[var(--ra-border)]"
-                      >
+                      <div key={`wb-${u.id}`} className="ra-sidebar-package-row">
                         <button
                           type="button"
-                          className={[
-                            "rfq-item min-w-0 flex-1 border-0 bg-transparent text-left flex items-center gap-2",
-                            active ? "active" : "",
-                          ].join(" ")}
+                          className={["rfq-item text-left flex items-center gap-2", active ? "active" : ""].join(
+                            " ",
+                          )}
                           onClick={() => selectAnalysisWorkbook(u.id)}
                         >
                           <span className={`rfq-dot ${rfqSidebarStatusDot(u)}`} aria-hidden />
